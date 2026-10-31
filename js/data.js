@@ -15,6 +15,7 @@
   D.SEASON_SHORT = { spring: '春', summer: '夏', autumn: '秋', winter: '冬' };
   D.SEASON_CAP = { spring: 0.28, summer: 0.30, autumn: 0.28, winter: 0.14 }; // 年間労働時間の季節配分
   D.PART_CAP = { spring: 160, summer: 100, autumn: 160, winter: 60 };        // パート1人の季節別上限時間
+  D.SEASON_SHARE_MIN = 0.10; D.SEASON_SHARE_MAX = 0.40; // 家族・社員が1つの季節に割ける時間の幅（年間の何割か）
   D.DIRECT_LABOR_SPLIT = { spring: 0.2, summer: 0.1, autumn: 0.3, winter: 0.4 };
 
   // 年齢と働ける時間：65歳までは満額、それ以降は1年ごとに5%ずつ減り、80歳で引退
@@ -224,18 +225,23 @@
 
   // cap: 1シーズンにこなせる面積(ha) / eff: 労働時間の倍率（小さいほど省力）
   D.MODELS = {
-    tr_s: { type: 'tractor', name: 'トラクタ 25馬力', price: 3500000, cap: 10, eff: 1.0, life: 7, maxAge: 20 },
-    tr_m: { type: 'tractor', name: 'トラクタ 50馬力', price: 7000000, cap: 25, eff: 0.72, life: 7, maxAge: 20 },
-    tr_l: { type: 'tractor', name: 'トラクタ 100馬力', price: 14000000, cap: 60, eff: 0.52, life: 7, maxAge: 20 },
+    // cap：1年に作業できる面積（ha）
+    tr_s: { type: 'tractor', name: 'トラクタ 25馬力', price: 3000000, cap: 4, eff: 1.0, life: 7, maxAge: 20 },
+    tr_40: { type: 'tractor', name: 'トラクタ 40馬力', price: 4500000, cap: 8, eff: 0.85, life: 7, maxAge: 20 },
+    tr_m: { type: 'tractor', name: 'トラクタ 60馬力', price: 6500000, cap: 12, eff: 0.72, life: 7, maxAge: 20 },
+    tr_l: { type: 'tractor', name: 'トラクタ 100馬力', price: 11000000, cap: 20, eff: 0.52, life: 7, maxAge: 20 },
     ns_s: { type: 'nursery', name: '育苗ハウス 小', price: 1200000, cap: 8, eff: 1.0, life: 14, maxAge: 25 },
     ns_l: { type: 'nursery', name: '育苗ハウス 大（自動播種機付）', price: 3800000, cap: 30, eff: 0.65, life: 14, maxAge: 25 },
     pl_s: { type: 'planter', name: '田植機 4条', price: 1600000, cap: 6, eff: 1.0, life: 7, maxAge: 15 },
+    pl_5: { type: 'planter', name: '田植機 5条', price: 2400000, cap: 10, eff: 0.85, life: 7, maxAge: 15 },
     pl_m: { type: 'planter', name: '田植機 6条', price: 3200000, cap: 15, eff: 0.72, life: 7, maxAge: 15 },
     pl_l: { type: 'planter', name: '田植機 8条（密苗対応）', price: 6000000, cap: 32, eff: 0.52, life: 7, maxAge: 15 },
-    cb_s: { type: 'combine', name: 'コンバイン 3条', price: 5500000, cap: 10, eff: 1.0, life: 7, maxAge: 15 },
-    cb_m: { type: 'combine', name: 'コンバイン 5条', price: 12000000, cap: 25, eff: 0.72, life: 7, maxAge: 15 },
-    cb_l: { type: 'combine', name: 'コンバイン 6条', price: 18000000, cap: 45, eff: 0.52, life: 7, maxAge: 15 },
+    cb_s: { type: 'combine', name: 'コンバイン 3条', price: 4500000, cap: 5, eff: 1.0, life: 7, maxAge: 15 },
+    cb_4: { type: 'combine', name: 'コンバイン 4条', price: 6500000, cap: 7, eff: 0.85, life: 7, maxAge: 15 },
+    cb_m: { type: 'combine', name: 'コンバイン 5条', price: 9000000, cap: 10, eff: 0.72, life: 7, maxAge: 15 },
+    cb_l: { type: 'combine', name: 'コンバイン 6条', price: 13000000, cap: 15, eff: 0.52, life: 7, maxAge: 15 },
     dr_s: { type: 'dryer', name: '乾燥機 小（30石）', price: 2500000, cap: 8, eff: 1.0, life: 7, maxAge: 20 },
+    dr_50: { type: 'dryer', name: '乾燥機 中（50石）', price: 4000000, cap: 13, eff: 0.85, life: 7, maxAge: 20 },
     dr_m: { type: 'dryer', name: '乾燥調製施設 中', price: 7500000, cap: 22, eff: 0.72, life: 7, maxAge: 20 },
     dr_l: { type: 'dryer', name: '乾燥調製施設 大', price: 16000000, cap: 50, eff: 0.5, life: 7, maxAge: 20 },
     dn:   { type: 'drone', name: '防除用ドローン', price: 1800000, cap: 50, eff: 1, life: 5, maxAge: 8 },
@@ -247,9 +253,9 @@
   D.MACHINE = {
     leaseRate: 0.165,     // 年間リース料 = 価格 × この率（修理費込み・7年契約）
     leaseYears: 7,
-    loanRate10: 0.012,
-    loanRate20: 0.015,
-    lowRate: 0.008,
+    loanRate10: 0.015,
+    loanRate20: 0.02,
+    lowRate: 0.01,
   };
 
   // ---------- 費用（円/10a、物価上昇で毎年少しずつ上がる） ----------
@@ -265,6 +271,7 @@
   D.SALES = {
     jaAdvance: 0.85,          // 農協概算金として10月に入る割合（残りは翌年6月の追加払い）
     spotRate: 0.88,
+    shopReturnRate: 0.70, // 米屋・商店に引き取ってもらえなかった米（時期遅れで買いたたかれる）
     feedPrice: 1800,          // 飼料用米の販売単価（30円/kg）
     // 水田活用の直接支払交付金（数量払い・多収品種、R8年産）：標準8万円/10a、単収が標準単収±150kgで5.5万〜10.5万円
     feedSubsidyBase: 80000, feedSubsidyMin: 55000, feedSubsidyMax: 105000,
@@ -293,6 +300,9 @@
     shortRate: 0.02,
     emergencyRate: 0.08,
     noInterestTerm: 12, noInterestGrace: 2,
+    noInterestYears: 5,   // 無利子資金を借りられるのは就農して5年以内（機械・施設を買うときだけ）
+    loansPerYear: 1,      // 使い道を決めない長期の借入（運転資金）は1年に1件まで。機械・施設・農地を買うための借入は数えない
+    maxRepayYears: 20,    // 前年の債務償還年数がこれを超えると、新しい借入の審査に通らない
     livingMin: 1800000,
   };
 
@@ -361,10 +371,22 @@
     priceVol: 0.10, priceHedge: 0.3,
   };
 
+  // ---------- 地元の米屋・商店（農協以外の出荷先） ----------
+  // premium：農協価格に対する上乗せ。risk：全部は引き取れない年の起きやすさ。take：そのときに引き取れる割合（最小〜最大）。max：引き受けられる上限（俵）
+  D.SHOPS = [
+    { id: 'maruyama', icon: '🏪', name: '丸山商店', premium: 1.10, risk: 0.20, take: [0.6, 0.9], max: 150,
+      desc: '駅前の酒屋さん兼米屋。常連さん向けに袋詰めして売ってくれる。' },
+    { id: 'tanaka', icon: '🍚', name: '田中米穀店', premium: 1.12, risk: 0.30, take: [0.5, 0.85], max: 400,
+      desc: '町いちばんの米穀店。高く買ってくれるが、スーパーの安売りで売れ行きが波打つ。' },
+    { id: 'minato', icon: '🍱', name: 'みなと弁当（業務用）', premium: 1.06, risk: 0.12, take: [0.7, 0.95], max: 600,
+      desc: '仕出し弁当の会社。上乗せは小さいが、量を引き受けてくれて、取引も安定している。' },
+  ];
+
   // ---------- 損益計算書の科目 ----------
   D.PL_CATS = {
     jaSales: { label: '農協出荷', kind: 'sales' },
     contractSales: { label: '契約販売', kind: 'sales' },
+    shopSales: { label: '米屋・商店への出荷', kind: 'sales' },
     directSales: { label: '直販', kind: 'sales' },
     spotSales: { label: 'スポット販売（売れ残り等）', kind: 'sales' },
     feedSales: { label: '飼料用米販売', kind: 'sales' },
@@ -423,7 +445,7 @@
       loans: [],
       family: [{ name: 'あなた', role: '経営主', hours: 2000, age: 30, tag: 'operator' }, { name: '配偶者', role: '家族（手伝い）', hours: 600, age: 30 }],
       staff: 0, partTimers: 0,
-      grantYears: 3, grantAmount: 1500000, noInterestCap: 15000000,
+      grantYears: 3, grantAmount: 1500000, noInterestCap: 10000000,
       defaultCrop: 'koshiBL',
     },
     oyamoto: {
@@ -478,7 +500,7 @@
     loans: [],
     family: [{ name: 'あなた', role: '経営主', hours: 2000, age: 28, tag: 'operator' }, { name: 'じいちゃん', role: '相談役', hours: 400, age: 73, tag: 'grandpa' }],
     staff: 0, partTimers: 0,
-    grantYears: 3, grantAmount: 1500000, noInterestCap: 15000000,
+    grantYears: 3, grantAmount: 1500000, noInterestCap: 8000000,
     defaultCrop: 'koshiBL',
   };
   // ストーリー「山あいの棚田を守れ」：条件の悪い小さな田が中心。集落の田んぼが毎年託されてくる
@@ -494,7 +516,7 @@
     loans: [],
     family: [{ name: 'あなた', role: '経営主', hours: 2000, age: 32, tag: 'operator' }, { name: '母', role: '家族（手伝い）', hours: 900, age: 60 }],
     staff: 0, partTimers: 0,
-    grantYears: 3, grantAmount: 1500000, noInterestCap: 15000000,
+    grantYears: 3, grantAmount: 1500000, noInterestCap: 8000000,
     defaultCrop: 'koshiBL',
   };
   // ストーリー「農業法人を立て直せ」（15年）：借入が多く、機械は古く、赤字の契約が残る
@@ -503,13 +525,13 @@
     desc: '40haを作る農業法人の社長が急に引退し、新しい経営者として呼ばれた。借入は5,000万円を超え、機械は寿命間近、赤字の契約も残る。金融機関からは「5年で立て直せなければ、これ以上は貸せない」と言われている。',
     corp: true, cash: 10000000, execPay: 4000000, trust: 30, skill: 0.95, customers: 0, brand: 5,
     fields: [
-      { area: 4.0, soil: 'normal', owned: true, landValue: 24000000 }, { area: 3.0, soil: 'good', owned: true, landValue: 21000000 }, { area: 3.0, soil: 'poor', owned: true, landValue: 12000000 },
+      { area: 4.0, soil: 'normal', owned: true, landValue: 24000000 }, { area: 3.0, soil: 'good', owned: true, landValue: 21000000 }, { area: 3.0, soil: 'poor', owned: true, landValue: 7500000 },
       { area: 4.0, soil: 'good', rent: 15000 }, { area: 5.0, soil: 'normal', rent: 14000 }, { area: 5.0, soil: 'normal', rent: 14000 },
       { area: 4.0, soil: 'normal', rent: 13000 }, { area: 4.0, soil: 'normal', rent: 13000 }, { area: 4.0, soil: 'poor', rent: 9000 }, { area: 4.0, soil: 'poor', rent: 9000 },
     ],
     machines: [
       { model: 'tr_l', age: 13 }, { model: 'tr_m', age: 15 }, { model: 'pl_m', age: 12 }, { model: 'pl_m', age: 10 },
-      { model: 'cb_m', age: 9 }, { model: 'cb_m', age: 7 }, { model: 'dr_l', age: 15 }, { model: 'ns_l', age: 12 }, { model: 'tr_m', age: 6 }, { model: 'dr_m', age: 9 },
+      { model: 'cb_l', age: 6 }, { model: 'cb_l', age: 4 }, { model: 'cb_m', age: 11 }, { model: 'dr_l', age: 15 }, { model: 'ns_l', age: 12 }, { model: 'tr_m', age: 6 }, { model: 'dr_m', age: 9 },
     ],
     loans: [
       { kind: 'long', name: '設備資金（前の経営から）', balance: 40000000, rate: 0.02, yearsLeft: 15 },
@@ -528,7 +550,10 @@
     normal: { name: '普通', short: '普通', yieldMult: 1.0, laborMult: 1.0 },
     poor: { name: '条件不利（中山間・小区画）', short: '不利', yieldMult: 0.9, laborMult: 1.3 },
   };
-  D.LAND_PRICE = { good: [90, 120], normal: [70, 95], poor: [40, 60] }; // 万円/10a
+  D.LAND_PRICE = { good: [90, 120], normal: [70, 95], poor: [15, 35] }; // 万円/10a（条件不利地は買い手が少なく安い）
+  // 最初から持っている田の評価額（円/10a）と、売るときに付く値段の割合（条件不利地は買い手が見つかりにくい）
+  D.LAND_VALUE = { good: 1000000, normal: 800000, poor: 250000 };
+  D.LAND_SALE = { good: 0.95, normal: 0.9, poor: 0.6 };
 
   D.PLACES = ['上田', '下川', '東原', '西沢', '北野', '南浦', '中島', '宮前', '新田', '古川', '坂下', '松原',
     '竹林', '梅里', '桜台', '柳町', '石原', '若葉', '清水', '大塚', '杉谷', '川辺', '岡本', '本郷'];

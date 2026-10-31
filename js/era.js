@@ -137,7 +137,7 @@
       hint: '機械を初めて買った年のあと（遅くとも6年目）', check: (st) => !!st.flags.boughtMachine || st.year >= 6,
       why: '機械を買ったときに、金融機関の木村さんが「リースという方法もありますよ」と教えてくれた。' },
     large: { icon: '🚜', name: '大型の機械（100馬力のトラクタ・6条コンバインなど）', tab: 'machines', group: '機械',
-      hint: '経営面積25ha以上（メーカーが大型機を勧めに来る）', check: (st) => area(st) >= 25,
+      hint: '経営面積15ha以上（メーカーが大型機を勧めに来る）', check: (st) => area(st) >= 15,
       why: '経営面積が広がり、農機メーカーの営業が大型機を勧めに来た。大型の機械が買えるようになった。' },
     drone: { icon: '🛸', name: '防除用ドローン', tab: 'machines', group: '機械',
       hint: '病気や害虫が出た年のあと（遅くとも6年目）', check: (st) => !!st.flags.hadPest || st.year >= 6,

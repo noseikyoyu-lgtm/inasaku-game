@@ -447,7 +447,7 @@
     title: '「休みがほしい」',
     text: () => '「去年の春と秋は、休みなしで働きづめでした。若いのが、このままじゃ体がもたないと言ってます」',
     choices: [
-      { label: 'パートを2人増やす', desc: '人件費は増えるが、社員の士気 +5', apply: (st) => { st.partTimers += 2; morale(st, 5); return 'パートを2人増やした。'; } },
+      { label: 'パートを2人増やす', desc: '人件費は増えるが、社員の士気 +5', apply: (st) => { RG.state.addParts(st, 2); morale(st, 5); return 'パートを2人増やした。'; } },
       { label: '今年もがんばってもらう', desc: '社員の士気 −12', apply: (st) => { morale(st, -12); return '今年もがんばってもらうことにした。'; } },
     ],
   });

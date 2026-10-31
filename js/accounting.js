@@ -101,7 +101,7 @@
     const marginPer10a = revPer10a - varPer10a;
     const fixedNet = pl.fixed - (other - pl.get('subsidy'));
     const bepArea = marginPer10a > 0 ? Math.max(0, fixedNet) / marginPer10a / 10 : Infinity;
-    const living = st.corp ? 0 : st.living;
+    const living = st.corp ? 0 : st.living; // 分岐点は平均の家計費で見る
     const bepAreaLiving = marginPer10a > 0 ? Math.max(0, fixedNet + living) / marginPer10a / 10 : Infinity;
     // 損益分岐米価：販売用米以外の収入を差し引いた残りの費用を販売用米の俵数で割る
     const nonMarketRev = pl.get('feedSales') + other;
@@ -111,7 +111,7 @@
     const marginRatio = pl.sales > 0 ? (pl.sales - pl.variable) / pl.sales : 0;
 
     // 返済能力
-    const afterTax = pl.preTax - res.tax.amount - (st.corp ? 0 : st.living);
+    const afterTax = pl.preTax - res.tax.amount - (st.corp ? 0 : res.living != null ? res.living : st.living);
     const repaySource = afterTax + pl.get('depreciation');
     const debt = bs.longLoans + bs.emergency;
     const repayYears = debt <= 0 ? 0 : repaySource > 0 ? debt / repaySource : Infinity;

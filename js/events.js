@@ -12,7 +12,9 @@
     return { land: genLand(st).concat(RG.rivals ? RG.rivals.landOffers(st) : []), contracts: genContracts(st), used: genUsed(st) };
   };
 
+  const landBanned = (st) => !!st.flags.landSoldYear && st.year > st.flags.landSoldYear && st.year - st.flags.landSoldYear <= (RG.actions ? RG.actions.LAND_SALE_BAN : 3);
   function genLand(st) {
+    if (landBanned(st)) return [];
     const r = RG.rng.make(st.seed, st.year, 'land');
     let n = 1 + (r.chance(0.5 + st.trust / 200) ? 1 : 0) + (r.chance(st.trust / 150) ? 1 : 0) + (st.year >= 3 && r.chance(0.3) ? 1 : 0) + (st.path === 'grow' ? 1 : 0);
     const out = [];
@@ -57,7 +59,7 @@
   function genUsed(st) {
     const r = RG.rng.make(st.seed, st.year, 'used');
     const n = r.int(1, 2);
-    const candidates = ['tr_s', 'tr_m', 'pl_s', 'pl_m', 'cb_s', 'cb_m', 'dr_s', 'dr_m'];
+    const candidates = ['tr_s', 'tr_40', 'tr_m', 'pl_s', 'pl_5', 'pl_m', 'cb_s', 'cb_4', 'cb_m', 'dr_s', 'dr_50', 'dr_m'];
     const out = [];
     for (let i = 0; i < n; i++) {
       const model = r.pick(candidates);
@@ -76,6 +78,7 @@
     out.push({ kind: 'info', text: '民間調査による今年の米価見通し：60kgあたり ' + U.num(w.forecastLow) + '〜' + U.num(w.forecastHigh) + '円（中心 ' + U.num(w.forecast) + '円）。' });
     if (w.inputNews) out.push({ kind: w.inputShock.fert > 1.3 ? 'bad' : 'warn', text: w.inputNews + '（肥料 ' + U.pct(w.inputShock.fert - 1) + '高）。' });
     if (st.grant && st.year <= st.grant.years) out.push({ kind: 'good', text: '就農支援金 ' + U.man(st.grant.amount) + ' が7月に支給されます（あと' + (st.grant.years - st.year + 1) + '年）。' });
+    if (landBanned(st)) out.push({ kind: 'bad', text: '農地を売ったうわさが広まり、「あそこは田を手放す家だ」と思われている。' + (st.flags.landSoldYear + RG.actions.LAND_SALE_BAN) + '年目まで、新しい農地の話は来ない。' });
     if (st.year >= 8 && st.year % 4 === 0) out.push({ kind: 'warn', text: '近年は猛暑の年が増えている。高温に強い品種や作業分散を考えたい。' });
     if (st.market.matInfl > 1.05 && st.year % 5 === 0) out.push({ kind: 'warn', text: '資材価格や賃金がじわじわ上がっている（就農時より 資材 +' + U.pct(st.market.matInfl - 1) + '、賃金 +' + U.pct(st.market.wageInfl - 1) + '）。' });
     const lr = st.lastResult;

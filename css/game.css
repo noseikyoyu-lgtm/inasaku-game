@@ -34,7 +34,7 @@ h2, h3 { font-weight: 900; letter-spacing: .04em; }
   background: radial-gradient(circle at 35% 30%, #ffe9a8, #e1a93c); box-shadow: 0 0 0 2px #fff6d8, 0 3px 8px rgba(0, 0, 0, .25); flex: none; }
 .hud-name { display: flex; flex-direction: column; line-height: 1.2; min-width: 0; }
 .hud-name b { font-size: 16px; font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px; }
-.hud-name small { font-size: 11px; opacity: .8; }
+.hud-name small { font-size: 11px; opacity: .8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hud-year { display: flex; align-items: center; gap: 8px; background: rgba(0, 0, 0, .18); padding: 4px 10px 4px 12px; border-radius: 999px; }
 .hud-yr { display: flex; align-items: baseline; gap: 2px; white-space: nowrap; }
 .hud-yr b { font-size: 22px; font-weight: 900; color: #ffe08a; line-height: 1; }
@@ -378,6 +378,30 @@ h2, h3 { font-weight: 900; letter-spacing: .04em; }
 .unlock-item b { display: block; line-height: 1.4; }
 .unlock-item .good-t { color: var(--accent); font-weight: 700; }
 .unlock-group h3 { margin: 4px 0 6px; font-size: 15px; }
+.shop-rows { display: grid; gap: 10px; }
+.shop-row { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; display: grid; gap: 4px; background: var(--panel-2); }
+.shop-h { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.shop-ic { font-size: 20px; }
+.input-group { margin-bottom: 10px; }
+.input-group h4 { margin: 4px 0 6px; font-size: 14px; }
+.work-choices { display: grid; gap: 8px; margin: 8px 0; }
+.work-choices .btn.choice { width: 100%; text-align: left; display: block; padding: 10px 14px; white-space: normal; height: auto; line-height: 1.5; }
+.work-choices .btn.choice .d { display: block; font-weight: 400; font-size: 12px; color: var(--muted); white-space: normal; }
+.work-choices .btn.choice.last { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(60, 122, 55, .25); }
+.work-remember { display: flex; gap: 6px; align-items: flex-start; font-size: 13px; margin-top: 4px; }
+.alloc-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.alloc-col { border: 1px solid var(--line); border-radius: 12px; padding: 8px; background: var(--panel-2); display: grid; gap: 4px; justify-items: center; text-align: center; min-width: 0; }
+.alloc-col.good { border-color: var(--accent); }
+.alloc-col.bad { border-color: #d9534f; }
+.alloc-col .ac-h { font-weight: 700; }
+.alloc-col .ac-l { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.alloc-col .ac-step { display: flex; align-items: center; gap: 4px; }
+.alloc-col .ac-step b { min-width: 2.6em; font-size: 17px; }
+.alloc-col .ac-sub, .alloc-col .ac-need { font-size: 12px; }
+.alloc-col .ac-res { font-size: 12px; font-weight: 700; }
+@media (max-width: 600px) { .alloc-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.loss-list { margin: 4px 0 0; padding-left: 1.2em; }
+.loss-list li { margin: 2px 0; }
 .crop-hint { margin: 4px 0; padding: 4px 8px; border-radius: 8px; background: var(--gold-2); border: 1px solid var(--gold); font-size: 12.5px; font-weight: 600; }
 .vmap-wrap { display: grid; gap: 4px; }
 .vmap { display: grid; grid-template-columns: repeat(15, 1fr); gap: 3px; max-width: 420px; }
@@ -398,3 +422,17 @@ h2, h3 { font-weight: 900; letter-spacing: .04em; }
 .se-line { display: flex; gap: 10px; align-items: flex-start; }
 .se-line .saying-bubble { color: var(--ink); }
 .se-narr { text-align: center; margin: 4px 0; line-height: 1.8; color: rgba(251, 243, 226, .88); }
+.alloc-col .ac-btn { width: 30px; height: 30px; padding: 0; border-radius: 50%; font-weight: 900; }
+
+/* 毎月のできごと */
+.mev-choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin: 10px 0; }
+.mev-opt { display: grid; gap: 4px; text-align: left; padding: 12px 14px; border-radius: 12px; border: 2px solid var(--line); background: var(--panel-2); color: var(--ink); font: inherit; cursor: pointer; transition: transform .12s, border-color .12s; }
+.mev-opt:hover { transform: translateY(-2px); border-color: var(--accent); }
+.mev-opt .t { font-weight: 700; font-size: 15px; }
+.mev-opt .pre { font-size: 12.5px; color: var(--muted); }
+.mev-range { display: grid; gap: 2px; font-size: 12.5px; margin-top: 2px; }
+.mev-range .good { color: var(--accent); font-weight: 600; }
+.mev-range .bad { color: #c0503c; font-weight: 600; }
+
+/* 機械の故障しやすさの理由 */
+.bd-why { display: flex; flex-wrap: wrap; gap: 2px 8px; margin-top: 2px; font-size: 11.5px; color: var(--gold); font-weight: 600; }

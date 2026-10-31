@@ -56,7 +56,88 @@
     return Math.round(v / 10000) * 10000;
   };
   SIM.repairCost = (m, infl) => (m.lease ? 0 : D.MODELS[m.model].price * Math.min(0.045, 0.006 + 0.0025 * m.age) * (infl || 1));
-  SIM.breakdownProb = (m) => (m.lease ? 0.02 : 0.03 + 0.02 * Math.max(0, m.age - 6));
+  // ---------- 家計費（生活費） ----------
+  // ストーリー（個人経営）では、生活費は自分で決めず、季節と暮らしのできごとで毎月変わる。1年の平均は st.living のまま
+  const LIVING_SEASON = [1.15, 0.95, 1.05, 1.05, 0.95, 0.95, 1.0, 1.1, 0.95, 0.95, 0.95, 1.15]; // 正月・新年度・お盆・年末は多め
+  SIM.LIVING_EVENTS = [
+    { label: '親戚の結婚式のご祝儀', a: [30000, 50000] },
+    { label: '法事とお供え', a: [20000, 50000] },
+    { label: '車の車検', a: [80000, 120000] },
+    { label: '車の修理', a: [30000, 120000] },
+    { label: '冷蔵庫の買い替え', a: [80000, 150000] },
+    { label: 'エアコンの修理', a: [30000, 80000] },
+    { label: '病院と歯医者', a: [10000, 50000] },
+    { label: '集落のお祭りへの寄付', a: [10000, 30000] },
+    { label: '家の屋根の修理', a: [100000, 250000], w: 0.4 },
+    { label: '親戚から野菜や果物をたくさんもらい、食費が浮いた', a: [-20000, -10000] },
+    { label: '冬のあいだ、町の除雪の手伝い（日当）', a: [-50000, -20000] },
+    { label: 'じいちゃんの通院の付き添いと薬代', a: [10000, 30000], story: 'story' },
+    { label: '母の通院と薬代', a: [10000, 30000], story: 'tanada' },
+  ];
+  SIM.livingVaries = (st) => !st.corp && !!(RG.scenes && RG.scenes.isStory(st));
+  // 12か月分の家計費。preview（計画の見込み）は平均の額で均等に
+  SIM.livingMonths = function (st, preview) {
+    const flat = { months: Array.from({ length: 12 }, () => st.living / 12), events: [] };
+    if (preview || !SIM.livingVaries(st)) return flat;
+    const r = RG.rng.make(st.seed, st.year, 'living');
+    const pool = SIM.LIVING_EVENTS.filter((e) => !e.story || e.story === st.scenarioId);
+    const wsum = U.sum(pool, (e) => e.w || 1);
+    const avgEv = U.sum(pool, (e) => (e.w || 1) * (e.a[0] + e.a[1]) / 2) / wsum;
+    const n = 2 + Math.floor(r.next() * 3); // 1年に2〜4件
+    const events = [];
+    for (let i = 0; i < n; i++) {
+      let x = r.next() * wsum, e = pool[0];
+      for (const p of pool) { x -= p.w || 1; if (x <= 0) { e = p; break; } }
+      const amount = Math.round((e.a[0] + r.next() * (e.a[1] - e.a[0])) / 1000) * 1000;
+      events.push({ month: 1 + Math.floor(r.next() * 12), label: e.label, amount });
+    }
+    // できごとの平均（3件分）を差し引いて、1年の平均が st.living になるようにする
+    const base = Math.max(st.living * 0.6, st.living - 3 * avgEv) / 12;
+    const sNorm = U.sum(LIVING_SEASON) / 12;
+    const months = LIVING_SEASON.map((s) => Math.round(base * (s / sNorm) * (0.92 + 0.16 * r.next())));
+    return { months, events };
+  };
+
+  // ---------- 機械の故障 ----------
+  // 年数で決まる基本の故障率に、その年の田んぼ・稲の状態（酷使・条件の悪い田・倒伏・ぬかるみ・水分の多いもみ）を掛ける
+  SIM.breakdownBase = (m) => (m.lease ? 0.02 : 0.03 + 0.02 * Math.max(0, m.age - 6));
+  SIM.breakdownProb = (m) => SIM.breakdownBase(m);
+  // その年の状態（events を省くと平年＝計画時の見込み）
+  SIM.breakdownCtx = function (st, events) {
+    const units = SIM.planUnits(st);
+    const a = (f) => U.sum(units.filter(f), (u) => u.area);
+    const planted = a(() => true), transplant = a((u) => u.sow === 'transplant'), direct = a((u) => u.sow === 'direct');
+    const total = U.sum(st.fields, (f) => f.area);
+    const sev = (id) => { const e = (events || []).find((x) => x.id === id && x.hit !== false); return e ? (D.SEV[e.sev] || D.SEV.mid).mult : 0; };
+    const cap = {};
+    st.machines.forEach((m) => { const md = D.MODELS[m.model]; cap[md.type] = (cap[md.type] || 0) + (md.cap || 0); });
+    return {
+      need: { tractor: planted, nursery: transplant, planter: transplant, combine: planted, dryer: planted },
+      cap,
+      poorShare: total > 0 ? U.sum(st.fields.filter((f) => f.soil === 'poor'), (f) => f.area) / total : 0,
+      // 倒れやすさ（耐倒伏の弱い品種ほど大きい）と、直播の割合
+      lodgeSusc: planted > 0 ? U.sum(units, (u) => u.area * (1 - (D.CROPS[u.crop].ft || 0.5))) / planted : 0,
+      directShare: planted > 0 ? direct / planted : 0,
+      typh: sev('typh'), flood: sev('flood'), akisa: sev('akisa'),
+    };
+  };
+  SIM.breakdownRisk = function (st, m, ctx) {
+    ctx = ctx || SIM.breakdownCtx(st);
+    const md = D.MODELS[m.model], t = md.type, base = SIM.breakdownBase(m);
+    const f = [];
+    const util = ctx.cap[t] > 0 && ctx.need[t] != null ? ctx.need[t] / ctx.cap[t] : 0;
+    if (util > 0.9) f.push({ label: '能力いっぱいで酷使（稼働率 ' + U.pct(util) + '）', mult: Math.min(2, 1 + 0.6 * (util - 0.9)) });
+    if ((t === 'tractor' || t === 'planter' || t === 'combine') && ctx.poorShare > 0.05) f.push({ label: '小区画・傾斜の田が' + U.pct(ctx.poorShare), mult: 1 + 0.35 * ctx.poorShare });
+    if (t === 'combine') {
+      const lodge = ctx.lodgeSusc * (ctx.typh + 0.6 * ctx.flood) + 0.15 * ctx.directShare;
+      if (lodge > 0.05) f.push({ label: ctx.typh || ctx.flood ? (ctx.typh ? '台風' : '大雨') + 'で倒れた稲の刈り取り' : '直播の稲は倒れやすい', mult: 1 + 1.6 * lodge });
+      if (ctx.akisa) f.push({ label: '秋雨でぬかるんだ田', mult: 1 + 0.7 * ctx.akisa });
+    }
+    if (t === 'dryer' && ctx.akisa) f.push({ label: '秋雨で水分の多いもみ', mult: 1 + 0.5 * ctx.akisa });
+    const p = Math.min(0.6, base * f.reduce((x, y) => x * y.mult, 1));
+    return { p, base, factors: f };
+  };
+  SIM.BREAK_MONTH = { tractor: 4, nursery: 4, planter: 5, combine: 9, dryer: 10 };
   SIM.depreciation = (m) => (m.lease ? 0 : Math.min(m.book, m.cost / m.life));
 
   SIM.avgIncome = function (st, n) {
@@ -77,12 +158,13 @@
     if (bs.equity < 0) return 0;
     const cap = 5000000 + 0.7 * bs.land + 0.6 * bs.machines + 4 * Math.max(0, SIM.avgIncome(st, 3)) +
       (st.corp ? 0.3 * Math.max(0, bs.equity) : 0);
-    const used = U.sum(st.loans.filter((l) => l.kind === 'long'), (l) => l.balance);
+    // 無利子資金も借入には変わりないので、枠から引く
+    const used = U.sum(st.loans.filter((l) => l.kind === 'long' || l.kind === 'nointerest'), (l) => l.balance);
     return Math.max(0, Math.floor((cap - used) / 100000) * 100000);
   };
 
   SIM.noInterestAvailable = function (st) {
-    if (!st.noInterestCap || st.year > 5) return 0;
+    if (!st.noInterestCap || st.year > D.FIN.noInterestYears) return 0;
     return Math.max(0, st.noInterestCap - st.noInterestUsed);
   };
 
@@ -146,6 +228,8 @@
     const dfx = RG.dice ? RG.dice.effects(st, preview) : { y: 1, q: 0, mat: 0, labor: {}, costs: [], logs: [] }; // サイコロ（運だめし・勝負）の影響
     const yearType = preview ? 'normal' : W.yearType;
     const events = preview ? [] : W.events;
+    if (RG.fieldwork) RG.fieldwork.addEffects(st, dfx, preview, yearType, events); // 田植えのあとの作業（中干し・穂肥・防除など）の影響
+    if (RG.monthly) RG.monthly.addEffects(st, dfx, preview); // 毎月のできごと（選んだ行動とサイコロの結果）
     const price = preview ? W.forecast : W.price;
     const mInf = st.market.matInfl * (1 + dfx.mat), wInf = st.market.wageInfl;
     const shock = W.inputShock;
@@ -182,10 +266,13 @@
     res.area = area;
 
     // ---------- 2. 機械 ----------
-    const broken = {};
+    const broken = {}, brokenWhy = {};
     if (!preview) {
+      const bctx = SIM.breakdownCtx(st, events);
       st.machines.forEach((m) => {
-        if (D.MODELS[m.model].cap > 0 && RG.rng.hash01(st.seed, st.year, 'bd', m.id) < SIM.breakdownProb(m)) broken[m.id] = true;
+        if (!(D.MODELS[m.model].cap > 0)) return;
+        const r = SIM.breakdownRisk(st, m, bctx);
+        if (RG.rng.hash01(st.seed, st.year, 'bd', m.id) < r.p * (dfx.bd || 1)) { broken[m.id] = true; brokenWhy[m.id] = r.factors.map((x) => x.label); }
       });
     }
     const mach = {
@@ -203,7 +290,7 @@
     res.machines = mach;
     res.broken = Object.keys(broken).map((id) => {
       const m = st.machines.find((x) => x.id === id);
-      return { id, name: D.MODELS[m.model].name, type: D.MODELS[m.model].type, lease: m.lease };
+      return { id, name: D.MODELS[m.model].name, type: D.MODELS[m.model].type, lease: m.lease, age: m.age, why: brokenWhy[id] || [] };
     });
 
     // ---------- 3. 労働 ----------
@@ -253,7 +340,8 @@
     const seasons = {};
     let partHours = 0, famUsed = 0;
     for (const s of D.SEASONS) {
-      const fam = famHours * D.SEASON_CAP[s], stf = staffHours * D.SEASON_CAP[s], pc = st.partTimers * D.PART_CAP[s];
+      const share = RG.state.laborShare(st, s); // 家族・社員の時間の季節配分（計画で変えられる）
+      const fam = famHours * share, stf = staffHours * share, pc = RG.state.partsIn(st, s) * D.PART_CAP[s];
       const n = need[s];
       const useStaff = Math.min(n, stf);
       const useFam = Math.min(n - useStaff, fam);
@@ -275,6 +363,7 @@
     const delayY = U.clamp(1 - Math.max(und('till'), und('plant'), 0.8 * und('harvest'), 0.3 * und('dry')), 0.02, 1);
     const skillY = 0.97 + 0.4 * (st.skill - 0.9);
     const sev = (!preview && W.pest.occurs) ? W.pest.severity : 0;
+    const pestMult = RG.fieldwork ? (RG.fieldwork.input(st, 'pest').pest || 1) : 1; // 農薬の種類で病害虫の被害が変わる
     const norm = AG.norm();
     const ytTemp = D.YEAR_TYPES[yearType].temp;
     // 作期と収穫日（有効積算温度。猛暑年は早まり、冷夏は遅れる）
@@ -299,7 +388,7 @@
       const wIdx = wf.wm / n.all;
       const lateY = Math.min(0.08, 0.0025 * p.late), lateQ = Math.min(12, 0.5 * p.late);
       const std = v.by * p.f.yieldMult * p.cult.yield * p.sow.yield * (p.f.cult === 'organic' && !p.f.cert ? 0.95 : 1);
-      const pestLoss = sev * p.cult.pestSens * (v.blast || 1) * (1 - 0.25 * droneCov);
+      const pestLoss = sev * p.cult.pestSens * (v.blast || 1) * (1 - 0.25 * droneCov) * pestMult;
       const boar = flags.boar ? 1 - 0.15 * poorShare : 1;
       let noise = 1, qNoise = 0;
       if (!preview) {
@@ -444,6 +533,29 @@
     sales.stockSale = stockSale;
     sales.stockEnd = stockEnd;
 
+    // 地元の米屋・商店：農協より高く買ってくれるが、売れ行きしだいで全部は引き取れない年がある（引き取れなかった分は安く売る）
+    sales.shops = [];
+    const shopOK = (p) => { const c = D.CROPS[p.crop]; return c.market && p.crop !== 'feed' && !c.sake && c.group !== 'mochi' && p.rem > 0.01; };
+    D.SHOPS.forEach((sh, i) => {
+      const q = Math.min(sh.max, Math.max(0, Math.round((st.shops || {})[sh.id] || 0)));
+      if (q <= 0) return;
+      let left = q, value = 0;
+      for (const p of plist.filter(shopOK).sort((a, b) => D.CROPS[b.crop].priceCoef - D.CROPS[a.crop].priceCoef || b.r1 - a.r1)) {
+        const t = Math.min(p.rem, left);
+        p.rem -= t; left -= t;
+        value += t * price * D.CROPS[p.crop].priceCoef * D.CULT_KEYS[p.ck].jaPrem * p.gc;
+      }
+      const shipped = q - left;
+      if (shipped <= 0.01) return;
+      const base = value / shipped; // 農協に出したときの1俵の値段
+      let frac = 1;
+      if (!preview) { const r = RG.rng.make(st.seed, st.year, 'shop', i); if (r.chance(sh.risk)) frac = U.round(r.range(sh.take[0], sh.take[1]), 2); }
+      const sold = shipped * frac, returned = shipped - sold;
+      sales.shops.push({ id: sh.id, name: sh.name, icon: sh.icon, planned: q, shipped, sold, returned, frac, unit: base * sh.premium, revenue: sold * base * sh.premium, base });
+      if (returned > 0.01) sales.spot.push({ label: sh.name + 'に引き取ってもらえなかった米', bales: returned, unit: base * D.SALES.shopReturnRate });
+    });
+    const shopRev = U.sum(sales.shops, (x) => x.revenue);
+
     // 農協出荷（残り全部）
     for (const p of plist) {
       if (p.crop === 'feed' || p.rem <= 0.01) continue;
@@ -479,9 +591,9 @@
     res.sales = sales;
 
     const bizRev = U.sum(['harvest', 'drone', 'proc', 'stand'], (k) => (biz[k] ? biz[k].revenue : 0));
-    const salesTotal = jaRev + contractRev + direct.revenue + spotRev + feedRev + bizRev + (stockSale ? stockSale.revenue : 0);
+    const salesTotal = jaRev + contractRev + shopRev + direct.revenue + spotRev + feedRev + bizRev + (stockSale ? stockSale.revenue : 0);
     // 収入保険の対象：今年とれた米の販売（保管に回した分は収穫時の値段で含める）
-    const insurableRev = jaRev + contractRev + direct.revenue + spotRev + (stockEnd ? stockEnd.value : 0);
+    const insurableRev = jaRev + contractRev + shopRev + direct.revenue + spotRev + (stockEnd ? stockEnd.value : 0);
 
     // ---------- 6. 収入の計上と入金時期 ----------
     add('jaSales', jaRev);
@@ -490,6 +602,9 @@
     add('contractSales', contractRev);
     cashAt(11, contractRev * 0.5, 'contractSales', '契約販売の代金');
     cashAt(12, contractRev * 0.5, 'contractSales', '契約販売の代金');
+    add('shopSales', shopRev);
+    cashAt(11, shopRev * 0.5, 'shopSales', '米屋・商店への出荷代金');
+    cashAt(12, shopRev * 0.5, 'shopSales', '米屋・商店への出荷代金');
     add('directSales', direct.revenue);
     [10, 11, 12].forEach((m) => cashAt(m, direct.revenue * 0.15, 'directSales', '直販の売上'));
     for (let m = 1; m <= 9; m++) receive(m, (direct.revenue * 0.55) / 9, '直販の売上（順次販売分）');
@@ -536,8 +651,11 @@
     spend('seed', sumP((p) => p.a10 * p.crop.cst * CS.seed * p.sow.seedMult) * mInf, { 3: 1 });
     spend('nursery', mach.nursery.own * 10 * D.COST.nurseryMat * mInf, { 3: 0.5, 4: 0.5 }, '育苗資材');
     spend('nursery', seedlingCost, { 4: 1 }, '苗の購入');
-    spend('fert', sumP((p) => p.a10 * p.crop.cst * CS.fert * p.cult.fert) * mInf * shock.fert, { 3: 0.4, 4: 0.3, 6: 0.3 });
-    spend('pest', sumP((p) => p.a10 * p.crop.cst * CS.pest * p.cult.pest) * (1 - 0.1 * droneCov) * mInf, { 4: 0.2, 6: 0.3, 7: 0.5 });
+    // 使う肥料・農薬の種類で、値段と値上がりの受けやすさが変わる
+    const fertI = RG.fieldwork ? RG.fieldwork.input(st, 'fert') : { cost: 1 }, pestI = RG.fieldwork ? RG.fieldwork.input(st, 'pest') : { cost: 1 };
+    const fertShock = 1 + (shock.fert - 1) * (fertI.shock != null ? fertI.shock : 1);
+    spend('fert', sumP((p) => p.a10 * p.crop.cst * CS.fert * p.cult.fert) * fertI.cost * mInf * fertShock, { 3: 0.4, 4: 0.3, 6: 0.3 });
+    spend('pest', sumP((p) => p.a10 * p.crop.cst * CS.pest * p.cult.pest) * pestI.cost * (1 - 0.1 * droneCov) * mInf, { 4: 0.2, 6: 0.3, 7: 0.5 });
     const tractorOwn = mach.tractor.need > 0 ? mach.tractor.own / mach.tractor.need : 0;
     spend('fuel', (area.planted * 10 * D.COST.fuel * (0.35 + 0.65 * tractorOwn) + mach.dryer.own * 10 * D.COST.dryFuel) * mInf * shock.fuel,
       { 4: 0.3, 5: 0.2, 7: 0.1, 9: 0.25, 10: 0.15 });
@@ -574,6 +692,7 @@
     spend('misc', D.COST.miscFixed * mInf + D.COST.miscRate * salesTotal, MONTHLY);
     if (st.corp) spend('execPay', st.execPay * 1.15, MONTHLY, '役員報酬');
     dfx.costs.forEach((c) => spend('eventCost', c.amount, { [c.month]: 1 }, c.label));
+    (dfx.incomes || []).forEach((c) => { add('otherIncome', c.amount); cashAt(c.month, c.amount, 'otherIncome', c.label); });
 
     // 計画フェーズ中の取引（購入・借入・イベントなど）
     for (const it of st.ledger) {
@@ -585,7 +704,16 @@
     // 前年からの持ち越し
     for (const r of st.receivables) cashAt(r.month, r.amount, 'collect', r.label);
     if (st.taxPayable > 0) cashAt(st.taxPayMonth, -st.taxPayable, 'tax', '前年分の' + (st.taxLabel || (st.corp ? '法人税等' : '所得税・住民税等')));
-    if (!st.corp) for (let m = 1; m <= 12; m++) cashAt(m, -st.living / 12, 'withdraw', '家計費（生活費）');
+    if (!st.corp) {
+      const lv = SIM.livingMonths(st, preview);
+      lv.months.forEach((v, i) => cashAt(i + 1, -v, 'withdraw', '家計費（生活費）'));
+      lv.events.forEach((e) => {
+        cashAt(e.month, -e.amount, 'withdraw', '家計：' + e.label);
+        log(e.month, '🏠 家計：' + e.label + '（' + (e.amount >= 0 ? '−' : '＋') + U.man(Math.abs(e.amount)) + '）', e.amount >= 80000 ? 'bad' : e.amount < 0 ? 'good' : '');
+      });
+      res.livingActual = U.sum(lv.months) + U.sum(lv.events, (e) => e.amount);
+      res.livingEvents = lv.events;
+    }
 
     // 借入金
     if (st.shortLoan > 0) {
@@ -651,6 +779,8 @@
     let brandBonus = 0;
     if (direct.sold > 0 && dp && dp.ck === 'organic') brandBonus += 1;
     if (direct.sold > 0 && dp && dp.r1 > 0.85) brandBonus += 1;
+    // 有機質肥料・環境にやさしい資材で直販していると、ブランド力が育つ
+    if (direct.sold > 0 && RG.fieldwork) ['fert', 'pest'].forEach((k) => { brandBonus += RG.fieldwork.input(st, k).brand || 0; });
     const brandEnd = U.clamp(st.brand * (1 - D.BRAND.decay) + brandGain + brandBonus, 0, 100);
     trustDelta += area.total > 0 && area.fallow / area.total > 0.2 ? -2 : 1;
     if (st.path === 'local') trustDelta += 2; // 地域の要の道
@@ -699,7 +829,7 @@
     if (!res.events.length) log(7, '大きな気象災害はなく、稲は順調に育っている。', 'good');
     if (res.production.pestLoss > 0) log(8, W.pest.name + 'が発生した！', 'bad');
     log(8, '夏の管理作業：' + lab('summer'), labKind('summer'));
-    res.broken.forEach((b) => log(9, b.name + 'が故障した！' + (b.lease ? '（リースのため修理費は不要）' : '修理費がかさみ、') + '作業の一部を委託した。', 'bad'));
+    res.broken.forEach((b) => log(SIM.BREAK_MONTH[b.type] || 9, b.name + 'が故障した！' + (b.why.length ? '（' + b.why.join('・') + '）' : '（' + b.age + '年使った機械）') + (b.lease ? 'リースのため修理費は不要だが、' : '修理費がかさみ、') + '作業の一部を委託した。', 'bad'));
     const first = Math.min.apply(null, res.production.plots.map((p) => p.hd).concat([AG.doy(9, 15)]));
     log(AG.md(first)[0] < 9 ? 8 : 9, '稲刈りが始まった（' + AG.fmt(first) + '〜）。秋の労働力：' + lab('autumn'), labKind('autumn'));
     res.production.plots.filter((p) => p.late > 3).forEach((p) => log(AG.md(p.hd + p.late)[0], p.name + 'は稲刈りが集中し、適期より平均' + U.num(p.late) + '日遅れて刈った（品質が低下）。', 'bad'));
@@ -716,6 +846,10 @@
       if (c.short > 0.5) log(11, c.buyer + 'への契約 ' + U.bales(c.volume) + ' のうち ' + U.bales(c.short) + ' が不足。市場から高値で調達した。' + (c.cancel ? '契約は打ち切られた。' : ''), 'bad');
       else log(11, c.buyer + 'へ契約どおり ' + U.bales(c.volume) + ' を出荷した。');
     });
+    (res.sales.shops || []).forEach((x) => {
+      log(10, x.icon + ' ' + x.name + 'に ' + U.bales(x.shipped) + ' を出荷した（農協価格の＋' + U.pct(x.unit / x.base - 1, 0) + '）。', 'good');
+      if (x.frac < 1) log(11, x.icon + ' ' + x.name + 'は売れ行きが悪く、出荷した米の ' + U.pct(x.frac, 0) + ' しか引き取れなかった。残りの ' + U.bales(x.returned) + ' は安く売るしかなかった。', 'bad');
+    });
     const d = res.sales.direct;
     if (d.alloc > 0) log(12, '直販：' + U.bales(d.sold) + 'を販売（顧客 ' + U.num(d.customers) + '人）。' + (d.unsold > 0.5 ? '売れ残り ' + U.bales(d.unsold) + ' はスポット販売へ。' : ''), d.unsold > 0.5 ? 'bad' : '');
     log(12, '借入金を返済し、1年の決算を迎えた。');
@@ -724,7 +858,7 @@
   // ---------- 結果を状態に反映 ----------
   SIM.apply = function (st, res) {
     const bsStart = st.yearStartBS;
-    const livingUsed = st.living; // この年に実際に引き出した家計費（決算中に後継者が加わっても変わらない）
+    const livingUsed = res.livingActual != null ? res.livingActual : st.living; // この年に実際に引き出した家計費（季節やできごとで変わる。決算中に後継者が加わっても変わらない）
     st.cash = res.cash.end;
     st.emergency = res.cash.emergencyEnd;
     for (const u of res.loanUpdates) {
@@ -763,6 +897,7 @@
     st.direct.customers = Math.round(res.sales.direct.customersEnd);
     st.brand = res.brandEnd;
     st.trust = U.clamp(st.trust + res.trustDelta, 0, 100);
+    if (RG.monthly) RG.monthly.applyEnd(st); // 毎月のできごとで変わった信頼・ブランド・お客さん・技術
     st.skill = Math.min(1.04, st.skill + 0.008);
     st.staff.forEach((s) => { s.years += 1; s.salary *= 1.02; });
     // 1年たつと家族も1歳年をとる。経営主が働けなくなったら、後継者に引き継ぐか引退する

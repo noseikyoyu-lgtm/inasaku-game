@@ -32,6 +32,8 @@
           st.gameOver && !viewing ? UI.note('bad', '経営を続けられなくなりました', st.gameOver.text) : null,
           st.retired && !st.gameOver && !viewing ? UI.note('warn', '経営主が引退します', '経営主が' + st.retired.age + '歳になり、引き継げる後継者がいないため、今年で経営を終えます。') : null,
           reportCard(app, st, res, viewing),
+          (res.livingEvents || []).length && !viewing ? UI.note('info', '🏠 今年の家計：生活費 ' + U.man(res.living) + '（平均 ' + U.man(st.living) + '）',
+            res.livingEvents.slice().sort((a, b) => a.month - b.month).map((e) => e.month + '月 ' + e.label + '（' + (e.amount >= 0 ? '−' : '＋') + U.man(Math.abs(e.amount)) + '）').join('・')) : null,
           (res.missionNotes || []).length ? h('div', { class: 'notes' }, res.missionNotes.map((t) => UI.note(/達成|通過|🔓/.test(t) ? 'good' : 'warn', null, t))) : null,
           tabs, body,
           h('div', { class: 'row' }, h('span', { class: 'spacer' }), next))));
@@ -282,6 +284,8 @@
     S.contracts.forEach((c) => sales.push(['契約：' + c.buyer, { v: U.bales(c.volume), cls: 'num' },
       { v: h('span', null, U.yen(c.price), c.refPrice ? h('div', { class: 'small muted' }, '目安 ' + U.yen(c.refPrice)) : null), cls: 'num' }, { v: U.man(c.revenue), cls: 'num' },
       c.short > 0.5 ? h('span', { class: 'badge bad' }, U.bales(c.short) + '不足・調達費 ' + U.man(c.procure)) : h('span', { class: 'badge good' }, '契約どおり')]));
+    (S.shops || []).forEach((x) => sales.push([x.icon + ' ' + x.name, { v: U.bales(x.sold), cls: 'num' }, { v: U.yen(x.unit), cls: 'num' }, { v: U.man(x.revenue), cls: 'num' },
+      x.frac < 1 ? h('span', { class: 'badge bad' }, U.pct(x.frac, 0) + 'しか引き取れず（' + U.bales(x.returned) + ' はスポットへ）') : h('span', { class: 'badge good' }, '全量引き取り')]));
     const d = S.direct;
     if (d.alloc > 0) sales.push(['直販：' + d.label, { v: U.bales(d.sold), cls: 'num' }, { v: U.yen(d.price5 * D.DIRECT.bagsPerBale), cls: 'num' }, { v: U.man(d.revenue), cls: 'num' },
       h('span', { class: 'small' }, '需要 ' + U.bales(d.demand) + (d.unsold > 0.5 ? '・売れ残り ' + U.bales(d.unsold) : ''))]);
@@ -321,7 +325,7 @@
         h('p', { class: 'small muted' }, 'パート ' + U.num(L.partHours) + 'h・賃金 ' + U.man(L.partCost) + '。労働力が不足すると作業が遅れ、収量と1等比率が下がります（今年の収量への影響 ' + U.pct(res.production.laborY - 1) + '）。')),
       UI.card('機械の稼働', null,
         UI.table([{ label: '機械' }, { label: '必要面積', num: true }, { label: '能力', num: true }, { label: T('機械稼働率', '稼働率'), num: true }, { label: '委託', num: true }], mrows),
-        res.broken.length ? h('div', { class: 'notes', style: { marginTop: '8px' } }, res.broken.map((b) => UI.note('bad', b.name + 'が故障', b.lease ? 'リースのため修理費はかかりませんでした。' : '修理費がかかり、作業能力が下がりました。'))) : null));
+        res.broken.length ? h('div', { class: 'notes', style: { marginTop: '8px' } }, res.broken.map((b) => UI.note('bad', b.name + 'が故障', (b.why && b.why.length ? '故障しやすくなっていた理由：' + b.why.join('・') + '（' + b.age + '年使用）。' : b.age != null ? b.age + '年使った機械でした。' : '') + (b.lease ? 'リースのため修理費はかかりませんでした。' : '修理費がかかり、作業能力が下がりました。')))) : null));
   }
 
   const FNS = { summary, pl: plTab, bs: bsTab, cash: cashTab, cost: costTab, prod: prodTab, work: workTab };

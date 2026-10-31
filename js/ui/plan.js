@@ -309,6 +309,7 @@
           fallow > 0.05 ? UI.note('warn', null, U.ha(fallow) + ' が休耕になっています。地代・水利費はかかり続けます。「＋残り」でどれかの作付に回しましょう。') : null,
           org.cert + org.trans > 0 ? UI.note('info', null, h('span', null, T('有機栽培'), '：有機として売れる面積 ' + U.ha(org.cert) + '・転換期間中 ' + U.ha(org.trans) + '。2年続けて有機で作った面積までが「有機」になります。')) : null),
         h('p', { class: 'small muted' }, '田んぼの条件（良・普通・不利）の違いは、経営全体の平均として収量と作業時間に反映されます。見込みは長い目で見た平均の気象（猛暑年や多雨年も含む）での値です。')),
+      inputsCard(app, st),
       scheduleCard(st, pv),
       UI.card('品目ごとの見込み', '平年作の場合',
         UI.table([{ label: '品目' }, { label: '面積', num: true }, { label: '見込み収量', num: true }, { label: T('1等比率'), num: true }],
@@ -347,6 +348,31 @@
         worst.late > 3 ? UI.note('warn', null, h('span', null, worst.name + 'は稲刈りが集中して平均 ' + U.num(worst.late, 1) + '日の刈り遅れ見込み。胴割れや品質低下につながります。早生・晩生を組み合わせる（', T('作期分散'), '）、田植え時期をずらす、コンバインを増やすなどで分散しましょう。'))
           : UI.note('good', null, h('span', null, '稲刈りは適期におさまる見込みです。', T('作期分散'), 'ができています。')),
         h('p', { class: 'small muted' }, '収穫日は品種ごとの登熟日数と', T('有効積算温度'), 'で決まり、猛暑年は早まり、冷夏は遅れます。秋雨で作業できない日（稼働率 ' + U.pct(D.AGRO.harvestWorkRate) + '）も見込んでいます。')));
+  }
+
+  // 使う肥料・農薬：高い・安いと、効き目
+  function inputsCard(app, st) {
+    const FW = RG.fieldwork;
+    if (!FW) return null;
+    const CS = D.COST.cstSplit, mInf = st.market.matInfl;
+    // 標準の資材を使ったときの今年の費用（作付の行から）
+    const base = (kind) => U.sum(st.plan.filter((r) => r.crop !== 'none'), (r) => r.area * 10 * D.CROPS[r.crop].cst * CS[kind] * D.CULTS[r.cult][kind]) * mInf;
+    const group = (kind) => {
+      const def = FW.INPUTS[kind], cur = FW.input(st, kind), b = base(kind);
+      return h('div', { class: 'input-group' },
+        h('h4', null, def.icon + ' ' + def.name + '（標準なら今年 ' + U.man(b) + '）'),
+        h('div', { class: 'radio-cards' }, def.options.map((o) => {
+          const diff = b * (o.cost - 1);
+          return h('button', { type: 'button', class: 'radio-card' + (cur.key === o.key ? ' on' : ''), 'aria-pressed': cur.key === o.key ? 'true' : 'false',
+            onclick: () => app.update((t) => FW.setInput(t, kind, o.key), { msg: def.name + 'を「' + o.label + '」にしました' }) },
+            h('div', { class: 't' }, o.label),
+            h('div', { class: 'small ' + (diff > 1 ? 'neg' : diff < -1 ? 'pos' : '') }, Math.abs(diff) > 1 ? '今年 ' + (diff > 0 ? '+' : '−') + U.man(Math.abs(diff)) : '費用はそのまま'),
+            h('div', { class: 'small muted' }, o.desc));
+        })));
+    };
+    return UI.card('🧪 使う肥料・農薬', '高いものは効き目がよく、安いものは費用が下がる。すべての田んぼで使う',
+      group('fert'), group('pest'),
+      h('p', { class: 'small muted' }, '農薬の違いは、病気や害虫が出た年に大きく効きます（平年作の見通しには出ません）。特別栽培・有機栽培の田では、もともと使う量が少ないので、費用の差も小さくなります。'));
   }
 
   function varietyCards(st) {
@@ -391,8 +417,22 @@
     const rows = st.fields.map((f) => [
       f.name, { v: U.ha(f.area), cls: 'num' }, D.SOILS[f.soil].short,
       f.owned ? h('span', { class: 'badge info' }, '所有') : '借地',
-      { v: f.owned ? '評価額 ' + U.man(f.landValue) : U.yen(f.rent) + '/10a', cls: 'num' },
-      f.owned ? UI.btn('売却', async () => { if (await UI.confirm('農地を売却しますか？', f.name + '（' + U.ha(f.area) + '）を ' + U.man(f.landValue * 0.9) + ' で売却します。地域の信頼が少し下がります。', '売却する', 'primary')) app.update((s) => A.sellLand(s, f.id), { undo: true }); }, 'sm danger')
+      { v: f.owned ? h('span', null, '評価額 ' + U.man(f.landValue), h('div', { class: 'small muted' }, '売ると約 ' + U.man(A.landSalePrice(f)))) : U.yen(f.rent) + '/10a', cls: 'num' },
+      f.owned ? UI.btn('売却', async () => {
+        const lk = A.landSaleLocked(st);
+        if (lk) { UI.toast(lk, 'bad'); return; }
+        const p = A.landSalePenalty(st, f);
+        const body = h('div', { class: 'notes' },
+          UI.note('info', null, f.name + '（' + U.ha(f.area) + '）を ' + U.man(A.landSalePrice(f)) + ' で売却します。' + (f.soil === 'poor' ? '条件不利地は買い手が少なく、評価額の6割ほどでしか売れません。' : '')),
+          UI.note('bad', '売ると失うもの', h('ul', { class: 'loss-list' },
+            h('li', null, '地域の信頼 −' + p.trust + (f.heritage ? '（先祖代々の田を手放すため、特に大きい）' : '')),
+            h('li', null, 'これから' + p.ban + '年間、新しい農地の話（借りる・買う）が来なくなる'),
+            h('li', null, '経営面積が減り、つなぎ資金の融資枠も約' + U.man(p.credit) + '小さくなる（農地が担保だったため）'),
+            p.abandon ? h('li', null, '買った人も山の田は作らず、集落の荒れた田が ' + U.ha(f.area) + ' 増える') : null,
+            p.buyer ? h('li', null, '買い手は' + p.buyer + '。ライバルの経営が大きくなる') : null,
+            h('li', null, '農地の売却は1年に1枚まで。買い戻すことはできない'))));
+        if (await UI.confirm('農地を売却しますか？', body, '売却する', 'primary')) app.update((s) => A.sellLand(s, f.id), { undo: true });
+      }, 'sm danger')
         : UI.btn('返す', async () => { if (await UI.confirm('借地を返しますか？', f.name + '（' + U.ha(f.area) + '）を地主に返します。地域の信頼が下がります（−5）。', '返す', 'primary')) app.update((s) => A.returnLand(s, f.id), { undo: true }); }, 'sm danger'),
     ]);
     const lp = st.offers.land.find((o) => o.buy);
@@ -425,14 +465,17 @@
       capRows.push([D.MACHINE_TYPES[t].icon + ' ' + D.MACHINE_TYPES[t].name, { v: U.ha(M.need), cls: 'num' }, { v: U.ha(M.cap), cls: 'num' },
         h('div', { class: 'row', style: { flexWrap: 'nowrap' } }, UI.bar(Math.min(M.need, M.cap), M.need), h('span', { class: 'small' }, M.need > 0 ? 'カバー率 ' + U.pct(M.own / M.need) : '—')), '—', '—', '—']);
     });
+    const bctx = SIM.breakdownCtx(st); // 平年の天候で、今の計画のときの故障の見込み
     const owned = st.machines.map((m) => {
       const md = D.MODELS[m.model];
-      return [h('span', null, md.name, m.lease ? h('span', { class: 'badge info', style: { marginLeft: '4px' } }, 'リース') : m.used ? h('span', { class: 'badge', style: { marginLeft: '4px' } }, '中古') : null),
+      const risk = SIM.breakdownRisk(st, m, bctx);
+      return [h('span', null, md.name, m.lease ? h('span', { class: 'badge info', style: { marginLeft: '4px' } }, 'リース') : m.used ? h('span', { class: 'badge', style: { marginLeft: '4px' } }, '中古') : null,
+        md.cap && risk.factors.length ? h('div', { class: 'bd-why' }, risk.factors.map((x) => h('span', null, '⚠ ' + x.label)))  : null),
         { v: m.age + '年', cls: 'num' },
         { v: m.lease ? '残り' + m.leaseYearsLeft + '年' : U.man(m.book), cls: 'num' },
         { v: m.lease ? U.man(m.leaseFee) + '/年' : U.man(SIM.marketValue(m)), cls: 'num' },
         { v: m.lease ? '込み' : U.man(SIM.repairCost(m, mInf)), cls: 'num' },
-        { v: md.cap ? U.pct(SIM.breakdownProb(m)) : '—', cls: 'num ' + (SIM.breakdownProb(m) > 0.1 ? 'neg' : '') },
+        { v: md.cap ? U.pct(risk.p) : '—', cls: 'num ' + (risk.p > 0.1 ? 'neg' : '') },
         UI.btn(m.lease ? '解約' : '売却', async () => {
           const msg = m.lease ? md.name + 'のリースを解約します。中途解約金として1年分のリース料（' + U.man(m.leaseFee) + '）がかかります。'
             : md.name + 'を ' + U.man(SIM.marketValue(m)) + ' で売却します（簿価 ' + U.man(m.book) + '、差額は売却' + (SIM.marketValue(m) >= m.book ? '益' : '損') + 'になります）。';
@@ -455,7 +498,7 @@
             return [md.name, { v: md.cap ? U.ha(md.cap) : '—', cls: 'num' }, { v: md.cap && md.eff < 1 ? '−' + U.pct(1 - md.eff) : '—', cls: 'num' },
               { v: h('span', null, U.man(price), sub ? h('span', { class: 'badge good', style: { marginLeft: '4px' } }, '補助1/2') : null), cls: 'num' },
               { v: U.man(price / md.life), cls: 'num' }, { v: U.man(md.price * mInf * D.MACHINE.leaseRate), cls: 'num' },
-              A.machineLock(st, k, 'cash') ? h('span', { class: 'lock small' }, '🔒 経営面積25ha以上で') : h('div', { class: 'row', style: { flexWrap: 'nowrap' } },
+              A.machineLock(st, k, 'cash') ? h('span', { class: 'lock small' }, '🔒 経営面積15ha以上で') : h('div', { class: 'row', style: { flexWrap: 'nowrap' } },
                 UI.btn('現金', () => app.update((s) => A.buyMachine(s, k, 'cash'), { undo: true, msg: md.name + 'を購入しました' }), 'sm', { disabled: st.cash < price }),
                 UI.btn('借入', () => app.update((s) => A.buyMachine(s, k, 'loan'), { undo: true, msg: md.name + 'を借入で購入しました' }), 'sm'),
                 A.machineLock(st, k, 'lease') ? null : UI.btn('リース', () => app.update((s) => A.buyMachine(s, k, 'lease'), { undo: true, msg: md.name + 'をリースしました' }), 'sm'))];
@@ -474,7 +517,8 @@
         h('p', { class: 'small muted' }, '能力を超えた分は自動的に', T('作業委託'), 'になります（委託先が引き受けられるのは作業ごとに約' + U.ha(SIM.contractCap(st)) + 'まで。', T('地域の信頼'), 'が高いほど増えます）。「全部委託なら」と、機械を買った場合の年間の', T('減価償却', '償却費'), '＋修理費を比べてみましょう。')),
       UI.card('持っている機械', st.machines.length + '台',
         st.machines.length ? UI.table([{ label: '機械' }, { label: '使用年数', num: true }, { label: T('簿価'), num: true }, { label: '売却額（時価）', num: true }, { label: '修理費見込み', num: true }, { label: '故障率', num: true }, { label: '' }], owned)
-          : h('p', { class: 'muted' }, '機械を持っていません。作業はすべて委託しています。')),
+          : h('p', { class: 'muted' }, '機械を持っていません。作業はすべて委託しています。'),
+        st.machines.length ? h('p', { class: 'small muted' }, '故障率は平年の天候での見込みです。年数のほか、能力いっぱいで酷使する、条件の悪い田が多い、直播の稲が倒れやすいときに上がります。その年に台風や大雨で稲が倒れるとコンバインが、秋雨が続くとコンバインと乾燥機が、さらに壊れやすくなります。') : null),
       RG.era && RG.era.featLocked(st, 'used') ? UI.card('🔧 中古機械の出物', null, h('div', { class: 'locked-card' }, h('span', { class: 'lock-ic', 'aria-hidden': 'true' }, '🔒'), h('div', null, h('b', null, RG.era.lockText(st, 'used').replace('🔒 ', '')))))
         : used.length ? UI.card('中古機械の出物', '今年だけ', h('div', { class: 'offers' }, used)) : null,
       UI.card('機械を導入する', sub ? '補助事業に採択されています（新品1台が半額）' : null,
@@ -486,6 +530,36 @@
   }
 
   // ---------- 労働力 ----------
+  // 季節ごとの配分：家族・社員の時間をどの季節にまわすか、季節ごとのパートの人数
+  function allocCard(app, st, L) {
+    const perSeason = !!st.partSeason;
+    const cols = D.SEASONS.map((s) => {
+      const x = L.seasons[s], share = S.laborShare(st, s), ok = x.ratio <= 0.01;
+      return h('div', { class: 'alloc-col ' + (ok ? 'good' : 'bad') },
+        h('div', { class: 'ac-h' }, h('span', { 'aria-hidden': 'true' }, D.SEASON_ICON[s]), ' ', D.SEASON_SHORT[s]),
+        h('div', { class: 'ac-l' }, '家族・社員'),
+        h('div', { class: 'ac-step' },
+          UI.btn('−', () => app.update((t) => S.shiftLabor(t, s, -0.02)), 'sm ac-btn', { 'aria-label': D.SEASON_SHORT[s] + 'の家族・社員の時間を減らす' }),
+          h('b', null, Math.round(share * 100) + '%'),
+          UI.btn('＋', () => app.update((t) => S.shiftLabor(t, s, 0.02)), 'sm ac-btn', { 'aria-label': D.SEASON_SHORT[s] + 'の家族・社員の時間を増やす' })),
+        h('div', { class: 'ac-sub' }, U.num(x.family + x.staff) + 'h'),
+        h('div', { class: 'ac-l' }, 'パート（人）'),
+        perSeason ? UI.numInput({ value: st.partSeason[s], min: 0, max: 30, width: 52, label: D.SEASON_SHORT[s] + 'のパートの人数',
+          onChange: (v) => app.update((t) => S.setPartSeason(t, s, v)) })
+          : h('div', { class: 'ac-sub' }, st.partTimers + '人'),
+        h('div', { class: 'ac-need' }, '必要 ' + U.num(x.need) + 'h'),
+        h('div', { class: 'ac-res' }, ok ? '💪 足りる' : '😓 ' + U.num(x.short) + 'h 不足'));
+    });
+    return UI.card('🗓️ 季節ごとの配分', '家族・社員が働く時間の割り振りと、季節ごとのパートの人数',
+      h('div', { class: 'alloc-grid' }, cols),
+      h('div', { class: 'row', style: { marginTop: '10px' } },
+        UI.btn('🪄 おまかせ（忙しい季節に寄せる）', () => app.update((t) => S.autoLaborSplit(t, L.need), { msg: '必要な時間に合わせて配分しました' }), 'sm primary'),
+        st.laborSplit ? UI.btn('標準に戻す', () => app.update((t) => { t.laborSplit = null; }), 'sm') : null,
+        UI.btn(perSeason ? 'パートをどの季節も同じ人数にする' : 'パートを季節ごとに決める', () => app.update((t) => {
+          if (t.partSeason) t.partSeason = null; else S.setPartSeason(t, 'spring', t.partTimers);
+        }), 'sm')),
+      h('p', { class: 'small muted' }, '家族と社員の1年の働ける時間を、どの季節にまわすかを決めます（1つの季節は年間の1割〜4割）。田植えの春と稲刈りの秋に寄せると、冬は休みが増えます。パートは、いちばん多い季節の人数を募集します（募集費は人数分）。'));
+  }
   function tabLabor(app, st, pv) {
     const L = pv.labor;
     const seasonRows = D.SEASONS.map((s) => {
@@ -513,14 +587,17 @@
         h('div', { class: 'kpis', style: { marginTop: '10px' } },
           UI.kpi('年間の労働時間', U.num(L.totalHours) + 'h'), UI.kpi('10aあたり', U.num(L.hoursPer10a, 1) + 'h', '機械が大きいほど短くなる'),
           UI.kpi('パートの見込み', U.num(L.partHours) + 'h', U.man(L.partCost) + '（時給 ' + U.yen(L.partWage) + '）'))),
+      allocCard(app, st, L),
+      RG.screens.workPlanCard(app, st),
       UI.card('作業ごとの時間', null, UI.table([{ label: '作業' }, { label: '季節' }, { label: '時間', num: true }, { label: '委託面積', num: true }], opRows)),
       h('div', { class: 'grid2' },
         UI.card('家族', null, UI.table(null, st.family.map((f) => [f.name, h('span', { class: 'muted' }, f.role + (f.age != null ? '・' + f.age + '歳' : '')),
           { v: S.effHours(f) < f.hours - 0.5 ? h('span', null, U.num(S.effHours(f)) + 'h/年', h('div', { class: 'small muted' }, '年齢で減少（本来 ' + U.num(f.hours) + 'h）')) : U.num(f.hours) + 'h/年', cls: 'num' }])),
           h('p', { class: 'small muted' }, '家族の労働には給料を払いませんが、', T('機会費用'), 'があります。決算で「', T('時間当たり所得'), '」を確認しましょう。')),
         UI.card('パート', '忙しい季節だけ来てもらう',
-          h('div', { class: 'row' }, h('span', null, '人数'), UI.numInput({ value: st.partTimers, min: 0, max: 30, width: 70, suffix: '人', label: 'パートの人数',
-            onChange: (v) => app.update((s) => { s.partTimers = Math.round(v); }) })),
+          st.partSeason ? h('p', { class: 'small' }, '季節ごとに決めています：' + D.SEASONS.map((x) => D.SEASON_SHORT[x] + ' ' + st.partSeason[x] + '人').join('・') + '（上の「季節ごとの配分」で変えられます）')
+            : h('div', { class: 'row' }, h('span', null, '人数'), UI.numInput({ value: st.partTimers, min: 0, max: 30, width: 70, suffix: '人', label: 'パートの人数',
+              onChange: (v) => app.update((s) => { s.partTimers = Math.round(v); }) })),
           h('p', { class: 'small muted' }, '1人あたり 春160h・夏100h・秋160h・冬60h まで。使った時間分の賃金と、募集費 ' + U.yen(D.LABOR.partRecruit) + '/人 がかかります。'))),
       UI.card('正社員', '年 ' + U.num(D.LABOR.staffHours) + '時間働ける。給与は毎月かかる固定費',
         st.staff.length ? UI.table([{ label: '名前' }, { label: '勤続', num: true }, { label: '年間の人件費', num: true }, { label: '' }], st.staff.map((s) => [s.name, { v: s.years + '年', cls: 'num' },
@@ -565,6 +642,7 @@
       const vol = U.sum(S.contracts, (c) => c.volume), rev = U.sum(S.contracts, (c) => c.revenue);
       channel.push(['契約販売', { v: U.bales(vol), cls: 'num' }, { v: U.man(rev), cls: 'num' }, { v: U.yen(vol > 0 ? rev / vol - D.COST.contractShip : 0), cls: 'num' }]);
     }
+    (S.shops || []).forEach((x) => channel.push([x.icon + ' ' + x.name, { v: U.bales(x.sold), cls: 'num' }, { v: U.man(x.revenue), cls: 'num' }, { v: U.yen(x.unit), cls: 'num' }]));
     if (d.sold > 0) channel.push(['直販', { v: U.bales(d.sold), cls: 'num' }, { v: U.man(d.revenue), cls: 'num' }, { v: U.yen(d.perBaleNet), cls: 'num' }]);
     S.ja.forEach((j) => channel.push(['農協出荷（' + j.label + '）', { v: U.bales(j.bales), cls: 'num' }, { v: U.man(j.revenue), cls: 'num' }, { v: U.yen(j.unit - D.COST.jaFee), cls: 'num' }]));
     S.spot.forEach((j) => channel.push(['スポット（' + j.label + '）', { v: U.bales(j.bales), cls: 'num' }, { v: U.man(j.revenue), cls: 'num' }, { v: U.yen(j.unit - D.COST.spotFee), cls: 'num' }]));
@@ -572,7 +650,7 @@
 
     // 売り分けの帯（どこに何俵売るか）
     const split = [
-      ['🤝', '契約', U.sum(S.contracts, (c) => c.delivered), '#5aa6e0'], ['📦', '直販', S.direct.sold, '#e9a52a'], ['🏢', '農協', U.sum(S.ja, (j) => j.bales), '#58a650'],
+      ['🤝', '契約', U.sum(S.contracts, (c) => c.delivered), '#5aa6e0'], ['🏪', '米屋・商店', U.sum(S.shops || [], (x) => x.sold), '#d0703a'], ['📦', '直販', S.direct.sold, '#e9a52a'], ['🏢', '農協', U.sum(S.ja, (j) => j.bales), '#58a650'],
       ['⏳', '保管', S.stockEnd ? S.stockEnd.bales : 0, '#9b7ad0'], ['🍡', '加工', S.biz && S.biz.proc ? S.biz.proc.bales : 0, '#e57a9a'],
       ['🏷️', 'スポット', U.sum(S.spot, (j) => j.bales), '#a0a0a0'], ['🐄', '飼料用', S.feed.bales, '#b38b5a']].filter((x) => x[2] > 0.5);
     const tot = U.sum(split, (x) => x[2]) || 1;
@@ -582,6 +660,7 @@
     return h('div', { class: 'stack' },
       splitCard,
       RG.screens.storageCard(app, st, pv),
+      shopsCard(app, st, pv),
       UI.card('販路ごとの見込み', '平年作・予想米価 ' + U.yen(w.forecast) + '/60kg',
         UI.table([{ label: '販路' }, { label: '数量', num: true }, { label: '売上', num: true }, { label: '1俵あたり手取り', num: true }], channel),
         h('p', { class: 'small muted' }, '手取り＝価格から販売経費を引いた額（直販は精米・包装・決済手数料を差し引き）。農協への出荷代金は10月に', T('概算金'), '、残りは翌年6月に追加払い。')),
@@ -616,11 +695,30 @@
             h('p', { class: 'small muted' }, '1人のお客さんは年に約30kg（0.5俵）買います。参考価格より高いと需要が減り、リピート率も下がります。', T('顧客獲得単価'), 'は約' + U.yen(D.DIRECT.cac) + '。直販の代金は45%が年内、残りは翌年にかけて入金されます。')))));
   }
 
+  // ---------- 地元の米屋・商店への出荷 ----------
+  function shopsCard(app, st, pv) {
+    const S = pv.sales;
+    const rows = D.SHOPS.map((sh) => {
+      const x = (S.shops || []).find((y) => y.id === sh.id);
+      return h('div', { class: 'shop-row' },
+        h('div', { class: 'shop-h' }, h('span', { class: 'shop-ic', 'aria-hidden': 'true' }, sh.icon), h('b', null, sh.name),
+          h('span', { class: 'badge good' }, '農協価格＋' + Math.round((sh.premium - 1) * 100) + '%')),
+        h('div', { class: 'small muted' }, sh.desc),
+        h('div', { class: 'small' }, '⚠️ ' + Math.round(1 / sh.risk) + '年に1度くらい、売れ行きが悪くて出荷した米の' + Math.round(sh.take[0] * 100) + '〜' + Math.round(sh.take[1] * 100) + '%しか引き取れない年がある（残りは農協価格の' + Math.round(D.SALES.shopReturnRate * 100) + '%で売るしかない）'),
+        h('div', { class: 'row' },
+          UI.numInput({ value: (st.shops || {})[sh.id] || 0, min: 0, max: sh.max, step: 10, width: 90, suffix: '俵（上限 ' + sh.max + '俵）', label: sh.name + 'に出荷する量',
+            onChange: (v) => app.update((t) => { t.shops = t.shops || {}; t.shops[sh.id] = Math.round(v); }) }),
+          x ? h('span', { class: 'small' }, '見込み ' + U.bales(x.shipped) + '・' + U.man(x.revenue) + '（全部引き取ってもらえた場合）') : null));
+    });
+    return UI.card('🏪 地元の米屋・商店への出荷', '農協より高く買ってくれる。その代わり、全部は引き取ってもらえない年がある', h('div', { class: 'shop-rows' }, rows),
+      h('p', { class: 'small muted' }, '出荷できるのは、主食用のうるち米（もち米・酒米・飼料用米は除く）です。代金は11月と12月に半分ずつ入ります。引き取ってもらえなかった米は、農協価格の' + Math.round(D.SALES.shopReturnRate * 100) + '%で売ることになります（時期が遅れて買いたたかれるため）。'));
+  }
+
   // ---------- 資金・保険 ----------
   function tabFinance(app, st, pv) {
     const bs = ACC.bs(st);
     const kinds = A.loanKinds(st);
-    const kindKeys = Object.keys(kinds);
+    const kindKeys = Object.keys(kinds).filter((k) => k !== 'nointerest'); // 無利子資金は機械を買うときだけ
     if (!kinds[app.loanKind]) app.loanKind = kindKeys[0];
     const loanRows = st.loans.map((l) => {
       const annualP = l.newThisYear || l.grace > 0 ? 0 : Math.min(l.balance, l.original / Math.max(1, l.repayYears || l.term));
@@ -664,12 +762,18 @@
         st.emergency > 0 ? h('div', { class: 'row', style: { marginTop: '8px' } }, h('span', null, 'つなぎ資金 ' + U.man(st.emergency)),
           UI.btn('手元資金で返す', () => app.update((s) => A.repayEmergency(s, Math.min(s.emergency, s.cash)), { undo: true, msg: 'つなぎ資金を返済しました' }), 'sm')) : null,
         h('h4', { style: { margin: '12px 0 6px' } }, '長期資金を借りる'),
+        h('p', { class: 'small' }, '今年あと ' + Math.max(0, D.FIN.loansPerYear - ((st.yearFlags || {}).newLoans || 0)) + ' 件申し込めます（使い道を決めない運転資金の借入は1年に' + D.FIN.loansPerYear + '件まで。機械・施設・農地を借入で買うのは別）' +
+          (SIM.noInterestAvailable(st) > 0 ? '。無利子資金の残り ' + U.man(SIM.noInterestAvailable(st)) + ' は、' + D.FIN.noInterestYears + '年目まで、機械・施設を借入で買うときに自動で使われます。' : '。')),
+        A.loanLock(st) ? UI.note('warn', null, A.loanLock(st)) : null,
         h('div', { class: 'row' },
           UI.select(kindKeys.map((k) => ({ value: k, label: kinds[k].name + '・年利' + U.pct(kinds[k].rate, 1) })), app.loanKind, (v) => { app.loanKind = v; app.keepScroll = true; app.render(); }, { 'aria-label': '借入の種類' }),
           UI.numInput({ value: loanAmt, min: 100000, max: 200000000, step: 100000, width: 130, suffix: '円', label: '借入額', onChange: (v) => { app.loanAmt = v; loanAmt = v; } }),
           UI.btn('借りる', () => app.update((s) => A.takeLoan(s, app.loanKind, app.loanAmt || loanAmt), { undo: true, msg: '借入しました' }), 'sm primary')),
         h('p', { class: 'small muted' }, '長期資金は', T('元金均等返済'), '。借りた年は利息だけで、翌年から毎年12月に元金を返します。返済の原資は「利益＋減価償却費」（', T('償還財源'), '）です。')),
       UI.card('保険', '不作や値下がりへの備え', h('div', { class: 'radio-cards' }, ins)),
+      SIM.livingVaries(st) ? UI.card(h('span', null, '🏠 ', T('家計費'), '（生活費）'), '年 約' + U.man(st.living) + '（月平均 約' + U.man(st.living / 12) + '）',
+        h('p', { class: 'small' }, '物語では、生活費は自分では決められません。毎月の出費は、季節（正月・お盆・年末は多め）や、暮らしのできごと（冠婚葬祭・車の車検や修理・家電の買い替えなど）で上下します。1年の平均は上の額くらいです。'),
+        h('p', { class: 'small muted keep' }, '急な出費にも困らないよう、手元の資金に少しゆとりを持たせておきましょう。')) :
       UI.card(st.corp ? '役員報酬' : h('span', null, T('家計費'), '（生活費）'), st.corp ? '経営者の給料。経費になる' : '農業所得から生活費を引き出します',
         h('div', { class: 'row' }, UI.numInput({ value: st.corp ? st.execPay : st.living, min: st.corp ? D.FIN.livingMin : Math.min(D.FIN.livingMin, st.living), max: 30000000, step: 100000, width: 130, suffix: '円/年', label: st.corp ? '役員報酬' : '家計費',
           onChange: (v) => app.update((s) => { if (s.corp) s.execPay = Math.round(v); else s.living = Math.round(v); }) })),

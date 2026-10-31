@@ -14,7 +14,7 @@
       id, name: spec.name || place + id.slice(1) + '号',
       area: spec.area, soil: spec.soil, yieldMult: soil.yieldMult, laborMult: soil.laborMult,
       owned: !!spec.owned, rent: spec.owned ? 0 : (spec.rent != null ? spec.rent : 10000),
-      landValue: spec.owned ? (spec.landValue || spec.area * 10 * 800000) : 0,
+      landValue: spec.owned ? (spec.landValue || spec.area * 10 * D.LAND_VALUE[spec.soil]) : 0,
     };
   };
 
@@ -60,7 +60,7 @@
       version: S.VERSION, seed: opts.seed, scenarioId: opts.scenarioId, farmName: opts.farmName || '稲穂ファーム',
       // mode：'story'＝ストーリー（20年・章と依頼と試練）、'endless'＝自分の経営（区切りなく続けられる）
       mode: S.modeOf(opts), year: 1, maxYear: sc.maxYear || D.MAX_YEAR, phase: 'event', nextId: 1, midterms: [], items: { omamori: 1, reroll: 1 },
-      storePlan: 0, stock: null, biz: { harvest: 0, drone: 0, proc: 0, droneLicense: false },
+      storePlan: 0, stock: null, shops: {}, biz: { harvest: 0, drone: 0, proc: 0, droneLicense: false },
       titles: {}, stats: { sixes: 0, omamori: 0, gambles: 0, guards: 0, typhoonWin: 0, counted: 0 }, rivalLand: [],
       corp: !!sc.corp, cash: sc.cash, yearStartCash: sc.cash, ledger: [], receivables: [],
       taxPayable: 0, taxPayMonth: 3, lossCarry: 0, emergency: 0,
@@ -81,7 +81,7 @@
       history: [], lastResult: null, negEquityYears: 0, gameOver: null, retired: null,
       custom: opts.scenarioId === 'custom' ? U.clone(opts.custom) : null,
     };
-    sc.fields.forEach((f) => st.fields.push(S.makePlot(st, f)));
+    sc.fields.forEach((f) => { const p = S.makePlot(st, f); if (p.owned && !sc.corp) p.heritage = true; st.fields.push(p); });
     if (sc.plan) sc.plan.forEach((r) => st.plan.push(S.makeRow(st, r.crop, 'conv', 'transplant', r.area)));
     else st.plan.push(S.makeRow(st, sc.defaultCrop, 'conv', 'transplant', S.totalArea(st)));
     sc.machines.forEach((m) => {
@@ -126,6 +126,7 @@
     if (!st.starter) return;
     st.plan = st.starter.plan.map((r) => S.makeRow(st, r.crop, r.cult, r.sow, r.area));
     st.partTimers = st.starter.partTimers;
+    st.partSeason = null;
     st.direct.alloc = st.starter.directAlloc;
     st.jaAdvance = { on: true, auto: true, qty: 0 };
   };
@@ -146,6 +147,10 @@
     if (pr.id === 'starter') {
       if (!st.starter) return 'この経営には、おすすめの型がありません';
       st.plan = st.starter.plan.map((r) => S.makeRow(st, r.crop, r.cult, r.sow, r.area));
+      // 始めたときから経営面積が変わっていたら、今の面積に合わせる
+      S.fitPlan(st);
+      const gap = U.round(S.totalArea(st) - S.plannedArea(st), 1);
+      if (gap > 0.05) S.addPlanArea(st, gap);
       return null;
     }
     const total = S.totalArea(st);
@@ -161,6 +166,61 @@
       left = U.round(left - area, 1);
     });
     return null;
+  };
+
+  // ---------- 季節ごとの労働力の配分 ----------
+  // 家族・社員の年間の労働時間を、どの季節に何割まわすか（null なら標準の D.SEASON_CAP）
+  S.laborShare = (st, s) => (st.laborSplit ? st.laborSplit[s] : D.SEASON_CAP[s]);
+  // パートの人数（季節ごとに決めていなければ、どの季節も同じ人数）
+  S.partsIn = (st, s) => (st.partSeason ? st.partSeason[s] : st.partTimers);
+  const fixSplit = (sp) => {
+    // 幅（10〜40%）に収めて、合計を100%にする
+    for (let k = 0; k < 10; k++) {
+      D.SEASONS.forEach((s) => { sp[s] = U.clamp(sp[s], D.SEASON_SHARE_MIN, D.SEASON_SHARE_MAX); });
+      const tot = U.sum(D.SEASONS, (s) => sp[s]);
+      if (Math.abs(tot - 1) < 1e-6) break;
+      const free = D.SEASONS.filter((s) => (tot > 1 ? sp[s] > D.SEASON_SHARE_MIN + 1e-9 : sp[s] < D.SEASON_SHARE_MAX - 1e-9));
+      const fsum = U.sum(free, (s) => sp[s]) || 1;
+      free.forEach((s) => { sp[s] -= (tot - 1) * sp[s] / fsum; });
+    }
+    D.SEASONS.forEach((s) => { sp[s] = U.round(sp[s], 3); });
+    return sp;
+  };
+  // ある季節の割合を delta だけ増やす（ほかの季節から、割合に応じて減らす）
+  S.shiftLabor = function (st, s, delta) {
+    const sp = Object.assign({}, st.laborSplit || D.SEASON_CAP);
+    const want = U.clamp(sp[s] + delta, D.SEASON_SHARE_MIN, D.SEASON_SHARE_MAX);
+    const d = want - sp[s];
+    if (Math.abs(d) < 1e-6) return d > 0 || delta > 0 ? 'これ以上は増やせません（1つの季節は年間の4割まで）' : 'これ以上は減らせません（1つの季節は年間の1割まで）';
+    const others = D.SEASONS.filter((x) => x !== s);
+    const room = others.map((x) => (d > 0 ? sp[x] - D.SEASON_SHARE_MIN : D.SEASON_SHARE_MAX - sp[x]));
+    const rsum = U.sum(room);
+    if (rsum < 1e-6) return 'ほかの季節から回せる時間がありません';
+    const dd = Math.sign(d) * Math.min(Math.abs(d), rsum);
+    others.forEach((x, i) => { sp[x] -= dd * room[i] / rsum; });
+    sp[s] += dd;
+    st.laborSplit = fixSplit(sp);
+    return null;
+  };
+  // おまかせ：必要な時間に合わせて配分する（need：季節ごとの必要時間）
+  S.autoLaborSplit = function (st, need) {
+    const tot = U.sum(D.SEASONS, (s) => need[s]);
+    if (tot <= 0) { st.laborSplit = null; return null; }
+    const sp = {};
+    D.SEASONS.forEach((s) => { sp[s] = need[s] / tot; });
+    st.laborSplit = fixSplit(sp);
+    return null;
+  };
+  S.setPartSeason = function (st, s, n) {
+    if (!st.partSeason) st.partSeason = { spring: st.partTimers, summer: st.partTimers, autumn: st.partTimers, winter: st.partTimers };
+    st.partSeason[s] = U.clamp(Math.round(n), 0, 30);
+    st.partTimers = Math.max.apply(null, D.SEASONS.map((x) => st.partSeason[x])); // 募集する人数＝いちばん多い季節の人数
+    return null;
+  };
+  // パートを増やす（できごとなど）。季節ごとに決めているときは、どの季節も増やす
+  S.addParts = function (st, n) {
+    st.partTimers = Math.max(0, st.partTimers + n);
+    if (st.partSeason) D.SEASONS.forEach((s) => { st.partSeason[s] = Math.max(0, st.partSeason[s] + n); });
   };
 
   // ---------- 年齢と働ける時間 ----------
@@ -205,7 +265,7 @@
         let soil = 'normal';
         if (poorLeft > 0.05) { soil = 'poor'; a = Math.min(a, poorLeft); poorLeft = U.round(poorLeft - a, 1); }
         a = U.round(a, 1);
-        fields.push({ area: a, soil, owned: isOwned, rent: soil === 'poor' ? Math.round(rent * 0.6) : rent, landValue: a * 10 * 700000 });
+        fields.push({ area: a, soil, owned: isOwned, rent: soil === 'poor' ? Math.round(rent * 0.6) : rent, landValue: a * 10 * (soil === 'poor' ? D.LAND_VALUE.poor : 700000) });
         left = U.round(left - a, 1);
       }
     };

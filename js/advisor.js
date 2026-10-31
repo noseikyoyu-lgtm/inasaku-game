@@ -146,7 +146,7 @@
     });
     const und = D.OP_ORDER.filter((k) => res.labor.ops[k].undone > 0.05);
     if (und.length) bad('作業が追いつかなかった', und.map((k) => res.labor.ops[k].name + ' ' + U.ha(res.labor.ops[k].undone)).join('、') + ' を適期に作業できず、収量 ' + U.pct(res.production.delayY - 1) + '・品質も低下しました。面積に見合った機械をそろえましょう。');
-    res.broken.forEach((b) => warn('機械の故障', b.name + 'が故障しました。古い機械ほど故障しやすく、修理費もかさみます。'));
+    res.broken.forEach((b) => warn('機械の故障', b.name + 'が故障しました。' + (b.why && b.why.length ? b.why.join('・') + 'で、故障しやすくなっていました。' : '') + '古い機械や、能力いっぱいで使う機械ほど故障しやすく、修理費もかさみます。'))
 
     // 労働
     const worst = D.SEASONS.reduce((a, s) => (res.labor.seasons[s].ratio > res.labor.seasons[a].ratio ? s : a), 'spring');

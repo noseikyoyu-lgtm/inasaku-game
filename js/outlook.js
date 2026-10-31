@@ -90,7 +90,7 @@
     st.scrapped = [];
     for (let i = 0; i < 12; i++) {
       const pv = SIM.simulate(st, { preview: true });
-      if (D.SEASONS.some((s) => pv.labor.seasons[s].ratio > 0.01)) st.partTimers += 1; else break;
+      if (D.SEASONS.some((s) => pv.labor.seasons[s].ratio > 0.01)) RG.state.addParts(st, 1); else break;
     }
     const pv = SIM.simulate(st, { preview: true });
     st.shortLoan = pv.cash.minBalance < 500000 ? Math.min(SIM.shortLoanLimit(st), Math.ceil((500000 - pv.cash.minBalance) / 100000) * 100000) : 0;

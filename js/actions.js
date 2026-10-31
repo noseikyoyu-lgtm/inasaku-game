@@ -34,14 +34,36 @@
     return null;
   };
 
+  // 売るときの値段：評価額に、田の条件ごとの割合をかける（条件不利地は買い手が少ない）
+  A.landSalePrice = (f) => Math.round(f.landValue * (D.LAND_SALE[f.soil] || 0.9));
+  // 農地を売ると、お金は入るが、ほかのものを失う（資金繰りの抜け道にしないため）
+  A.LAND_SALE_BAN = 3; // 売ったあと、農地の話が来なくなる年数
+  A.landSalePenalty = function (st, f) {
+    const abandon = !!(f.village && st.village && f.soil === 'poor'); // 棚田：山の田は買った人も作らず荒れてしまう
+    const big = st.rivals && st.rivals.find((x) => x.id === 'oyama' && x.active);
+    return {
+      trust: 8 + (f.soil === 'poor' ? 2 : 0) + (f.heritage ? 5 : 0),
+      ban: A.LAND_SALE_BAN, abandon, buyer: !abandon && big ? '大山さん' : null,
+      credit: Math.round(f.landValue * 0.3), // 融資枠（つなぎ資金の上限）のうち、農地を担保にしていた分
+    };
+  };
+  A.landSaleLocked = (st) => (st.yearFlags.soldLand ? '農地の売却は1年に1枚までです' : null);
   A.sellLand = function (st, fieldId) {
     const f = st.fields.find((x) => x.id === fieldId);
     if (!f || !f.owned) return '売却できる農地ではありません';
-    const price = Math.round(f.landValue * 0.9);
+    const lk = A.landSaleLocked(st);
+    if (lk) return lk;
+    const price = A.landSalePrice(f), p = A.landSalePenalty(st, f);
     ledger(st, price, 'assetSale', f.name + ' を売却', { gain: price - f.landValue });
     st.fields = st.fields.filter((x) => x.id !== fieldId);
     S.fitPlan(st);
-    st.trust = Math.max(0, st.trust - 3);
+    st.trust = Math.max(0, st.trust - p.trust);
+    st.yearFlags.soldLand = true;
+    st.flags.landSoldYear = st.year;
+    st.flags.landSold = (st.flags.landSold || 0) + 1;
+    if (f.heritage) st.flags.soldHeritage = (st.flags.soldHeritage || 0) + 1;
+    if (p.abandon) st.village.abandoned = U.round(st.village.abandoned + f.area, 1);
+    else if (p.buyer) { const big = st.rivals.find((x) => x.id === 'oyama'); big.area = U.round(big.area + f.area, 1); }
     return null;
   };
 
@@ -147,12 +169,23 @@
     return k;
   };
 
-  A.takeLoan = function (st, kindKey, amount, silentPrefer) {
+  // 新しい借入の審査：1年の件数と、前年の返済能力（債務償還年数）
+  A.loanLock = function (st, forPurchase) {
+    const n = (st.yearFlags || {}).newLoans || 0;
+    if (!forPurchase && n >= D.FIN.loansPerYear) return '使い道を決めない運転資金の借入は1年に' + D.FIN.loansPerYear + '件までです（金融機関の審査に時間がかかるため。来年また申し込めます。機械・施設・農地を借入で買うのは別）';
+    const an = st.lastResult && st.lastResult.analysis;
+    if (an && an.debt > 0 && !(an.repayYears <= D.FIN.maxRepayYears)) return '前年の決算で、借入を返すのに' + (isFinite(an.repayYears) ? '約' + Math.round(an.repayYears) + '年' : '返す原資がなく、何年でも') + 'かかる見込みのため、新しい借入の審査に通りませんでした（' + D.FIN.maxRepayYears + '年以内が目安）';
+    return null;
+  };
+  A.takeLoan = function (st, kindKey, amount, forPurchase) {
     amount = Math.round(amount);
     if (!(amount > 0)) return '金額を入力してください';
+    const lk = A.loanLock(st, forPurchase);
+    if (lk) return lk;
     const kinds = A.loanKinds(st);
-    // 新規就農者は無利子資金を優先して使う
-    if (silentPrefer && kinds.nointerest && SIM.noInterestAvailable(st) >= amount) kindKey = 'nointerest';
+    // 機械・施設・農地を買うときは、無利子資金の枠があればそれを使う（無利子資金は使い道が決まっている）
+    if (forPurchase && kinds.nointerest && SIM.noInterestAvailable(st) >= amount) kindKey = 'nointerest';
+    if (kindKey === 'nointerest' && !forPurchase) return '無利子資金は、機械・施設を買うときだけ使えます（「機械・設備」タブで借入で購入すると自動で使われます）';
     const k = kinds[kindKey];
     if (!k) return 'この借入は利用できません';
     if (k.kind === 'nointerest') {
@@ -165,6 +198,7 @@
     st.loans.push({ id: U.uid(st, 'l'), kind: k.kind, name: k.name.replace(/（.*）/, ''), original: amount, balance: amount,
       rate: k.rate, term: k.term, repayYears: k.term - Math.max(1, grace), yearsLeft: k.term - Math.max(1, grace), grace, newThisYear: true });
     ledger(st, amount, 'loanIn', k.name + ' を借入');
+    if (!forPurchase) st.yearFlags.newLoans = ((st.yearFlags || {}).newLoans || 0) + 1; // 使い道を決めない借入（運転資金）だけ数える
     return null;
   };
 

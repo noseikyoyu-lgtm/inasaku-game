@@ -132,6 +132,42 @@
     UI.modal({ title: '🏅 称号', body: RG.screens.titlesCard(st, true) });
   };
 
+  // ---------- 田植えのあとの作業 ----------
+  // シーズン中の判断のカード（その月で止まって、やり方を選ぶ）
+  RG.screens.workCard = function (app, w) {
+    const st = app.st, FW = RG.fieldwork;
+    const cur = FW.keyOf(st, w.id, true);
+    let remember = false;
+    const W = D.WEATHER[st.world.yearType];
+    return UI.card(w.icon + ' ' + w.title, w.month + '月の田んぼの作業',
+      h('p', null, w.text),
+      w.month >= 7 && W ? h('p', { class: 'small' }, '今年の天候：' + W.icon + ' ' + W.name) : null,
+      h('div', { class: 'work-choices' }, FW.options(st, w).map((o) => h('button', { type: 'button', class: 'btn choice' + (o.key === cur ? ' last' : ''),
+        onclick: () => { FW.choose(st, w.id, o.key, remember); app.autosave(); app.keepScroll = true; app.render(); } },
+        o.label, h('span', { class: 'd' }, o.desc + (o.key === cur && o.key !== 'std' ? '（計画で決めたやり方）' : ''))))),
+      h('label', { class: 'work-remember' }, h('input', { type: 'checkbox', onchange: (e) => { remember = e.target.checked; } }),
+        ' 来年からも同じやり方にして、シーズン中は聞かない（「労働力」タブでいつでも変えられる）'));
+  };
+  // 計画画面：作業のやり方をまとめて決める
+  RG.screens.workPlanCard = function (app, st) {
+    const FW = RG.fieldwork;
+    if (!FW) return null;
+    const ws = FW.state(st);
+    const rows = FW.WORKS.map((w) => {
+      const key = FW.keyOf(st, w.id, true), c = FW.cost(st, w.id, key);
+      return [h('span', null, w.icon + ' ' + w.title, h('div', { class: 'small muted' }, w.month + '月')),
+        UI.select(FW.options(st, w).map((o) => ({ value: o.key, label: o.label })), key, (v) => app.update((t) => FW.setPlan(t, w.id, v)), { 'aria-label': w.title + 'のやり方' }),
+        { v: (Math.abs(c.hours) > 0.5 ? (c.hours > 0 ? '+' : '') + U.num(c.hours) + 'h' : '—') + ' / ' + (Math.abs(c.cost) > 1 ? (c.cost > 0 ? '+' : '−') + U.man(Math.abs(c.cost)) : '—'), cls: 'num' },
+        h('label', { class: 'small' }, h('input', { type: 'checkbox', checked: !ws.auto[w.id], onchange: (e) => app.update((t) => FW.setAuto(t, w.id, !e.target.checked)) }), ' 聞く')];
+    });
+    return UI.card('🌾 田植えのあとの作業', '中干し・穂肥・水管理・防除などのやり方。手間とお金をかけるほど、収量や品質が上がる',
+      UI.table([{ label: '作業' }, { label: 'やり方' }, { label: '手間 / 費用（今年）', num: true }, { label: 'シーズン中' }], rows),
+      h('div', { class: 'row', style: { marginTop: '8px' } },
+        UI.btn('全部シーズン中に聞く', () => app.update((t) => FW.setAllAuto(t, false)), 'sm'),
+        UI.btn('全部このやり方でおまかせ', () => app.update((t) => FW.setAllAuto(t, true)), 'sm')),
+      h('p', { class: 'small muted' }, '「聞く」にした作業は、シーズン中のその月に止まって、天候を見ながら選べます。「標準」は、手間もお金も増えない、いつもどおりのやり方です。水管理は、猛暑の年は掛け流し、冷夏の年は深水が効きます。'));
+  };
+
   // ---------- 解放の一覧（ストーリー：品種・栽培方法・制度・機械・事業） ----------
   const UNLOCK_GROUPS = ['品種', '栽培方法と人', 'お金と制度', '機械', '事業と売り方'];
   const unlockRow = (x) => h('div', { class: 'unlock-item ' + (x.open ? 'open' : 'locked') },

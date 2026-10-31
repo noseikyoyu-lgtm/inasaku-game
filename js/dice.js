@@ -274,6 +274,12 @@
         // まだ選んでいなければ（自動で進めるとき）対策せずにサイコロを振ったことにする
         const face = ch && ch.rolls.length ? ch.rolls[ch.rolls.length - 1] : DI.face(st, 'crisis_' + c.id, 0);
         eff = Object.assign({ face }, DI.outcomeOf(c, face));
+        // 病害虫の勝負は、使っている農薬で被害の大きさが変わる（高い農薬は小さく、安い農薬は大きく）
+        const pm = (c.id === 'blast' || c.id === 'stinkbug') && RG.fieldwork ? (RG.fieldwork.input(st, 'pest').pest || 1) : 1;
+        if (pm !== 1 && eff.kind !== 'good') {
+          eff = Object.assign({}, eff, { y: eff.y ? 1 - (1 - eff.y) * pm : eff.y, q: eff.q ? eff.q * pm : eff.q,
+            text: eff.text + (pm < 1 ? '（長く効く農薬のおかげで、被害は小さくすんだ）' : '（安い農薬が効きにくく、被害が大きくなった）') });
+        }
       }
       if (eff.y) fx.y *= eff.y;
       if (eff.q) fx.q += eff.q;
