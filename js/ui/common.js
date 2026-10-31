@@ -138,8 +138,10 @@
     });
   };
 
-  UI.toast = function (msg, kind) {
+  UI.toast = function (msg, kind, quiet) {
     const root = document.getElementById('toast-root');
+    // 知らせの種類で音を変える（quiet のときは呼んだ側で鳴らす）
+    if (RG.sound && !quiet) RG.sound.play(kind === 'bad' ? 'error' : /🔓/.test(msg) ? 'unlock' : /称号/.test(msg) ? 'medal' : 'ping');
     const t = h('div', { class: 'toast ' + (kind || ''), role: 'status' }, msg);
     root.appendChild(t);
     setTimeout(() => t.remove(), 3200);

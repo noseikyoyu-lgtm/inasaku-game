@@ -32,7 +32,7 @@
           st.gameOver && !viewing ? UI.note('bad', '経営を続けられなくなりました', st.gameOver.text) : null,
           st.retired && !st.gameOver && !viewing ? UI.note('warn', '経営主が引退します', '経営主が' + st.retired.age + '歳になり、引き継げる後継者がいないため、今年で経営を終えます。') : null,
           reportCard(app, st, res, viewing),
-          (res.missionNotes || []).length ? h('div', { class: 'notes' }, res.missionNotes.map((t) => UI.note(/達成|通過/.test(t) ? 'good' : 'warn', null, t))) : null,
+          (res.missionNotes || []).length ? h('div', { class: 'notes' }, res.missionNotes.map((t) => UI.note(/達成|通過|🔓/.test(t) ? 'good' : 'warn', null, t))) : null,
           tabs, body,
           h('div', { class: 'row' }, h('span', { class: 'spacer' }), next))));
   };

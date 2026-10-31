@@ -323,7 +323,13 @@
     const id = d && d.sceneAt[st.year];
     return id && !(st.scenesSeen || {})[id] ? id : null;
   };
-  SC.init = (st) => { const d = SC.def(st); if (d && d.init) d.init(st); };
+  SC.init = (st) => {
+    const d = SC.def(st);
+    if (!d) return;
+    if (RG.era) RG.era.initCrops(st, st.plan.map((r) => r.crop).concat(st.contracts.map((c) => c.crop)));
+    if (d.init) d.init(st);
+    if (st.featOpen && st.machines.some((m) => m.lease)) st.featOpen.lease = true; // リースの機械を引き継いだ経営は、リースを最初から使える
+  };
   SC.beginYear = (st) => { const d = SC.def(st); if (d && d.beginYear) d.beginYear(st); };
   SC.afterYear = (st, res) => { const d = SC.def(st); return d && d.afterYear ? d.afterYear(st, res) : []; };
   SC.ending = (st) => SC.def(st).ending(st, SC.promise(st));
@@ -397,7 +403,7 @@
     title: '集落に移り住みたい若者',
     text: () => '「町から、農業をやりたいという若い夫婦が下見に来とる。あんたのところで働かせてもらえんじゃろうか。いずれは、集落の田んぼを継いでくれるかもしれん」',
     choices: [
-      { label: '社員として迎える', desc: '採用費と給料がかかるが、人手と次の担い手ができる', apply: (st) => { RG.actions.hireStaff(st); st.staff[st.staff.length - 1].name = '移住してきた若者'; st.trust = Math.min(100, st.trust + 3); return '移住してきた若者を社員に迎えた。'; } },
+      { label: '社員として迎える', desc: '採用費と給料がかかるが、人手と次の担い手ができる', apply: (st) => { RG.actions.hireStaff(st, true); st.staff[st.staff.length - 1].name = '移住してきた若者'; st.trust = Math.min(100, st.trust + 3); return '移住してきた若者を社員に迎えた。'; } },
       { label: '研修生として受け入れる', desc: 'しばらくは家族の手伝いのように働いてもらう（年600時間）', apply: (st) => { st.family.push({ id: 'p' + st.family.length, name: '研修生', role: '研修生', hours: 600, age: 27, tag: 'trainee' }); return '研修生として受け入れた。'; } },
       { label: '今は難しい', desc: '', apply: () => '今回は断った。' },
     ],

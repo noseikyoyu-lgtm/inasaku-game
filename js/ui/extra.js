@@ -131,4 +131,34 @@
   RG.screens.showTitles = function (st) {
     UI.modal({ title: '🏅 称号', body: RG.screens.titlesCard(st, true) });
   };
+
+  // ---------- 解放の一覧（ストーリー：品種・栽培方法・制度・機械・事業） ----------
+  const UNLOCK_GROUPS = ['品種', '栽培方法と人', 'お金と制度', '機械', '事業と売り方'];
+  const unlockRow = (x) => h('div', { class: 'unlock-item ' + (x.open ? 'open' : 'locked') },
+    h('span', { class: 'ui-ic', 'aria-hidden': 'true' }, x.open ? x.icon : '🔒'),
+    h('div', null, h('b', null, x.name), x.open ? h('div', { class: 'small good-t' }, '✓ 使える') : h('div', { class: 'small' }, '🔓 きっかけ：' + x.hint)));
+  RG.screens.showUnlocks = function (st) {
+    const list = RG.era.unlockList(st);
+    const body = h('div', { class: 'stack' },
+      h('p', { class: 'small muted keep' }, '使えるもの ' + list.filter((x) => x.open).length + ' / ' + list.length + '。きっかけを満たすと、年の初めか決算のときに使えるようになります。'),
+      UNLOCK_GROUPS.map((g) => {
+        const rows = list.filter((x) => x.group === g);
+        if (!rows.length) return null;
+        return h('section', { class: 'unlock-group' }, h('h3', null, g + '（' + rows.filter((x) => x.open).length + ' / ' + rows.length + '）'),
+          h('div', { class: 'unlock-grid' }, rows.map(unlockRow)));
+      }));
+    UI.modal({ title: '🔓 解放の一覧', body });
+  };
+  // 計画のホーム：まだ使えないもののうち、次に開きそうなものを3つ
+  RG.screens.unlocksCard = function (app, st) {
+    if (!st.featOpen || !RG.era) return null;
+    const list = RG.era.unlockList(st);
+    const locked = list.filter((x) => !x.open);
+    const open = list.length - locked.length;
+    return UI.card('🔓 これから使えるようになるもの', '使えるもの ' + open + ' / ' + list.length,
+      UI.bar(open, list.length),
+      locked.length ? h('div', { class: 'unlock-grid', style: { marginTop: '8px' } }, locked.slice(0, 3).map(unlockRow))
+        : h('p', { class: 'small keep' }, 'すべて使えるようになりました！'),
+      h('div', { class: 'row', style: { marginTop: '8px' } }, UI.btn('全部見る', () => RG.screens.showUnlocks(st), 'sm')));
+  };
 })(window.RG = window.RG || {});

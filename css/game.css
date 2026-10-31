@@ -367,6 +367,18 @@ h2, h3 { font-weight: 900; letter-spacing: .04em; }
 .pr-conds li.ok { font-weight: 700; }
 .pr-star-note li { color: rgba(58, 42, 18, .8); font-size: 13px; }
 .pr-head .face { line-height: 0; }
+.offer.crop-locked { opacity: .78; border-style: dashed; }
+.preset-card.locked { opacity: .6; cursor: not-allowed; border-style: dashed; }
+.preset-card .pc-lock { font-size: 12px; font-weight: 600; color: var(--gold); }
+.unlock-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; }
+.unlock-item { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel-2); min-width: 0; }
+.unlock-item.locked { border-style: dashed; }
+.unlock-item.open { border-color: var(--accent); }
+.unlock-item .ui-ic { font-size: 22px; line-height: 1.2; flex: none; }
+.unlock-item b { display: block; line-height: 1.4; }
+.unlock-item .good-t { color: var(--accent); font-weight: 700; }
+.unlock-group h3 { margin: 4px 0 6px; font-size: 15px; }
+.crop-hint { margin: 4px 0; padding: 4px 8px; border-radius: 8px; background: var(--gold-2); border: 1px solid var(--gold); font-size: 12.5px; font-weight: 600; }
 .vmap-wrap { display: grid; gap: 4px; }
 .vmap { display: grid; grid-template-columns: repeat(15, 1fr); gap: 3px; max-width: 420px; }
 .vmap i { aspect-ratio: 1.6; border-radius: 3px; }

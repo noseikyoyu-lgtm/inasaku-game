@@ -8,7 +8,7 @@
     if (!st || st.phase !== 'scene' || !st.scene) return;
     const lines = SC.lines(st);
     st.scene.i += 1;
-    if (st.scene.i >= lines.length) { SC.finish(st); if (RG.sound) RG.sound.play('good'); } else if (RG.sound) RG.sound.play('click');
+    if (st.scene.i >= lines.length) { SC.finish(st); if (RG.sound) RG.sound.play('good'); } else if (RG.sound) { const nx = lines[st.scene.i]; if (nx.who === 'goal') RG.sound.play('medal'); else RG.sound.voice(nx.who); }
     app.autosave();
     app.render();
   };

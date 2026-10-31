@@ -114,7 +114,7 @@
       const hits = plots.map((p) => ({ p, f: (p.fx || []).find((x) => x.id === ev.id) })).filter((x) => x.f && (x.f.q < -2 || x.f.y < -0.02));
       if (!hits.length) return;
       const weak = hits.filter((x) => x.f.tol < 0.5).map((x) => D.CROPS[x.p.crop].name);
-      const strong = e.tol ? D.CROP_ORDER.filter((k) => !D.CROPS[k].alias && D.CROPS[k][e.tol] >= 0.75 && (!D.CROPS[k].unlock || st.flags[D.CROPS[k].unlock])).map((k) => D.CROPS[k].name) : [];
+      const strong = e.tol ? D.CROP_ORDER.filter((k) => !D.CROPS[k].alias && D.CROPS[k][e.tol] >= 0.75 && (!D.CROPS[k].unlock || st.flags[D.CROPS[k].unlock]) && !(RG.era && RG.era.cropLocked(st, k))).map((k) => D.CROPS[k].name) : [];
       warn(e.icon + ' ' + e.name + '（' + D.SEV[ev.sev].name + '）', e.desc + (weak.length ? ' 特に ' + Array.from(new Set(weak)).join('・') + ' が被害を受けました。' : '') +
         (strong.length ? ' ' + D.TOL_NAMES[e.tol] + '性の強い品種：' + strong.slice(0, 4).join('・') + '。' : ''));
     });
@@ -262,7 +262,7 @@
     const ev = (res.events || []).map((e) => e.id);
     const heatHit = plots.filter((p) => D.CROPS[p.crop].market && D.CROPS[p.crop].ht < 0.5 && p.r1 < 0.6);
     if ((ev.includes('heat') || ev.includes('foehn')) && heatHit.length) {
-      const strong = D.CROP_ORDER.filter((k) => !D.CROPS[k].alias && D.CROPS[k].market && D.CROPS[k].ht >= 0.75 && (!D.CROPS[k].unlock || st.flags[D.CROPS[k].unlock])).map((k) => D.CROPS[k].name);
+      const strong = D.CROP_ORDER.filter((k) => !D.CROPS[k].alias && D.CROPS[k].market && D.CROPS[k].ht >= 0.75 && (!D.CROPS[k].unlock || st.flags[D.CROPS[k].unlock]) && !(RG.era && RG.era.cropLocked(st, k))).map((k) => D.CROPS[k].name);
       add(6, '暑さへの備え', heatHit.map((p) => D.CROPS[p.crop].name).filter((x, i, a) => a.indexOf(x) === i).join('・') + 'が高温で等級を落としました（1等 ' + U.pct(heatHit[0].r1) + '）。猛暑の年は増えています。' +
         (strong.length ? '一部を高温に強い品種（' + strong.join('・') + '）にして、リスクを分けましょう。' : '新之助の生産者登録の案内が来たら、検討しましょう。'), 'crops');
     }

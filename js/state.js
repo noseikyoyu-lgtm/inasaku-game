@@ -157,7 +157,7 @@
     if (lostShare > 0 && mix.length) mix[0] = [mix[0][0], mix[0][1], mix[0][2] + lostShare];
     mix.forEach(([crop, cult, share], i) => {
       const area = i === mix.length - 1 ? left : Math.min(left, U.round(total * share, 1));
-      if (area > 0.05) st.plan.push(S.makeRow(st, crop, cult, 'transplant', area));
+      if (area > 0.05) st.plan.push(S.makeRow(st, crop, RG.era && RG.era.featLocked(st, cult) ? 'conv' : cult, 'transplant', area));
       left = U.round(left - area, 1);
     });
     return null;

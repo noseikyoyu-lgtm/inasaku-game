@@ -27,6 +27,7 @@
     window.scrollTo(0, app.keepScroll ? y : 0);
     app.keepScroll = false;
     collapseLongNotes(root);
+    if (RG.sound) RG.sound.sync(app); // 場面に合わせてBGMを切り替える
     if (RG.tutorial) RG.tutorial.check(app);
   };
 
@@ -52,7 +53,7 @@
       UI.toast(err, 'bad');
     } else {
       if (!opts.noUndo) { app.undo.push(snap); if (app.undo.length > 30) app.undo.shift(); }
-      if (opts.msg) UI.toast(opts.msg);
+      if (opts.msg) { UI.toast(opts.msg, null, true); RG.sound.play(/購入|採用|リース|建て|借り/.test(opts.msg) ? 'buy' : 'pop'); }
       app.autosave();
     }
     app.keepScroll = true;
@@ -127,7 +128,9 @@
       st.lastResult.newTitles = got.map((t) => t.id);
       RG.playlog.result(st, st.lastResult);
       RG.sound.play(got.length ? 'great' : 'fanfare');
-      got.forEach((t, i) => setTimeout(() => UI.toast('称号「' + t.name + '」を手に入れた！'), 300 + i * 600));
+      got.forEach((t, i) => setTimeout(() => UI.toast('称号「' + t.name + '」を手に入れた！'), 1100 + i * 700));
+      // 新しく使えるようになったものがあれば、きらきらの音
+      if ((st.lastResult.missionNotes || []).some((x) => x.indexOf('🔓') >= 0)) setTimeout(() => RG.sound.play('unlock'), 1100 + got.length * 700);
     }
     app.st.phase = 'result';
     app.resultTab = 'summary';
@@ -264,7 +267,8 @@
         h('span', { class: 'muted small' }, '最終評価と高橋さんの見立てを出します。あとで続きから再開もできます')));
     }
     body.appendChild(h('h3', null, '称号'));
-    body.appendChild(h('div', { class: 'row' }, UI.btn('称号を見る', () => RG.screens.showTitles(app.st), 'sm')));
+    body.appendChild(h('div', { class: 'row' }, UI.btn('称号を見る', () => RG.screens.showTitles(app.st), 'sm'),
+      app.st && app.st.featOpen ? UI.btn('🔓 解放の一覧', () => RG.screens.showUnlocks(app.st), 'sm') : null));
     body.appendChild(h('h3', null, '表示'));
     body.appendChild(h('div', { class: 'row' },
       UI.btn('ライト', () => app.setTheme('light'), 'sm'), UI.btn('ダーク', () => app.setTheme('dark'), 'sm'), UI.btn('自動', () => app.setTheme(''), 'sm')));

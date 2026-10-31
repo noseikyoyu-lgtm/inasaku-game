@@ -282,7 +282,7 @@
           h('h2', { style: { margin: '6px 0 8px' } }, ev.title),
           h('p', null, ev.text(st)),
           ev.choices.map((c, i) => h('button', { class: 'btn choice', type: 'button',
-            onclick: () => { const msg = RG.events.choose(st, id, i); UI.toast(msg); app.autosave(); app.render(); } },
+            onclick: () => { const msg = RG.events.choose(st, id, i); UI.toast(msg, null, true); RG.sound.play(/🔓/.test(msg) ? 'unlock' : 'stamp'); app.autosave(); app.render(); } },
             c.label, c.desc ? h('span', { class: 'd' }, c.desc) : null)))));
   };
 })(window.RG = window.RG || {});

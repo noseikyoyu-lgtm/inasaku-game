@@ -77,7 +77,12 @@
     const strip = h('div', { class: 'month-strip', 'aria-hidden': 'true' }, Array.from({ length: 12 }, (_, i) =>
       h('span', { class: i + 1 < m ? 'past' : i + 1 === m ? 'now' : '' }, (i + 1) + '月')));
 
-    const go = (to) => { st.seasonMonth = to; if (RG.sound) RG.sound.play('step'); app.autosave(); app.render(); };
+    // 月の音：悪い知らせのある月は警告、稲刈りの月（9・10月）は収穫の音
+    const go = (to) => {
+      st.seasonMonth = to;
+      if (RG.sound) RG.sound.play((res.log[to] || []).some((l) => l.kind === 'bad') ? 'warn' : to === 9 || to === 10 ? 'harvest' : 'step');
+      app.autosave(); app.render();
+    };
     // 次に止まる月：勝負のある月か12月
     const stopAt = () => {
       const p = DI.pending(st);

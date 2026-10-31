@@ -164,7 +164,7 @@
     const bs = ACC.bs(st);
     const area = U.sum(st.fields, (f) => f.area), owned = U.sum(st.fields.filter((f) => f.owned), (f) => f.area);
     const w = st.world;
-    const out = [homeHero(st), RG.scenes.isStory(st) ? RG.screens.promiseCard(st, { progress: true }) : null, questCard(app, st, pv), RG.chapters.on(st) ? RG.screens.missionsCard(app, st) : null, meterCard(st, pv)];
+    const out = [homeHero(st), RG.scenes.isStory(st) ? RG.screens.promiseCard(st, { progress: true }) : null, questCard(app, st, pv), RG.chapters.on(st) ? RG.screens.missionsCard(app, st) : null, RG.screens.unlocksCard(app, st), meterCard(st, pv)];
     out.push(UI.card('今年のニュース', null, h('div', { class: 'notes' }, st.news.map((n) => UI.note(n.kind === 'event' ? 'info' : n.kind, null, n.text)))));
     if (st.lastResult) {
       let adv = st.lastResult.nextAdvice;
@@ -245,8 +245,10 @@
   }
   function tabCrops(app, st, pv) {
     const crops = cropOptions(st);
-    const cults = D.CULT_ORDER.map((k) => ({ value: k, label: D.CULTS[k].short }));
-    const sows = Object.keys(D.SOWS).map((k) => ({ value: k, label: D.SOWS[k].short }));
+    // ストーリーでまだ使えない栽培方法・植え方は出さない
+    const fl = (k) => RG.era && RG.era.featLocked(st, k === 'direct' ? 'directSow' : k);
+    const cults = D.CULT_ORDER.filter((k) => !fl(k)).map((k) => ({ value: k, label: D.CULTS[k].short }));
+    const sows = Object.keys(D.SOWS).filter((k) => !fl(k)).map((k) => ({ value: k, label: D.SOWS[k].short }));
     const total = S.totalArea(st);
     const fallow = Math.max(0, U.round(total - S.plannedArea(st), 1));
     const byRow = {};
@@ -282,10 +284,16 @@
     // 作付の型（1〜2年目と、田がまだ空いているとき）
     const showPresets = st.year <= 2 || S.plannedArea(st) < total * 0.5;
     const presets = showPresets ? UI.card('🎯 作付の型を選ぶ', '選んだあと、下の表で1行ずつ直せます',
-      h('div', { class: 'preset-cards' }, S.CROP_PRESETS.filter((x) => x.id !== 'starter' || st.starter).map((x) => h('button', { type: 'button', class: 'preset-card',
-        onclick: () => app.update((s) => S.applyCropPreset(s, x.id), { msg: '「' + x.name + '」で作付を決めました' }) },
-        h('span', { class: 'pc-ic', 'aria-hidden': 'true' }, x.icon), h('b', null, x.name), h('span', { class: 'pc-d' }, x.desc),
-        x.mix ? h('span', { class: 'pc-mix' }, x.mix.map((m) => D.cropIcon(m[0]) + D.CROPS[m[0]].name.replace(/（.*）/, '') + ' ' + Math.round(m[2] * 100) + '%').join('・')) : null)))) : null;
+      h('div', { class: 'preset-cards' }, S.CROP_PRESETS.filter((x) => x.id !== 'starter' || st.starter).map((x) => {
+        // ストーリーで、型の品種がまだ作れないときは選べない
+        const lockedCrops = (x.mix || []).filter((m) => RG.era && RG.era.cropLocked(st, m[0])).map((m) => D.CROPS[m[0]].name)
+          .concat((x.mix || []).some((m) => RG.era && RG.era.featLocked(st, m[1])) ? [D.CULTS.special.name] : []);
+        return h('button', { type: 'button', class: 'preset-card' + (lockedCrops.length ? ' locked' : ''), disabled: lockedCrops.length > 0,
+          onclick: () => app.update((s) => S.applyCropPreset(s, x.id), { msg: '「' + x.name + '」で作付を決めました' }) },
+          h('span', { class: 'pc-ic', 'aria-hidden': 'true' }, lockedCrops.length ? '🔒' : x.icon), h('b', null, x.name), h('span', { class: 'pc-d' }, x.desc),
+          x.mix ? h('span', { class: 'pc-mix' }, x.mix.map((m) => D.cropIcon(m[0]) + D.CROPS[m[0]].name.replace(/（.*）/, '') + ' ' + Math.round(m[2] * 100) + '%').join('・')) : null,
+          lockedCrops.length ? h('span', { class: 'pc-lock' }, lockedCrops.join('・') + 'が作れるようになると選べます') : null);
+      }))) : null;
     const emptyNote = st.plan.length === 0 || S.plannedArea(st) < 0.05
       ? UI.note('warn', '田んぼがまだ空っぽです', '上の「作付の型」から選ぶか、下の「＋ 品種を追加」で、作る品種と面積を決めましょう。') : null;
     return h('div', { class: 'stack' },
@@ -342,15 +350,20 @@
   }
 
   function varietyCards(st) {
-    return UI.card('品種の特徴', '新潟県の主な品種（参考：新潟 水稲栽培シミュレーター）', h('div', { class: 'grid3' }, D.CROP_ORDER.filter((k) => k !== 'none' && !D.CROPS[k].alias).map((k) => {
+    const list = D.CROP_ORDER.filter((k) => k !== 'none' && !D.CROPS[k].alias);
+    const isLocked = (k) => (D.CROPS[k].unlock && !st.flags[D.CROPS[k].unlock]) || (RG.era && RG.era.cropLocked(st, k));
+    const open = list.filter((k) => !isLocked(k)).length;
+    return UI.card('品種の特徴', st.cropsOpen ? '作れる品種 ' + open + ' / ' + list.length + '。🔒 の品種は、きっかけを満たすと作れるようになります' : '新潟県の主な品種（参考：新潟 水稲栽培シミュレーター）', h('div', { class: 'grid3' }, list.map((k) => {
       const c = D.CROPS[k];
       const locked = c.unlock && !st.flags[c.unlock];
+      const hint = RG.era ? RG.era.cropHint(st, k) : null;
       const pm = AG.plantMid(c, 0);
       const tol = ['ht', 'ft', 'ct', 'sp'].map((t) => h('span', { class: 'badge ' + (c[t] >= 0.6 ? 'good' : c[t] < 0.4 ? 'bad' : '') }, D.TOL_NAMES[t] + ' ' + AG.tolLabel(c[t])));
-      return h('div', { class: 'offer' },
+      return h('div', { class: 'offer' + (hint || (locked && st.cropsOpen) ? ' crop-locked' : '') },
         h('div', { class: 't' }, c.name, ' ', h('span', { class: 'badge info' }, AG.maturityLabel(c)), ' ', h('span', { class: 'badge' }, c.kind),
           c.estimated ? h('span', { class: 'badge warn', title: '参考ファイルに無い品種のため、ゲーム用の推定値です' }, '推定値') : null,
-          locked ? h('span', { class: 'badge warn' }, '生産者登録が必要') : null),
+          locked ? h('span', { class: 'badge warn' }, '生産者登録が必要') : null, hint ? h('span', { class: 'badge warn' }, '🔒 まだ作れない') : null),
+        hint ? h('div', { class: 'crop-hint' }, '🔓 きっかけ：' + hint) : locked && st.cropsOpen ? h('div', { class: 'crop-hint' }, '🔓 きっかけ：1等米の割合80%以上の年を出すと、JAから生産者登録の話が来る') : null,
         h('div', { class: 'small' }, '平年単収 ' + c.by + 'kg/10a・' + (c.market ? '1等 ' + U.yen(c.pr) + '/60kg（R8概算金）' : '販売 ' + U.yen(c.pr) + '/60kg＋交付金')),
         h('div', { class: 'small muted' }, '田植え適期 ' + c.bS.join('/') + '〜' + c.bE.join('/') + '・収穫 ' + AG.fmt(AG.harvestDoy(c, pm, 0)) + '頃（平年）・変動費 ' + U.yen(c.cst) + '/10a'),
         h('div', { class: 'row', style: { gap: '4px' } }, tol),
@@ -442,10 +455,10 @@
             return [md.name, { v: md.cap ? U.ha(md.cap) : '—', cls: 'num' }, { v: md.cap && md.eff < 1 ? '−' + U.pct(1 - md.eff) : '—', cls: 'num' },
               { v: h('span', null, U.man(price), sub ? h('span', { class: 'badge good', style: { marginLeft: '4px' } }, '補助1/2') : null), cls: 'num' },
               { v: U.man(price / md.life), cls: 'num' }, { v: U.man(md.price * mInf * D.MACHINE.leaseRate), cls: 'num' },
-              h('div', { class: 'row', style: { flexWrap: 'nowrap' } },
+              A.machineLock(st, k, 'cash') ? h('span', { class: 'lock small' }, '🔒 経営面積25ha以上で') : h('div', { class: 'row', style: { flexWrap: 'nowrap' } },
                 UI.btn('現金', () => app.update((s) => A.buyMachine(s, k, 'cash'), { undo: true, msg: md.name + 'を購入しました' }), 'sm', { disabled: st.cash < price }),
                 UI.btn('借入', () => app.update((s) => A.buyMachine(s, k, 'loan'), { undo: true, msg: md.name + 'を借入で購入しました' }), 'sm'),
-                UI.btn('リース', () => app.update((s) => A.buyMachine(s, k, 'lease'), { undo: true, msg: md.name + 'をリースしました' }), 'sm'))];
+                A.machineLock(st, k, 'lease') ? null : UI.btn('リース', () => app.update((s) => A.buyMachine(s, k, 'lease'), { undo: true, msg: md.name + 'をリースしました' }), 'sm'))];
           })));
     });
     const used = st.offers.used.map((o) => {
@@ -462,9 +475,13 @@
       UI.card('持っている機械', st.machines.length + '台',
         st.machines.length ? UI.table([{ label: '機械' }, { label: '使用年数', num: true }, { label: T('簿価'), num: true }, { label: '売却額（時価）', num: true }, { label: '修理費見込み', num: true }, { label: '故障率', num: true }, { label: '' }], owned)
           : h('p', { class: 'muted' }, '機械を持っていません。作業はすべて委託しています。')),
-      used.length ? UI.card('中古機械の出物', '今年だけ', h('div', { class: 'offers' }, used)) : null,
+      RG.era && RG.era.featLocked(st, 'used') ? UI.card('🔧 中古機械の出物', null, h('div', { class: 'locked-card' }, h('span', { class: 'lock-ic', 'aria-hidden': 'true' }, '🔒'), h('div', null, h('b', null, RG.era.lockText(st, 'used').replace('🔒 ', '')))))
+        : used.length ? UI.card('中古機械の出物', '今年だけ', h('div', { class: 'offers' }, used)) : null,
       UI.card('機械を導入する', sub ? '補助事業に採択されています（新品1台が半額）' : null,
         h('div', { class: 'stack' }, shop),
+        RG.era && (RG.era.featLocked(st, 'lease') || RG.era.featLocked(st, 'large')) ? h('div', { class: 'notes' },
+          RG.era.featLocked(st, 'lease') ? UI.note('info', null, '📄 リース：' + RG.era.lockText(st, 'lease')) : null,
+          RG.era.featLocked(st, 'large') ? UI.note('info', null, '🚜 大型の機械：' + RG.era.lockText(st, 'large')) : null) : null,
         h('p', { class: 'small muted' }, '借入で購入すると長期資金（10年）を借ります。', T('リース'), 'は修理費込みで7年契約です。', T('耐用年数'), 'は多くの機械で7年です。')));
   }
 
@@ -510,6 +527,7 @@
           { v: U.man(s.salary * (1 + D.LABOR.staffSocial)), cls: 'num' },
           UI.btn('退職してもらう', async () => { if (await UI.confirm('社員に退職してもらいますか？', s.name + 'に退職してもらいます。退職金 ' + U.man(D.LABOR.staffSeverance) + ' がかかります。', '退職してもらう')) app.update((x) => A.fireStaff(x, s.id), { undo: true }); }, 'sm danger')]))
           : h('p', { class: 'muted' }, '社員はいません。'),
+        RG.era && RG.era.featLocked(st, 'staff') ? h('div', { class: 'locked-card', style: { marginTop: '8px' } }, h('span', { class: 'lock-ic', 'aria-hidden': 'true' }, '🔒'), h('div', null, h('b', null, RG.era.lockText(st, 'staff').replace('🔒 ', '')))) :
         h('div', { class: 'row', style: { marginTop: '8px' } },
           UI.btn('正社員を1人雇う', () => app.update((s) => A.hireStaff(s), { undo: true, msg: '正社員を採用しました' }), 'primary sm'),
           h('span', { class: 'small muted' }, '採用費 ' + U.man(D.LABOR.staffRecruit * st.market.wageInfl) + '・人件費 年' + U.man(staffCost) + '（社会保険込み）。勤続とともに作業が上達します。'))));
@@ -528,7 +546,7 @@
     });
     const offers = st.offers.contracts.map((o) => {
       const crop = D.CROPS[o.crop];
-      const locked = crop.unlock && !st.flags[crop.unlock];
+      const locked = (crop.unlock && !st.flags[crop.unlock]) || (RG.era && RG.era.cropLocked(st, o.crop));
       return h('div', { class: 'offer' },
         h('div', { class: 't' }, o.buyer),
         h('div', null, crop.name + (o.minCult ? '（' + D.TIER_NAMES[o.minCult] + '）' : '') + '・毎年 ', h('b', null, U.bales(o.volume)), '・' + o.years + '年契約'),
@@ -536,7 +554,7 @@
         h('div', { class: 'small muted' }, '今年の目安 ' + U.yen(o.refPrice) + '/60kg（予想米価から）。実際の価格は毎年、その年の米の需給で決まります。'),
         crop.sake ? h('div', { class: 'small muted' }, '酒米は酒蔵との契約で出荷先を確保できます。') : null,
         h('div', { class: 'row' }, UI.btn('契約する', () => app.update((s) => A.acceptContract(s, o.id), { undo: true, msg: '契約しました' }), 'sm primary', { disabled: locked }),
-          locked ? h('span', { class: 'small muted' }, '生産者登録をすると作付できます') : null));
+          locked ? h('span', { class: 'small muted' }, crop.unlock && !st.flags[crop.unlock] ? '生産者登録をすると作付できます' : '🔒 この品種はまだ作れません') : null));
     });
     const d = S.direct;
     const directProducts = pv.production.products.filter((p) => D.CROPS[p.crop].directCoef);
@@ -618,8 +636,9 @@
     const incomeBase = SIM.insuranceBase(st, pv.area.marketCrop * 10);
     const ins = ['none', 'kyosai', 'income'].map((k) => {
       const I = D.INSURANCE[k];
-      const disabled = k === 'income' && !incomeBase.eligible;
-      const prem = k === 'kyosai' ? '保険料 ' + U.man(kyosaiPrem) : k === 'income' ? (incomeBase.eligible ? '基準収入 ' + U.man(incomeBase.base) + '・保険料 ' + U.man(incomeBase.base * I.rate) : '来年から加入できます') : '保険料 0円';
+      const insLock = k === 'income' && RG.era && RG.era.featLocked(st, 'incomeIns');
+      const disabled = k === 'income' && (!incomeBase.eligible || insLock);
+      const prem = insLock ? RG.era.lockText(st, 'incomeIns') : k === 'kyosai' ? '保険料 ' + U.man(kyosaiPrem) : k === 'income' ? (incomeBase.eligible ? '基準収入 ' + U.man(incomeBase.base) + '・保険料 ' + U.man(incomeBase.base * I.rate) : '来年から加入できます') : '保険料 0円';
       return h('button', { class: 'radio-card' + (st.insurance === k ? ' on' : ''), type: 'button', disabled, 'aria-pressed': st.insurance === k ? 'true' : 'false',
         onclick: (e) => { if (e.target.closest && e.target.closest('.term')) return; app.update((s) => { s.insurance = k; }); } },
         h('div', { class: 't' }, k === 'none' ? I.name : T(I.name)), h('div', { class: 'small' }, prem), h('div', { class: 'small muted' }, I.desc));

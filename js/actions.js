@@ -49,8 +49,14 @@
   A.newPrice = (st, modelId) => D.MODELS[modelId].price * st.market.matInfl * (st.yearFlags.machineSubsidy ? 0.5 : 1) *
     (st.path === 'sixth' && (D.MODELS[modelId].type === 'proc' || D.MODELS[modelId].type === 'stand') ? 0.7 : 1); // 6次産業化の道は3割引き
 
+  // ストーリーでまだ使えない買い方・機種
+  const locked = (st, id) => (RG.era && RG.era.featLocked(st, id) ? '🔒 まだ使えません（きっかけ：' + RG.era.FEATURES[id].hint + '）' : null);
+  A.largeModel = (modelId) => /_l$/.test(modelId);
+  A.machineLock = (st, modelId, mode) => (mode === 'lease' && locked(st, 'lease')) || (A.largeModel(modelId) && locked(st, 'large')) || null;
   A.buyMachine = function (st, modelId, mode) {
     const md = D.MODELS[modelId];
+    const lk = A.machineLock(st, modelId, mode);
+    if (lk) return lk;
     if (mode === 'lease') {
       const m = S.makeMachine(st, modelId, { lease: true });
       m.leaseFee = Math.round(md.price * st.market.matInfl * D.MACHINE.leaseRate);
@@ -68,10 +74,12 @@
     if (subsidized) nm.subsidized = true;
     st.machines.push(nm);
     if (subsidized) st.yearFlags.machineSubsidy = false;
+    st.flags.boughtMachine = true;
     return null;
   };
 
   A.buyUsed = function (st, offerId, mode) {
+    if (locked(st, 'used')) return locked(st, 'used');
     const o = st.offers.used.find((x) => x.id === offerId);
     if (!o) return 'この中古機械はもうありません';
     if (mode === 'loan') {
@@ -100,7 +108,8 @@
   };
 
   // ---------- 労働 ----------
-  A.hireStaff = function (st) {
+  A.hireStaff = function (st, force) {
+    if (!force && locked(st, 'staff')) return locked(st, 'staff');
     ledger(st, -D.LABOR.staffRecruit * st.market.wageInfl, 'recruit', '正社員の採用費');
     S.addStaff(st);
     return null;
@@ -117,7 +126,7 @@
   A.acceptContract = function (st, offerId) {
     const o = st.offers.contracts.find((x) => x.id === offerId);
     if (!o) return 'この話はもうありません';
-    if (D.CROPS[o.crop].unlock && !st.flags[D.CROPS[o.crop].unlock]) return 'この品種はまだ作付できません';
+    if ((D.CROPS[o.crop].unlock && !st.flags[D.CROPS[o.crop].unlock]) || (RG.era && RG.era.cropLocked(st, o.crop))) return 'この品種はまだ作付できません';
     st.contracts.push({ id: U.uid(st, 'c'), buyer: o.buyer, crop: o.crop, minCult: o.minCult, volume: o.volume, premium: o.premium, refPrice: o.refPrice, yearsLeft: o.years, years: o.years });
     st.offers.contracts = st.offers.contracts.filter((x) => x.id !== offerId);
     return null;
@@ -130,6 +139,8 @@
       long10: { name: '長期資金（10年）', rate: low ? D.MACHINE.lowRate : D.MACHINE.loanRate10, term: 10, kind: 'long' },
       long20: { name: '長期資金（20年）', rate: low ? D.MACHINE.lowRate : D.MACHINE.loanRate20, term: 20, kind: 'long' },
     };
+    // 認定農業者向けの制度資金（ストーリーで認定を受けたあと）
+    if (st.featOpen && st.featOpen.nintei) k.superL = { name: 'スーパーL資金（認定農業者向け・20年）', rate: 0.005, term: 20, kind: 'long' };
     if (SIM.noInterestAvailable(st) > 0) {
       k.nointerest = { name: '新規就農者向け無利子資金（12年・据置2年）', rate: 0, term: D.FIN.noInterestTerm, grace: D.FIN.noInterestGrace, kind: 'nointerest' };
     }
@@ -190,7 +201,7 @@
   };
   A.addRow = function (st) {
     const used = new Set(st.plan.map((r) => r.crop));
-    const crop = D.CROP_ORDER.find((k) => k !== 'none' && !used.has(k) && (!D.CROPS[k].unlock || st.flags[D.CROPS[k].unlock])) || 'koshiBL';
+    const crop = D.CROP_ORDER.find((k) => k !== 'none' && !used.has(k) && (!D.CROPS[k].unlock || st.flags[D.CROPS[k].unlock]) && !(RG.era && RG.era.cropLocked(st, k))) || 'koshiBL';
     st.plan.push(S.makeRow(st, crop, 'conv', 'transplant', Math.max(0, S.totalArea(st) - S.plannedArea(st))));
     return null;
   };

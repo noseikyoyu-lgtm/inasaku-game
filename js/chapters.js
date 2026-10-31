@@ -226,6 +226,8 @@
     if (c.n === 2 && !st.path) return '経営の道を選んでください';
     CH.state(st).chapterSeen[c.n] = true;
     CH.queueOffers(st); // 道を選んだことで届く依頼もある
+    // 道を選んだことで使えるようになるもの（加工場・ドローン請負・スマート農業など）
+    if (RG.era && RG.era.checkUnlocks) RG.era.checkUnlocks(st).forEach((t) => st.news.push({ kind: 'good', text: t }));
     st.phase = RG.dice && RG.dice.active(st) ? 'dice' : st.events.queue.length ? 'event' : 'plan';
     return null;
   };
