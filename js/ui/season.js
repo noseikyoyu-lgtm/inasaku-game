@@ -18,9 +18,17 @@
     return app.seasonRes;
   }
 
+  // できごとの文に合うアイコン（すでに絵文字で始まる文はそのまま）
+  const LINE_ICONS = [[/田植え|直播/, '🌱'], [/育苗|田起こし/, '🚜'], [/稲刈り|刈り/, '🌾'], [/資材|種もみ|肥料/, '🧺'], [/税金/, '🧾'], [/米価|概算金|需給/, '💹'],
+    [/契約/, '🤝'], [/直販/, '📦'], [/借入|つなぎ資金|返済|融資/, '🏦'], [/出荷契約金/, '💴'], [/故障/, '🔧'], [/収量|1等/, '📊'], [/労働|作業/, '👨‍🌾'],
+    [/傾向|天候|気象/, '⛅'], [/決算/, '📋'], [/経営が始まった/, '🌅'], [/発生|被害/, '⚠️']];
+  const startsWithEmoji = (t) => /^[\u2600-\u27BF\uD83C-\uDBFF]/.test(t);
+  function lineIcon(t) { const f = LINE_ICONS.find((x) => x[0].test(t)); return f ? f[1] : '📝'; }
   function monthLines(res, m) {
     const lines = res.log[m] || [];
-    return lines.length ? lines.map((l) => h('div', { class: 'ln ' + l.kind }, l.text)) : [h('div', { class: 'muted' }, '日々の作業を続けた。')];
+    return lines.length ? lines.map((l) => h('div', { class: 'ln ' + l.kind },
+      startsWithEmoji(l.text) ? null : h('span', { class: 'ln-ic', 'aria-hidden': 'true' }, lineIcon(l.text)), h('span', null, l.text)))
+      : [h('div', { class: 'ln' }, h('span', { class: 'ln-ic', 'aria-hidden': 'true' }, '🌤️'), h('span', null, '日々の作業を続けた。'))];
   }
 
   // その月のお金の動き
@@ -36,10 +44,24 @@
     return h('div', { class: 'month-cash' },
       h('div', { class: 'kpis' },
         UI.kpi('今月の入金', U.man(cm.inflow), null, cm.inflow > 0 ? 'good' : ''),
-        UI.kpi('今月の出金', U.man(cm.outflow), null),
+        UI.kpi('今月の出金', U.man(-cm.outflow), null),
         UI.kpi('月末の資金', U.man(cm.end), cm.emergency > 0 ? 'つなぎ資金 ' + U.man(cm.emergency) : null, cm.borrowed > 0 ? 'bad' : '')),
       shown.length ? UI.table([{ label: '今月のお金の動き' }, { label: '金額', num: true }],
         shown.map((x) => [x[0], { v: U.man(x[1]), cls: 'num ' + (x[1] < 0 ? 'neg' : 'pos') }])) : null);
+  }
+
+  // 月ごとの田んぼの風景（1つの canvas を使い回し、月が変わると絵が変わる）
+  function farmCanvas(app, res) {
+    let cv = app.farmCanvas;
+    if (!cv || !cv._alive) {
+      cv = app.farmCanvas = h('canvas', { class: 'farm-scene', role: 'img', 'aria-label': '田んぼの様子' });
+      RG.farmScene.mount(cv, () => (app.st && app.st.seasonMonth) || 1,
+        { rain: (m) => m >= 7 && m <= 9 && app.farmRes && (app.farmRes.weather === 'rain' || app.farmRes.weather === 'typh') });
+    }
+    app.farmRes = res;
+    cv.setAttribute('aria-label', '田んぼの様子：' + RG.farmScene.label((app.st && app.st.seasonMonth) || 1));
+    if (cv._redraw) cv._redraw();
+    return cv;
   }
 
   RG.screens.season = function (app) {
@@ -78,7 +100,7 @@
     return h('div', null, app.topbar(),
       h('div', { class: 'layout one' },
         h('main', { class: 'stack' },
-          UI.card(st.year + '年目 ' + m + '月', WORK[m] + (m >= 7 ? '　今年の天候：' + W.icon + ' ' + W.name : ''), strip),
+          UI.card(st.year + '年目 ' + m + '月', WORK[m] + (m >= 7 ? '　今年の天候：' + W.icon + ' ' + W.name : ''), farmCanvas(app, res), strip),
           current,
           nav,
           past.length ? UI.card('これまでの月', null, h('div', { class: 'season-list' }, past)) : null)));

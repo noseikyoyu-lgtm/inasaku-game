@@ -85,7 +85,7 @@
 
     const guards = UI.card('経営を続けるための条件', null, h('div', { class: 'notes' }, MT.guards(st, ev.left)));
 
-    const advice = UI.card(RG.advisor.NAME + 'からのひとこと', null,
+    const advice = UI.card(UI.whoTitle('takahashi', RG.advisor.NAME + 'からのひとこと'), null,
       h('div', { class: 'notes' }, weak.map((x) => UI.note('tip', '「' + x.label + '」はあと ' + U.num(x.max - x.pts, 1) + '点 伸ばせます', HINTS[x.key]))));
 
     const next = UI.btn((st.year + 1) + '年目へ進む ▶', () => app.nextYear(), 'primary big');

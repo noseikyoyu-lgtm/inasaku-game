@@ -26,7 +26,21 @@
     root.appendChild(node);
     window.scrollTo(0, app.keepScroll ? y : 0);
     app.keepScroll = false;
+    collapseLongNotes(root);
+    if (RG.tutorial) RG.tutorial.check(app);
   };
+
+  // 長い補足説明（小さい灰色の文）は「💡くわしく」にたたんで、画面の文字を減らす
+  function collapseLongNotes(root) {
+    root.querySelectorAll('main p.small.muted, main p.muted.small, aside p.small.muted, aside p.muted.small').forEach((p) => {
+      if (p.classList.contains('keep') || p.closest('details, .quest, .meter, .tut, .report, .saying, .survey') || p.textContent.length < 40) return;
+      const key = p.textContent.slice(0, 40);
+      app.openTips = app.openTips || {};
+      const d = h('details', { class: 'tip-fold', open: !!app.openTips[key], ontoggle: (e) => { app.openTips[key] = e.target.open; } }, h('summary', null, '💡 くわしく'));
+      p.replaceWith(d);
+      d.appendChild(p);
+    });
+  }
 
   // 計画の変更。fn がエラーメッセージを返したら元に戻す
   app.update = function (fn, opts) {
@@ -55,7 +69,13 @@
     UI.toast('1つ前の状態に戻しました');
   };
 
-  app.autosave = () => { if (app.st) S.save('auto', app.st); };
+  app.autosave = () => {
+    if (!app.st) return;
+    if (!S.save('auto', app.st) && !app.saveWarned) {
+      app.saveWarned = true;
+      UI.toast('このブラウザでは自動保存ができません。ページを閉じると進み具合が消えるので、メニューの「ファイルに書き出す」で保存してください。', 'bad');
+    }
+  };
 
   app.newGame = function (opts) {
     app.viewingLast = false;
@@ -130,28 +150,43 @@
   };
 
   // ---------- 共通ヘッダー ----------
+  // 上のバー（ステータス表示）。ゲームのように、アイコンと大きな数字で今の状態を見せる
+  const PHASE = { dice: ['🎲', '運だめし'], event: ['📨', '年初のできごと'], plan: ['📝', '経営計画'], season: ['🌱', 'シーズン'], result: ['📊', '決算'],
+    midterm: ['🏅', '中間評価'], end: ['🏁', '経営終了'], gameover: ['🏁', '経営終了'] };
   app.topbar = function () {
     const st = app.st;
     const bs = RG.accounting.bs(st);
     const area = U.sum(st.fields, (f) => f.area);
-    const phase = { dice: '運だめし', event: '年初のできごと', plan: '経営計画', season: 'シーズン', result: '決算', midterm: '中間評価', end: '経営終了', gameover: '経営終了' }[st.phase];
-    return h('header', { class: 'topbar' },
-      h('div', { class: 'brand' }, h('span', { class: 'logo', 'aria-hidden': 'true' }, '🌾'), st.farmName),
-      h('span', { class: 'chip' }, st.year + '年目 / ' + st.maxYear + '年'),
-      h('span', { class: 'badge' }, phase),
-      h('div', { class: 'topstats' },
-        stat('資金', U.man(st.cash), st.cash < 0 ? 'neg' : ''),
-        stat('純資産', U.man(bs.equity), bs.equity < 0 ? 'neg' : ''),
-        stat('借入', U.man(bs.longLoans + bs.emergency)),
-        stat('経営面積', U.ha(area)),
-        stat(st.corp ? '法人' : '個人', D.SCENARIOS[st.scenarioId].name)),
-      h('span', { class: 'spacer' }),
-      UI.btn(RG.sound.settings.bgm ? '♪ BGM' : '♪ 消音', () => { RG.sound.toggle('bgm'); app.keepScroll = true; app.render(); }, 'ghost sm', { 'aria-label': 'BGMの切り替え（今は' + (RG.sound.settings.bgm ? 'オン' : 'オフ') + '）' }),
-      UI.btn('💬 気づき', () => RG.feedback.open(app), 'ghost sm', { title: '気づいたこと・困ったことを書いて送る' }),
-      UI.btn('用語集', UI.glossary, 'ghost sm'),
-      UI.btn('メニュー', app.menu, 'sm'));
+    const ph = PHASE[st.phase] || ['', ''];
+    const phaseText = st.phase === 'season' && st.seasonMonth ? ph[1] + '・' + st.seasonMonth + '月' : ph[1];
+    const debt = bs.longLoans + bs.emergency;
+    // シーズン中（決算前）は、表示している月の月末の資金を出す
+    const cm = st.phase === 'season' && st.seasonPending && app.seasonRes && app.seasonRes.cash.months[(st.seasonMonth || 1) - 1];
+    const cash = cm ? cm.end : st.cash;
+    return h('header', { class: 'topbar hud' },
+      h('div', { class: 'hud-farm' },
+        h('span', { class: 'hud-emblem', 'aria-hidden': 'true' }, '🌾'),
+        h('div', { class: 'hud-name' }, h('b', null, st.farmName), h('small', null, D.SCENARIOS[st.scenarioId].name + '・' + (st.corp ? '法人' : '個人')))),
+      h('div', { class: 'hud-year' },
+        h('div', { class: 'hud-yr' }, h('b', null, st.year), h('span', null, '年目'), h('small', null, '/ ' + st.maxYear)),
+        h('div', { class: 'hud-yrbar', title: st.maxYear + '年のうち ' + st.year + '年目' }, h('i', { style: { width: (st.year / st.maxYear * 100) + '%' } })),
+        h('span', { class: 'hud-phase' }, ph[0] + ' ' + phaseText)),
+      h('div', { class: 'topstats hud-stats' },
+        stat('💰', cm ? '資金（' + st.seasonMonth + '月末）' : '資金', U.man(cash), cash < 0 ? 'neg' : cash < 500000 ? 'warn' : ''),
+        stat('📈', '純資産', U.man(bs.equity), bs.equity < 0 ? 'neg' : ''),
+        stat('🏦', '借入', U.man(debt), bs.emergency > 0 ? 'warn' : ''),
+        stat('🌾', '面積', U.ha(area))),
+      h('div', { class: 'hud-actions' },
+        UI.btn(RG.sound.settings.bgm ? '🔊' : '🔇', () => { RG.sound.toggle('bgm'); app.keepScroll = true; app.render(); }, 'icon-btn', { 'aria-label': 'BGMの切り替え（今は' + (RG.sound.settings.bgm ? 'オン' : 'オフ') + '）', title: 'BGM' }),
+        UI.btn('？', () => RG.tutorial.help(app), 'icon-btn help', { 'aria-label': '高橋さんの説明', title: '高橋さんがこの画面を説明します' }),
+        UI.btn('💬', () => RG.feedback.open(app), 'icon-btn', { 'aria-label': '気づきを書く', title: '気づいたこと・困ったことを書いて送る' }),
+        UI.btn('📖', UI.glossary, 'icon-btn', { 'aria-label': '用語集', title: '用語集' }),
+        UI.btn('☰', app.menu, 'icon-btn', { 'aria-label': 'メニュー', title: 'メニュー（セーブ・設定）' })));
   };
-  function stat(l, v, cls) { return h('div', { class: 'topstat' }, h('span', { class: 'l' }, l), h('span', { class: 'v ' + (cls || '') }, v)); }
+  function stat(icon, l, v, cls) {
+    return h('div', { class: 'topstat ' + (cls || '') }, h('span', { class: 'ic', 'aria-hidden': 'true' }, icon),
+      h('span', { class: 'tx' }, h('span', { class: 'l' }, l), h('span', { class: 'v' }, v)));
+  }
 
   // ---------- メニュー（セーブ・ロード等） ----------
   app.menu = function () {
@@ -185,6 +220,18 @@
     };
     drawSnd();
     body.appendChild(sndRow);
+    if (app.st) {
+      body.appendChild(h('h3', null, '高橋さんの説明'));
+      const tut = app.st.tutorial || (app.st.tutorial = { seen: {} });
+      const tutRow = h('div', { class: 'row' });
+      const drawTut = () => {
+        tutRow.innerHTML = '';
+        tutRow.appendChild(UI.btn('最初の説明をもう一度見る', () => { close(); app.viewingLast = false; app.tab = 'overview'; app.render(); if (app.st.phase === 'plan') RG.tutorial.start(app, 'plan'); else RG.tutorial.help(app); }, 'sm'));
+        tutRow.appendChild(UI.btn('初めての画面の説明：' + (tut.off ? '出さない' : '出す'), () => { tut.off = !tut.off; app.autosave(); drawTut(); }, 'sm'));
+      };
+      drawTut();
+      body.appendChild(tutRow);
+    }
     body.appendChild(h('h3', null, '称号'));
     body.appendChild(h('div', { class: 'row' }, UI.btn('称号を見る', () => RG.screens.showTitles(app.st), 'sm')));
     body.appendChild(h('h3', null, '表示'));

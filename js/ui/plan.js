@@ -5,8 +5,8 @@
   const T = UI.term;
 
   const TABS = [
-    ['overview', '概況'], ['crops', '作付計画'], ['land', '農地'], ['machines', '機械・設備'],
-    ['labor', '労働力'], ['sales', '販売計画'], ['biz', '新しい事業'], ['finance', '資金・保険'],
+    ['overview', '概況', '🏠'], ['crops', '作付計画', '🌾'], ['land', '農地', '🗾'], ['machines', '機械・設備', '🚜'],
+    ['labor', '労働力', '👨‍🌾'], ['sales', '販売計画', '🛒'], ['biz', '新しい事業', '🏪'], ['finance', '資金・保険', '💰'],
   ];
 
   const GUIDES = {
@@ -23,6 +23,8 @@
   RG.screens.plan = function (app) {
     if (app.viewingLast && app.st.lastResult) return RG.screens.result(app);
     const st = app.st;
+    if (!st.visit || st.visit.year !== st.year) st.visit = { year: st.year, tabs: {} };
+    if (!st.visit.tabs[app.tab]) { st.visit.tabs[app.tab] = true; app.autosave(); }
     const pv = SIM.simulate(st, { preview: true });
     const hints = RG.advisor.planHints(st, pv);
     const dots = {
@@ -31,16 +33,32 @@
       sales: pv.sales.contracts.some((c) => c.short > 0.5) || st.offers.contracts.length > 0,
       land: st.offers.land.length > 0,
     };
-    const nav = h('nav', { class: 'nav', 'aria-label': '計画のタブ' }, TABS.map(([k, l]) =>
-      h('button', { class: app.tab === k ? 'on' : '', type: 'button', onclick: () => { app.tab = k; app.render(); } }, l,
+    const nav = h('nav', { class: 'nav', 'aria-label': '計画のタブ' }, TABS.map(([k, l, ic]) =>
+      h('button', { class: app.tab === k ? 'on' : '', type: 'button', onclick: () => { app.tab = k; app.render(); } }, h('span', { class: 'nav-ic', 'aria-hidden': 'true' }, ic), h('span', { class: 'nav-l' }, l),
         dots[k] ? h('span', { class: 'dot', title: k === 'land' || k === 'sales' ? '新しい話があります' : '注意があります' }) : null)));
     const tabFn = TAB_FNS[app.tab] || TAB_FNS.overview;
     const content = [];
-    if (st.year <= 2 && GUIDES[app.tab]) content.push(h('div', { class: 'guide' }, h('b', null, RG.advisor.NAME + '：'), GUIDES[app.tab]));
+    if (app.tab !== 'overview') content.push(tabBanner(app.tab, st));
     content.push(tabFn(app, st, pv));
     return h('div', null, app.topbar(),
       h('div', { class: 'layout' }, nav, h('main', { class: 'stack' }, content), h('aside', { class: 'aside' }, previewPanel(app, st, pv, hints))));
   };
+
+  // ---------- タブの見出し：絵と、高橋さんのひとこと ----------
+  const BANNERS = {
+    crops: ['🌾', '🌱', '🍶', '作付計画', '何を、どれだけ作る？'], land: ['🗾', '🏡', '🤝', '農地', '田んぼを広げる？ 返す？'],
+    machines: ['🚜', '🌾', '🔧', '機械・設備', '買う？ 借りる？ 頼む？'], labor: ['👨‍🌾', '🧑‍🌾', '⏰', '労働力', '人手は足りてる？'],
+    sales: ['🛒', '🤝', '📦', '販売計画', 'どこに、いくらで売る？'], biz: ['🏪', '🍡', '🛸', '新しい事業', '稲作のほかにも挑戦！'],
+    finance: ['💰', '🏦', '🛡️', '資金・保険', 'お金は1年もつ？'],
+  };
+  function tabBanner(tab, st) {
+    const b = BANNERS[tab];
+    if (!b) return null;
+    return h('section', { class: 'tab-banner tb-' + tab },
+      h('div', { class: 'tb-art', 'aria-hidden': 'true' }, h('span', null, b[0]), h('span', null, b[1]), h('span', null, b[2])),
+      h('div', { class: 'tb-text' }, h('h2', null, b[3]), h('div', { class: 'tb-q' }, b[4])),
+      st.year <= 3 && GUIDES[tab] ? h('details', { class: 'tb-tip' }, h('summary', null, UI.face('takahashi', 2), h('span', null, '高橋さんのコツ')), h('p', null, GUIDES[tab])) : null);
+  }
 
   // ---------- 右側：今年の見通し ----------
   function previewPanel(app, st, pv, hints) {
@@ -50,8 +68,15 @@
     const shortSeasons = D.SEASONS.filter((s) => pv.labor.seasons[s].ratio > 0.01);
     const contractArea = ['tractor', 'nursery', 'planter', 'combine', 'dryer'].map((t) => pv.machines[t].contract);
     const shown = hints.slice(0, 5), more = hints.slice(5);
+    const pvTile = (ic, l, v, cls) => h('div', { class: 'pv-tile ' + (cls || '') }, h('span', { class: 'pi', 'aria-hidden': 'true' }, ic), h('span', { class: 'pl' }, l), h('span', { class: 'pvv' }, v));
     return h('div', { class: 'stack' },
       UI.card('今年の見通し', '平年作・予想米価の場合',
+        h('div', { class: 'pv-tiles' },
+          pvTile(income > 0 ? '😄' : '😟', 'もうけ', U.man(income), income > 0 ? 'good' : 'bad'),
+          pvTile(left >= 0 ? '👛' : '💸', '手元に残る', U.man(left), left >= 0 ? 'good' : 'bad'),
+          pvTile(pv.cash.minBalance >= 0 ? '🏦' : '🚨', pv.cash.minMonth + '月の資金', U.man(pv.cash.minBalance), pv.cash.minBalance >= 0 ? '' : 'bad'),
+          pvTile(shortSeasons.length ? '😓' : '💪', '人手', shortSeasons.length ? shortSeasons.map((s) => D.SEASON_SHORT[s]).join('・') + '不足' : 'OK', shortSeasons.length ? 'bad' : 'good')),
+        h('details', { class: 'pv-more', open: !!app.pvMoreOpen, ontoggle: (e) => { app.pvMoreOpen = e.target.open; } }, h('summary', null, '📋 くわしい内訳'),
         UI.pvRow('売上高', U.man(pl.sales)),
         UI.pvRow('交付金・支援金など', U.man(pl.nonopIncome)),
         UI.pvRow('経費（利息含む）', U.man(pl.expense + pl.nonopExpense)),
@@ -65,8 +90,8 @@
         UI.pvRow('年末の資金', U.man(pv.cash.end)),
         UI.pvRow('労働力', shortSeasons.length ? shortSeasons.map((s) => D.SEASON_SHORT[s]).join('・') + 'が不足' : '足りている', shortSeasons.length ? 'neg' : 'pos'),
         UI.pvRow('作業委託の面積（延べ）', U.ha(U.sum(contractArea))),
-        UI.pvRow('見込み収量', U.bales(pv.production.totalBales) + '（10a ' + U.num(pv.production.yieldPer10a) + 'kg）')),
-      hints.length ? UI.card('JA高橋さんからの注意', null, h('div', { class: 'notes' }, shown.map((x) => UI.note(x.level, null, x.text)),
+        UI.pvRow('見込み収量', U.bales(pv.production.totalBales) + '（10a ' + U.num(pv.production.yieldPer10a) + 'kg）'))),
+      hints.length ? UI.card(UI.whoTitle('takahashi', 'JA高橋さんからの注意'), null, h('div', { class: 'notes' }, shown.map((x) => UI.note(x.level, null, x.text)),
         more.length ? h('details', { class: 'more' }, h('summary', null, 'ほかに ' + more.length + '件'), h('div', { class: 'notes' }, more.map((x) => UI.note(x.level, null, x.text)))) : null)) : null,
       h('div', { class: 'stack' },
         UI.btn('この計画で1年を始める ▶', () => app.startSeason(), 'primary big block'),
@@ -75,16 +100,62 @@
   }
 
   // ---------- 概況 ----------
+  // ---------- ホーム：今年やること・見込みのメーター ----------
+  function homeHero(st) {
+    const lr = st.lastResult && st.lastResult.year === st.year - 1 ? st.lastResult : null;
+    return h('section', { class: 'home-hero' },
+      h('span', { class: 'hero-scene', 'aria-hidden': 'true' }, '🏡🌾🚜'),
+      h('h2', null, st.year + '年目の経営計画'),
+      h('div', { class: 'hero-sub' }, st.year === 1 ? 'まずは今年の段取りを決めよう。全部できたら、1年をスタート！' : '去年の結果をふまえて、今年の段取りを決めよう。'),
+      UI.saying(RG.advisor.quip(st, lr)));
+  }
+  function questCard(app, st, pv) {
+    const short = D.SEASONS.filter((s) => pv.labor.seasons[s].ratio > 0.01);
+    const seen = (st.visit && st.visit.tabs) || {};
+    const go = (tab) => () => { app.tab = tab; app.render(); };
+    const items = [
+      { done: !!seen.crops, text: '作る品種と面積を決める', sub: '「作付計画」で、どの品種を何ha作るかを確かめよう', tab: 'crops', go: '作付計画へ' },
+      short.length ? { warn: true, text: '人手が足りない季節があります', sub: short.map((s) => D.SEASON_SHORT[s]).join('・') + 'の作業時間が不足。パートを雇うか、作業を委託しよう', tab: 'labor', go: '労働力へ' }
+        : { done: true, text: '人手は足りている', sub: '春・夏・秋・冬の作業時間に余裕あり', tab: 'labor', go: '労働力へ' },
+      pv.cash.minBalance < 0 ? { warn: true, text: 'お金が足りなくなる月があります', sub: pv.cash.minMonth + '月に ' + U.man(pv.cash.minBalance) + '。運転資金を借りておこう', tab: 'finance', go: '資金・保険へ' }
+        : { done: true, text: 'お金は1年もちそう', sub: 'いちばん少ない ' + pv.cash.minMonth + '月でも ' + U.man(pv.cash.minBalance) + ' 残る見込み', tab: 'finance', go: '資金・保険へ' },
+      { done: !!seen.sales, text: '売り先を決める', sub: '「販売計画」で、農協・契約・直販の売り分けを確かめよう', tab: 'sales', go: '販売計画へ' },
+    ];
+    const n = items.filter((x) => x.done).length;
+    return UI.card('✅ 今年やること', n + ' / ' + items.length + ' クリア',
+      h('div', { class: 'quest-bar' }, h('i', { style: { width: (n / items.length * 100) + '%' } })),
+      h('ul', { class: 'quest' }, items.map((x) => h('li', { class: x.done ? 'done' : x.warn ? 'warn' : '', onclick: go(x.tab), role: 'button', tabindex: 0,
+        onkeydown: (e) => { if (e.key === 'Enter') go(x.tab)(); } },
+        h('span', { class: 'qk', 'aria-hidden': 'true' }, x.done ? '✓' : x.warn ? '!' : ''),
+        h('span', { class: 'qt' }, x.text, h('span', { class: 'qs' }, x.sub)),
+        h('span', { class: 'qgo' }, x.go + ' →')))),
+      h('p', { class: 'small muted', style: { marginTop: '10px' } }, n === items.length ? '準備ばっちり！ 右の「この計画で1年を始める」を押そう。' : 'チェックがそろったら、右の「この計画で1年を始める」を押そう。'));
+  }
+  function meterCard(st, pv) {
+    const pl = pv.pl;
+    const income = ACC.ownerIncome(st, pl);
+    const left = st.corp ? pl.preTax - pv.tax.amount : pl.preTax - pv.tax.amount - st.living;
+    const short = D.SEASONS.filter((s) => pv.labor.seasons[s].ratio > 0.01);
+    const m = (cls, face, label, value, note) => h('div', { class: 'meter ' + cls }, h('span', { class: 'mf', 'aria-hidden': 'true' }, face), h('span', { class: 'ml' }, label), h('span', { class: 'mv' }, value), h('span', { class: 'mn' }, note));
+    return UI.card('🔮 今年の見込み', '平年並みの天気・予想米価の場合',
+      h('div', { class: 'meters' },
+        m(income > 3000000 ? 'good' : income > 0 ? 'warn' : 'bad', income > 3000000 ? '😄' : income > 0 ? '🙂' : '😟', st.corp ? 'もうけ（税引前利益）' : 'もうけ（農業所得）', U.man(income), '売上 ' + U.man(pl.sales) + ' − 経費'),
+        m(left >= 0 ? 'good' : 'bad', left >= 0 ? '👛' : '💸', '手元に残るお金', U.man(left), st.corp ? '税金を払ったあと' : '家計費と税金を払ったあと'),
+        m(pv.cash.minBalance >= 500000 ? 'good' : pv.cash.minBalance >= 0 ? 'warn' : 'bad', pv.cash.minBalance >= 0 ? '🏦' : '🚨', 'お金がいちばん少ない月', pv.cash.minMonth + '月 ' + U.man(pv.cash.minBalance), pv.cash.minBalance >= 0 ? '1年もちそう' : '借入でしのぐ必要あり'),
+        m(short.length ? 'bad' : 'good', short.length ? '😓' : '💪', '人手', short.length ? short.map((s) => D.SEASON_SHORT[s]).join('・') + 'が不足' : '足りている', short.length ? '刈り遅れなどで収量が落ちる' : '作業は間に合いそう'),
+        m('good', '🌾', '収穫の見込み', U.bales(pv.production.totalBales), '10aあたり ' + U.num(pv.production.yieldPer10a) + 'kg')));
+  }
+
   function tabOverview(app, st, pv) {
     const bs = ACC.bs(st);
     const area = U.sum(st.fields, (f) => f.area), owned = U.sum(st.fields.filter((f) => f.owned), (f) => f.area);
     const w = st.world;
-    const out = [];
+    const out = [homeHero(st), questCard(app, st, pv), meterCard(st, pv)];
     out.push(UI.card('今年のニュース', null, h('div', { class: 'notes' }, st.news.map((n) => UI.note(n.kind === 'event' ? 'info' : n.kind, null, n.text)))));
     if (st.lastResult) {
       let adv = st.lastResult.nextAdvice;
       if (!adv) { try { adv = RG.advisor.nextYear(st, st.lastResult); } catch (e) { adv = null; } }
-      if (adv && adv.length) out.push(UI.card(RG.advisor.NAME + 'からのアドバイス', '昨年の決算より', RG.screens.adviceList(adv, app, '今年やること')));
+      if (adv && adv.length) out.push(UI.card(UI.whoTitle('takahashi', RG.advisor.NAME + 'からのアドバイス'), '昨年の決算より', RG.screens.adviceList(adv, app, '今年やること')));
     }
     out.push(milestoneCard(st));
     out.push(RG.screens.rivalsCard(st));
@@ -156,7 +227,7 @@
   // ---------- 作付計画 ----------
   function cropOptions(st) {
     return D.CROP_ORDER.filter((k) => k !== 'none' && (!D.CROPS[k].unlock || st.flags[D.CROPS[k].unlock]))
-      .map((k) => ({ value: k, label: D.CROPS[k].name + '［' + AG.maturityLabel(D.CROPS[k]) + '］' }));
+      .map((k) => ({ value: k, label: D.cropIcon(k) + ' ' + D.CROPS[k].name + '［' + AG.maturityLabel(D.CROPS[k]) + '］' }));
   }
   function tabCrops(app, st, pv) {
     const crops = cropOptions(st);
@@ -305,7 +376,7 @@
     const capRows = ['tractor', 'nursery', 'planter', 'combine', 'dryer'].map((t) => {
       const M = pv.machines[t];
       const op = D.OP_ORDER.map((k) => D.OPS[k]).find((o) => o.mtype === t);
-      return [D.MACHINE_TYPES[t].name, { v: U.ha(M.need), cls: 'num' }, { v: U.ha(M.cap), cls: 'num' },
+      return [D.MACHINE_TYPES[t].icon + ' ' + D.MACHINE_TYPES[t].name, { v: U.ha(M.need), cls: 'num' }, { v: U.ha(M.cap), cls: 'num' },
         h('div', { class: 'row', style: { flexWrap: 'nowrap' } }, UI.bar(M.need, M.cap), h('span', { class: 'small' }, M.cap > 0 ? U.pct(M.util) : '—')),
         { v: M.contract > 0.01 ? h('span', null, U.ha(pv.labor.ops[opKey(t)].contractArea), pv.labor.ops[opKey(t)].undone > 0.05 ? h('div', { class: 'small neg' }, '委託できない ' + U.ha(pv.labor.ops[opKey(t)].undone)) : null) : '—', cls: 'num' },
         { v: U.man(pv.labor.ops[opKey(t)].fee), cls: 'num' },
@@ -313,7 +384,7 @@
     });
     ['drone', 'smart'].forEach((t) => {
       const M = pv.machines[t];
-      capRows.push([D.MACHINE_TYPES[t].name, { v: U.ha(M.need), cls: 'num' }, { v: U.ha(M.cap), cls: 'num' },
+      capRows.push([D.MACHINE_TYPES[t].icon + ' ' + D.MACHINE_TYPES[t].name, { v: U.ha(M.need), cls: 'num' }, { v: U.ha(M.cap), cls: 'num' },
         h('div', { class: 'row', style: { flexWrap: 'nowrap' } }, UI.bar(Math.min(M.need, M.cap), M.need), h('span', { class: 'small' }, M.need > 0 ? 'カバー率 ' + U.pct(M.own / M.need) : '—')), '—', '—', '—']);
     });
     const owned = st.machines.map((m) => {
@@ -333,8 +404,8 @@
     const sub = !!st.yearFlags.machineSubsidy;
     const shop = D.MACHINE_TYPE_ORDER.map((t) => {
       const models = Object.keys(D.MODELS).filter((k) => D.MODELS[k].type === t);
-      return h('details', { class: 'more', open: app.openShop === t, ontoggle: (e) => { if (e.target.open) app.openShop = t; } },
-        h('summary', null, D.MACHINE_TYPES[t].name + ' ― ' + D.MACHINE_TYPES[t].role),
+      return h('details', { class: 'more', open: app.openShop === t, ontoggle: (e) => { if (e.target.open) app.openShop = t; else if (app.openShop === t) app.openShop = null; } },
+        h('summary', null, D.MACHINE_TYPES[t].icon + ' ' + D.MACHINE_TYPES[t].name + ' ― ' + D.MACHINE_TYPES[t].role),
         UI.table([{ label: '機種' }, { label: '能力', num: true }, { label: '省力', num: true }, { label: '価格', num: true }, { label: '年間の償却費', num: true }, { label: 'リース料/年', num: true }, { label: '' }],
           models.map((k) => {
             const md = D.MODELS[k];
@@ -373,7 +444,7 @@
     const L = pv.labor;
     const seasonRows = D.SEASONS.map((s) => {
       const x = L.seasons[s];
-      return [D.SEASON_NAMES[s], { v: U.num(x.need) + 'h', cls: 'num' }, { v: U.num(x.family) + 'h', cls: 'num' }, { v: U.num(x.staff) + 'h', cls: 'num' },
+      return [D.SEASON_ICON[s] + ' ' + D.SEASON_NAMES[s], { v: U.num(x.need) + 'h', cls: 'num' }, { v: U.num(x.family) + 'h', cls: 'num' }, { v: U.num(x.staff) + 'h', cls: 'num' },
         { v: U.num(x.part) + 'h', cls: 'num' }, { v: x.short > 0.5 ? U.num(x.short) + 'h' : '—', cls: 'num ' + (x.short > 0.5 ? 'neg' : '') },
         x.ratio > 0.01 ? h('span', { class: 'badge bad' }, '不足 ' + U.pct(x.ratio)) : h('span', { class: 'badge good' }, '十分')];
     });
@@ -385,6 +456,13 @@
     const staffCost = D.LABOR.staffSalary * st.market.wageInfl * (1 + D.LABOR.staffSocial);
     return h('div', { class: 'stack' },
       UI.card('季節ごとの労働バランス', '必要な時間と働ける時間',
+        h('div', { class: 'season-gauges' }, D.SEASONS.map((s) => {
+          const x = L.seasons[s], have = x.need - x.short, ok = x.ratio <= 0.01;
+          return h('div', { class: 'sg ' + (ok ? 'good' : 'bad') },
+            h('div', { class: 'sg-ic', 'aria-hidden': 'true' }, D.SEASON_ICON[s]), h('div', { class: 'sg-n' }, D.SEASON_SHORT[s]),
+            h('div', { class: 'sg-bar' }, h('i', { style: { width: (x.need > 0 ? Math.min(100, have / x.need * 100) : 100) + '%' } })),
+            h('div', { class: 'sg-v' }, ok ? '💪 足りる' : '😓 ' + U.num(x.short) + 'h 不足'));
+        })),
         UI.table([{ label: '季節' }, { label: '必要', num: true }, { label: '家族', num: true }, { label: '社員', num: true }, { label: 'パート上限', num: true }, { label: '不足', num: true }, { label: '' }], seasonRows),
         h('div', { class: 'kpis', style: { marginTop: '10px' } },
           UI.kpi('年間の労働時間', U.num(L.totalHours) + 'h'), UI.kpi('10aあたり', U.num(L.hoursPer10a, 1) + 'h', '機械が大きいほど短くなる'),
@@ -445,7 +523,17 @@
     S.spot.forEach((j) => channel.push(['スポット（' + j.label + '）', { v: U.bales(j.bales), cls: 'num' }, { v: U.man(j.revenue), cls: 'num' }, { v: U.yen(j.unit - D.COST.spotFee), cls: 'num' }]));
     if (S.feed.bales > 0) channel.push(['飼料用米（＋交付金 ' + U.man(S.feed.subsidy) + '）', { v: U.bales(S.feed.bales), cls: 'num' }, { v: U.man(S.feed.revenue), cls: 'num' }, { v: U.yen(D.SALES.feedPrice - D.COST.feedFee + S.feed.subsidy / Math.max(1, S.feed.bales)), cls: 'num' }]);
 
+    // 売り分けの帯（どこに何俵売るか）
+    const split = [
+      ['🤝', '契約', U.sum(S.contracts, (c) => c.delivered), '#5aa6e0'], ['📦', '直販', S.direct.sold, '#e9a52a'], ['🏢', '農協', U.sum(S.ja, (j) => j.bales), '#58a650'],
+      ['⏳', '保管', S.stockEnd ? S.stockEnd.bales : 0, '#9b7ad0'], ['🍡', '加工', S.biz && S.biz.proc ? S.biz.proc.bales : 0, '#e57a9a'],
+      ['🏷️', 'スポット', U.sum(S.spot, (j) => j.bales), '#a0a0a0'], ['🐄', '飼料用', S.feed.bales, '#b38b5a']].filter((x) => x[2] > 0.5);
+    const tot = U.sum(split, (x) => x[2]) || 1;
+    const splitCard = UI.card('🍚 お米の売り分け', '平年作の見込み・合計 ' + U.bales(tot),
+      h('div', { class: 'split-bar' }, split.map((x) => h('span', { style: { width: (x[2] / tot * 100) + '%', background: x[3] }, title: x[1] + ' ' + U.bales(x[2]) }, x[2] / tot > 0.08 ? x[0] : ''))),
+      h('div', { class: 'split-legend' }, split.map((x) => h('span', null, h('i', { style: { background: x[3] } }), x[0] + ' ' + x[1] + ' ' + U.bales(x[2]) + '（' + U.pct(x[2] / tot, 0) + '）'))));
     return h('div', { class: 'stack' },
+      splitCard,
       RG.screens.storageCard(app, st, pv),
       UI.card('販路ごとの見込み', '平年作・予想米価 ' + U.yen(w.forecast) + '/60kg',
         UI.table([{ label: '販路' }, { label: '数量', num: true }, { label: '売上', num: true }, { label: '1俵あたり手取り', num: true }], channel),
@@ -504,7 +592,7 @@
       const disabled = k === 'income' && !incomeBase.eligible;
       const prem = k === 'kyosai' ? '保険料 ' + U.man(kyosaiPrem) : k === 'income' ? (incomeBase.eligible ? '基準収入 ' + U.man(incomeBase.base) + '・保険料 ' + U.man(incomeBase.base * I.rate) : '来年から加入できます') : '保険料 0円';
       return h('button', { class: 'radio-card' + (st.insurance === k ? ' on' : ''), type: 'button', disabled, 'aria-pressed': st.insurance === k ? 'true' : 'false',
-        onclick: () => app.update((s) => { s.insurance = k; }) },
+        onclick: (e) => { if (e.target.closest && e.target.closest('.term')) return; app.update((s) => { s.insurance = k; }); } },
         h('div', { class: 't' }, k === 'none' ? I.name : T(I.name)), h('div', { class: 'small' }, prem), h('div', { class: 'small muted' }, I.desc));
     });
     const last = st.lastResult && st.lastResult.analysis;

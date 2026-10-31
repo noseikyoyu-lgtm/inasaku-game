@@ -90,7 +90,7 @@
     }
     const items = RG.outlook.assess(st, st.baseline);
     const b = st.baseline;
-    return UI.card(RG.advisor.NAME + 'の見立て', 'あなたの経営は、これからやっていけるか',
+    return UI.card(UI.whoTitle('takahashi', RG.advisor.NAME + 'の見立て'), 'あなたの経営は、これからやっていけるか',
       h('div', { class: 'kpis' },
         UI.kpi('今のままで続けられた割合', U.pct(b.rate), b.n + '通りの天候のうち ' + b.survived + '通り', b.rate >= 0.9 ? 'good' : b.rate >= 0.6 ? 'warn' : 'bad'),
         UI.kpi(b.retiredYear ? '今のままの引退時の純資産' : '今のままの20年後の純資産', U.man(b.equityMed), '中央値（悪いほうから1割：' + U.man(b.equityLow) + '）'),
@@ -126,7 +126,7 @@
       'h1{font-size:22px}h2{font-size:17px;border-bottom:2px solid #3c7a37;margin-top:24px}table{border-collapse:collapse;width:100%;font-size:13px}' +
       'td,th{border-bottom:1px solid #ddd;padding:4px 6px;text-align:right}td:first-child,th:first-child,td:nth-child(2),th:nth-child(2){text-align:left}' +
       '.n{padding:8px 12px;border-radius:6px;margin:6px 0;background:#f4f4ef}.good{background:#e5f3ea}.warn{background:#fbf0dc}.bad{background:#fae6e3}.tip{background:#fbf3dd}.muted{color:#666;font-size:12px}</style></head><body>' +
-      '<h1>' + esc(st.farmName) + '：経営の振り返り</h1><p class="muted">田んぼの経営者（' + esc(D.SCENARIOS[st.scenarioId].name) + '・シード ' + st.seed + '）　作成日 ' + new Date().toLocaleDateString('ja-JP') + '</p>' +
+      '<h1>' + esc(st.farmName) + '：経営の振り返り</h1><p class="muted">米道 KOMEDO（' + esc(D.SCENARIOS[st.scenarioId].name) + '・シード ' + st.seed + '）　作成日 ' + new Date().toLocaleDateString('ja-JP') + '</p>' +
       input +
       '<h2>結果</h2><p>' + (st.gameOver ? st.gameOver.year + '年目で経営を続けられなくなりました。' : st.retired ? st.retired.year + '年目に経営主が引退しました。' : '20年の経営を終えました。') +
       ' 最後の純資産 ' + U.man(last.equity) + '、借入残高 ' + U.man(last.debt) + '、年平均の所得 ' + U.man(U.avg(hs.map((x) => x.income))) + '。</p>' +

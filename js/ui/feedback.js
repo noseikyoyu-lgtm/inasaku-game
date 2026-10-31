@@ -25,10 +25,16 @@
   }
 
   // セーブから農場名を除く（自分の経営で遊んだ場合も名前は送らない）
-  FB.cleanSave = function (st) {
-    let json = JSON.stringify(st);
-    if (st.farmName && st.farmName.length >= 2) json = json.split(JSON.stringify(st.farmName).slice(1, -1)).join('農場');
-    return json;
+  // slim：送信用に軽くする（試算用の初期状態と、別に送るプレイ記録を外す）
+  FB.cleanSave = function (st, slim) {
+    const c = JSON.parse(JSON.stringify(st));
+    c.farmName = '農場';
+    if (slim) { delete c.initialSnapshot; delete c.playlog; delete c.baseline; }
+    else if (typeof c.initialSnapshot === 'string') {
+      try { const s0 = JSON.parse(c.initialSnapshot); s0.farmName = '農場'; c.initialSnapshot = JSON.stringify(s0); } catch (e) { delete c.initialSnapshot; }
+    }
+    if (c.custom && c.custom.farmName) c.custom.farmName = '農場';
+    return JSON.stringify(c);
   };
 
   // 送る。送れなければファイルに書き出す
@@ -41,12 +47,14 @@
       if (c.fields.version) fd.append(c.fields.version, data.version);
       // フォームの1つの欄に入る長さにおさめる（長ければセーブ、次に計画の記録を省く）
       let body = json;
-      if (body.length > 45000 && data.save) body = JSON.stringify(Object.assign({}, data, { save: '（長すぎるため省略）' }));
+      if (body.length > 45000 && data.save && data.saveSlim) body = JSON.stringify(Object.assign({}, data, { save: data.saveSlim, saveSlim: undefined }));
+      let saveDropped = false;
+      if (body.length > 45000 && data.save) { body = JSON.stringify(Object.assign({}, data, { save: '（長すぎるため省略）', saveSlim: undefined })); saveDropped = true; }
       if (body.length > 45000 && data.game && data.game.plans) body = JSON.stringify(Object.assign({}, data, { save: undefined, game: Object.assign({}, data.game, { plans: [], omitted: '長すぎるため計画の記録を省略' }) }));
       fd.append(c.fields.body, body);
       try {
         await fetch(c.formAction, { method: 'POST', mode: 'no-cors', body: fd });
-        UI.toast('送りました。ありがとうございます！');
+        UI.toast(saveDropped ? '送りました。ありがとうございます！（セーブは大きすぎて送れなかったので、場面の再現が必要ならメニューの「ファイルに書き出す」で保存してください）' : '送りました。ありがとうございます！');
         return true;
       } catch (e) {
         UI.toast('送れませんでした。ファイルに書き出します。', 'bad');
@@ -59,14 +67,14 @@
   FB.download = function (data) {
     const d = new Date();
     const name = (data.kind === 'survey' ? 'アンケート' : '気づき') + '_' + d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0') + '_' + String(d.getHours()).padStart(2, '0') + String(d.getMinutes()).padStart(2, '0') + '.json';
-    const a = h('a', { href: URL.createObjectURL(new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' })), download: name });
+    const a = h('a', { href: URL.createObjectURL(new Blob([JSON.stringify(Object.assign({}, data, { saveSlim: undefined }), null, 1)], { type: 'application/json' })), download: name });
     document.body.appendChild(a); a.click();
     setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
     const to = RG.CONFIG && RG.CONFIG.contact;
     UI.toast('「' + name + '」を書き出しました。' + (to ? to + ' に送ってください。' : ''));
   };
 
-  const privacyNote = () => h('p', { class: 'small muted' },
+  const privacyNote = () => h('p', { class: 'small muted keep' },
     '送るもの：書いた内容、ゲームの状況（年・画面・シード番号）' + '、「プレイの記録」にチェックしたときは毎年の判断と結果の数字。農場名・名前・地名は送りません。「自分の経営で始める」で遊んだ場合も、面積や金額などの数字だけが送られます。' +
     (FB.canSend() ? '' : '（このゲームは送信先が設定されていないため、ファイルに書き出します）'));
 
@@ -80,7 +88,7 @@
     drawChips();
     const ta = h('textarea', { rows: 5, placeholder: '気づいたこと、困ったこと、こうなったらおもしろい、など自由に', style: { width: '100%' }, 'aria-label': '気づき' });
     const withLog = h('input', { type: 'checkbox', checked: true, id: 'fb-log' });
-    const where = st ? st.year + '年目・' + ({ dice: '運だめし', event: '年初のできごと', plan: '経営計画（' + app.tab + '）', season: 'シーズン ' + (st.seasonMonth || '') + '月', result: '決算', midterm: '中間評価', end: '経営終了', gameover: '経営終了' }[st.phase] || st.phase) : 'タイトル画面';
+    const where = st ? st.year + '年目・' + ({ dice: '運だめし', event: '年初のできごと', plan: '経営計画（' + (RG.advisor.TAB_NAMES[app.tab] || app.tab) + '）', season: 'シーズン ' + (st.seasonMonth || '') + '月', result: '決算', midterm: '中間評価', end: '経営終了', gameover: '経営終了' }[st.phase] || st.phase) : 'タイトル画面';
     const body = h('div', { class: 'stack' },
       h('p', { class: 'small' }, '今の場面：', h('b', null, where)),
       chips, ta,
@@ -93,7 +101,7 @@
         if (!text) { UI.toast('内容を書いてください', 'bad'); return false; }
         const content = { category: cat, text, where, screen: st ? st.phase : 'title', tab: app.tab, month: st ? st.seasonMonth : null };
         const data = pack('note', st, content, st && withLog.checked);
-        if (st && withLog.checked) data.save = FB.cleanSave(st);
+        if (st && withLog.checked) { data.save = FB.cleanSave(st); if (FB.canSend()) data.saveSlim = FB.cleanSave(st, true); }
         if (st) RG.playlog.get(st).notes.push({ y: st.year, cat, text, where });
         FB.deliver(data);
         return true;

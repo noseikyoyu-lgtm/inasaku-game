@@ -152,8 +152,10 @@
         left = U.round(left - a, 1);
       }
     };
-    split(owned, true);
-    split(rented, false);
+    // 合計を先に丸め、借地は「合計 − 所有」にして、入力より増えないようにする
+    const ownedR = U.round(owned, 1), rentedR = Math.max(0, U.round(U.round(owned + rented, 1) - ownedR, 1));
+    split(ownedR, true);
+    split(rentedR, false);
     const total = U.round(U.sum(fields, (f) => f.area), 1) || 0.1;
     const machines = [];
     Object.keys(SIZE_MODEL).forEach((t) => {
@@ -289,6 +291,10 @@
   };
   // JSON に保存できない関数を復元する
   S.hydrate = function (st) {
+    // 「計算できない（無限大）」はセーブすると null になるので戻す
+    const inf = (o, keys) => { if (o) keys.forEach((k) => { if (o[k] === null) o[k] = Infinity; }); };
+    if (st.lastResult) inf(st.lastResult.analysis, ['repayYears', 'bepArea', 'bepAreaLiving', 'bepPrice', 'bepPriceLiving']);
+    (st.history || []).forEach((x) => inf(x, ['bepArea']));
     if (!st.midterms) st.midterms = [];
     if (!st.items) st.items = { omamori: 1, reroll: 1 };
     if (st.storePlan == null) st.storePlan = 0;

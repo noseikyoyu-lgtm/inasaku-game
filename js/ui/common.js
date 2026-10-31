@@ -31,9 +31,19 @@
 
   UI.term = (word, label) => h('span', { class: 'term', tabindex: 0, 'data-term': word, role: 'button' }, label || word);
 
+  // カードの見出しに合うアイコン（文字だけの見出しを減らす）
+  UI.CARD_ICONS = {
+    '今年のニュース': '📰', '経営の状況': '📊', '米価の見通し': '💹', '昨年の結果': '📅', '20年後の評価': '🏆', 'これからの山場': '⛰️', '売上と所得の推移': '📈', '純資産と借入の推移': '📉',
+    '品種ごとの作付': '🌾', '品目ごとの見込み': '📦', '収穫スケジュール': '🗓️', '品種の特徴': '📘', '農地の状況': '🗾', '農地の話': '🤝', '田んぼの一覧': '📋',
+    '作業能力と委託': '⚙️', '持っている機械': '🚜', '中古機械の出物': '🏷️', '機械を導入する': '🛒', '季節ごとの労働バランス': '⚖️', '作業ごとの時間': '⏱️',
+    '家族': '👨‍👩‍👧', 'パート': '🧑‍🌾', '正社員': '👷', '販路ごとの見込み': '🛒', '資金の状況': '💰', '今年の資金繰りの見通し': '📉', '借入金': '🏦', '保険': '🛡️',
+    '今年の見通し': '🔮', '地域の農家': '🏘️', '地域の農家との比較': '🏘️', '称号': '🏅', '今年の成績': '📋', '天候と作柄': '⛅', '米の値段': '💹', '評価の内訳': '📊',
+    '経営を続けるための条件': '🩺', '月ごとの資金の動き': '💴', '利益とお金のずれ': '🔍', '純資産が増減した理由': '⚖️', '資産の部': '🏠', '負債・純資産の部': '🏦',
+  };
   UI.card = function (title, sub) {
     const kids = Array.prototype.slice.call(arguments, 2);
-    return h('section', { class: 'card' }, title ? h('h3', null, title, sub ? h('span', { class: 'sub' }, sub) : null) : null, kids);
+    const ic = typeof title === 'string' && UI.CARD_ICONS[title];
+    return h('section', { class: 'card' }, title ? h('h3', null, ic ? h('span', { class: 'card-ic', 'aria-hidden': 'true' }, ic) : null, title, sub ? h('span', { class: 'sub' }, sub) : null) : null, kids);
   };
 
   UI.kpi = (label, value, sub, cls) => h('div', { class: 'kpi ' + (cls || '') }, h('div', { class: 'l' }, label), h('div', { class: 'v' }, value), sub ? h('div', { class: 's' }, sub) : null);
@@ -59,17 +69,29 @@
 
   UI.btn = (label, onClick, cls, opts) => h('button', Object.assign({ class: 'btn ' + (cls || ''), type: 'button', onclick: onClick }, opts || {}), label);
 
+  // 数字の入力：－＋ボタンでも増やしたり減らしたりできる（操作盤のように）
   UI.numInput = function (o) {
-    const inp = h('input', { type: 'number', value: o.value, min: o.min, max: o.max, step: o.step || 1, style: { width: (o.width || 100) + 'px' },
-      'aria-label': o.label || '',
-      onchange: (e) => {
-        let v = parseFloat(e.target.value);
-        if (!isFinite(v)) v = o.min || 0;
-        if (o.min !== undefined) v = Math.max(o.min, v);
-        if (o.max !== undefined) v = Math.min(o.max, v);
-        o.onChange(v);
-      } });
-    return h('span', { class: 'inline-input' }, inp, o.suffix ? h('span', { class: 'muted small' }, o.suffix) : null);
+    const clamp = (v) => {
+      if (!isFinite(v)) v = o.min || 0;
+      if (o.min !== undefined) v = Math.max(o.min, v);
+      if (o.max !== undefined) v = Math.min(o.max, v);
+      return Math.round(v * 1000) / 1000;
+    };
+    const step = o.step || 1;
+    const inp = h('input', { type: 'number', value: o.value, min: o.min, max: o.max, step, style: { width: (o.width || 100) + 'px' },
+      'aria-label': o.label || '', onchange: (e) => o.onChange(clamp(parseFloat(e.target.value))) });
+    const minus = h('button', { type: 'button', class: 'step-btn', 'aria-label': (o.label || '') + 'を減らす', disabled: o.min !== undefined && o.value <= o.min }, '−');
+    const plus = h('button', { type: 'button', class: 'step-btn', 'aria-label': (o.label || '') + 'を増やす', disabled: o.max !== undefined && o.value >= o.max }, '＋');
+    const bump = (d) => () => {
+      const cur = parseFloat(inp.value) || 0, v = clamp(cur + d * step);
+      if (v === cur) return;
+      inp.value = v; // 描き直さない入力欄でも、表示を新しい値にする
+      minus.disabled = o.min !== undefined && v <= o.min; plus.disabled = o.max !== undefined && v >= o.max;
+      o.onChange(v);
+    };
+    minus.addEventListener('click', bump(-1)); plus.addEventListener('click', bump(1));
+    return h('span', { class: 'inline-input stepper' }, minus, inp, plus,
+      o.suffix ? h('span', { class: 'muted small' }, o.suffix) : null);
   };
 
   UI.select = function (options, value, onChange, opts) {
@@ -79,7 +101,7 @@
 
   UI.field = (label, control) => h('div', { class: 'field' }, h('label', null, label), control);
 
-  const ICON = { good: '✓', warn: '!', bad: '!', info: 'i', tip: '★' };
+  const ICON = { good: '✅', warn: '⚠️', bad: '🚨', info: '💡', tip: '⭐' };
   UI.note = (level, title, text) => h('div', { class: 'note ' + level }, h('span', { class: 'ic', 'aria-hidden': 'true' }, ICON[level] || 'i'),
     h('div', null, title ? h('div', { class: 't' }, title) : null, text ? h('div', null, text) : null));
 
@@ -94,7 +116,7 @@
   UI.modal = function (o) {
     const root = document.getElementById('modal-root');
     const close = () => { ov.remove(); document.removeEventListener('keydown', onKey); if (o.onClose) o.onClose(); };
-    const onKey = (e) => { if (e.key === 'Escape') close(); };
+    const onKey = (e) => { if (e.key === 'Escape' && root.lastElementChild === ov) close(); };
     const actions = (o.actions || [{ label: '閉じる' }]).map((a) => UI.btn(a.label, () => { if (a.onClick && a.onClick() === false) return; close(); }, a.cls));
     const ov = h('div', { class: 'overlay', onclick: (e) => { if (e.target === ov) close(); } },
       h('div', { class: 'modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': o.title },

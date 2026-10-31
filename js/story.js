@@ -122,7 +122,7 @@
           return '健太さんを後継者として迎えた。家族以外への「第三者継承」の始まりだ。'; } },
         { label: 'まだ考えさせてほしい', desc: '数年後にまた話し合う', apply: (st) => { SY.state(st).trainee.at = st.year; return 'もう少し考えることにした。'; } }] },
   ];
-  STORY.forEach((e) => { e.once = true; e.sq = e.choices.length - 1; E.POOL.push(e); });
+  STORY.forEach((e) => { e.once = e.id !== 'kenta_3'; e.sq = e.choices.length - 1; E.POOL.push(e); }); // kenta_3 は「まだ考えさせて」のあと数年でまた来る
   // 2段目以降は前の段の「once」に関係なく起きる（id が別なので問題ない）
 
   // 年の始まり：研修生の手当

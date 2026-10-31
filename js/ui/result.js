@@ -4,7 +4,7 @@
   const UI = RG.ui, h = UI.h, D = RG.data, U = RG.util;
   const T = UI.term;
 
-  const TABS = [['summary', 'サマリーと講評'], ['pl', '損益計算書'], ['bs', '貸借対照表'], ['cash', '資金繰り'], ['cost', '原価・損益分岐'], ['prod', '生産と販売'], ['work', '労働と機械']];
+  const TABS = [['summary', 'サマリーと講評', '📋'], ['pl', '損益計算書', '🧾'], ['bs', '貸借対照表', '⚖️'], ['cash', '資金繰り', '💴'], ['cost', '原価・損益分岐', '🧮'], ['prod', '生産と販売', '🌾'], ['work', '労働と機械', '🚜']];
 
   RG.screens.showLastResult = function (app) { app.viewingLast = true; app.resultTab = 'summary'; app.render(); };
 
@@ -12,8 +12,8 @@
     const st = app.st, res = st.lastResult;
     const viewing = app.viewingLast && st.phase !== 'result';
     const tab = app.resultTab || 'summary';
-    const tabs = h('div', { class: 'tabs', role: 'tablist' }, TABS.map(([k, l]) => h('button', { class: tab === k ? 'on' : '', type: 'button', role: 'tab', 'aria-selected': tab === k ? 'true' : 'false',
-      onclick: () => { app.resultTab = k; app.keepScroll = true; app.render(); } }, l)));
+    const tabs = h('div', { class: 'tabs', role: 'tablist' }, TABS.map(([k, l, ic]) => h('button', { class: tab === k ? 'on' : '', type: 'button', role: 'tab', 'aria-selected': tab === k ? 'true' : 'false',
+      onclick: () => { app.resultTab = k; app.keepScroll = true; app.render(); } }, h('span', { class: 'tab-ic', 'aria-hidden': 'true' }, ic), l)));
     // 前年の決算書を見るときも、その年の決算時点の状態（法人か・家計費・年末の資金）で表示する
     const vs = Object.assign({}, st, { corp: res.corp != null ? res.corp : st.corp, living: res.living != null ? res.living : st.living,
       cash: res.cashEnd != null ? res.cashEnd : st.cash, lossCarry: res.lossCarry != null ? res.lossCarry : st.lossCarry });
@@ -31,9 +31,44 @@
           h('div', { class: 'section-title' }, h('h2', null, res.year + '年目の決算'), viewing ? h('span', { class: 'badge info' }, '前年の決算') : null),
           st.gameOver && !viewing ? UI.note('bad', '経営を続けられなくなりました', st.gameOver.text) : null,
           st.retired && !st.gameOver && !viewing ? UI.note('warn', '経営主が引退します', '経営主が' + st.retired.age + '歳になり、引き継げる後継者がいないため、今年で経営を終えます。') : null,
+          reportCard(app, st, res, viewing),
           tabs, body,
           h('div', { class: 'row' }, h('span', { class: 'spacer' }), next))));
   };
+
+  // ---------- 成績発表：はんこと、大きな数字で今年の出来を見せる ----------
+  function reportCard(app, st, res, viewing) {
+    const prev = st.history.find((x) => x.year === res.year - 1);
+    const inc = res.analysis.income;
+    const grade = st.gameOver && !viewing ? ['low', '経営\n終了'] : inc > 0 && (!prev || inc >= prev.income) ? ['', 'よく\nできました'] : inc > 0 ? ['mid', 'まずまず'] : ['low', 'がんばろう'];
+    const W = D.WEATHER[res.weather];
+    const delta = (now, before, fmt) => {
+      if (before == null) return h('span', { class: 'td' }, '　');
+      const d = now - before;
+      return h('span', { class: 'td ' + (d > 0 ? 'up' : d < 0 ? 'down' : '') }, (d > 0 ? '▲ ' : d < 0 ? '▼ ' : '± ') + fmt(Math.abs(d)) + '（前年比）');
+    };
+    const tile = (icon, label, value, d) => h('div', { class: 'rtile' }, h('div', { class: 'tl' }, icon + ' ' + label), h('div', { class: 'tv' }, value), d);
+    const pieces = [];
+    // 良い年は紙ふぶき（決算を初めて開いたときだけ）
+    if (!grade[0] && !viewing && app.reportShown !== st.year + ':' + st.seed) {
+      app.reportShown = st.year + ':' + st.seed;
+      const cols = ['#f2b84b', '#58a650', '#d4442f', '#5aa6e0', '#fff'];
+      for (let i = 0; i < 40; i++) pieces.push(h('i', { style: { left: (i * 37 % 100) + '%', background: cols[i % cols.length], animationDelay: (i % 10) * 0.12 + 's' } }));
+    }
+    return h('section', { class: 'report' },
+      pieces.length ? h('div', { class: 'confetti', 'aria-hidden': 'true' }, pieces) : null,
+      h('div', { class: 'report-top' },
+        h('div', { class: 'stamp ' + grade[0], role: 'img', 'aria-label': '今年の評価：' + grade[1].replace('\n', '') }, grade[1].split('\n').map((t) => h('div', null, t))),
+        h('div', null, h('div', { class: 'small', style: { color: '#8a6a35', fontWeight: 700 } }, '成績発表'),
+          h('h2', null, res.year + '年目の結果'),
+          h('div', { class: 'small' }, W.icon + ' ' + W.name + '・米価 ' + U.yen(res.price) + '/60kg'))),
+      h('div', { class: 'report-tiles' },
+        tile('💴', '売上', U.man(res.pl.sales), delta(res.pl.sales, prev && prev.sales, U.man)),
+        tile(inc >= 0 ? '😄' : '😟', 'もうけ（' + (res.corp ? '所得' : '農業所得') + '）', U.man(inc), delta(inc, prev && prev.income, U.man)),
+        tile('👛', '年末の資金', U.man(res.cashEnd != null ? res.cashEnd : st.cash), delta(res.cashEnd != null ? res.cashEnd : st.cash, prev && prev.cashEnd, U.man)),
+        tile('🌾', '収穫', U.bales(res.production.totalBales), delta(res.production.totalBales, prev && prev.bales, U.bales)),
+        tile('🥇', '1等米の割合', U.pct(res.production.r1), delta(res.production.r1 * 100, prev && prev.r1 != null ? prev.r1 * 100 : null, (v) => U.num(v, 0) + 'ポイント'))));
+  }
 
   const per10a = (v, res) => (res.area.planted > 0 ? U.yen(v / (res.area.planted * 10)) : '—');
 
@@ -57,7 +92,7 @@
           UI.kpi(h('span', null, T('時間当たり所得')), U.yen(an.hourlyIncome), '家族の労働 ' + U.num(res.labor.familyHoursUsed) + 'h'))),
       weatherCard(res),
       marketCard(res),
-      UI.card(RG.advisor.NAME + 'の講評', null, h('div', { class: 'notes' }, reviews.map((r) => UI.note(r.level, r.title, r.text))),
+      UI.card(UI.whoTitle('takahashi', RG.advisor.NAME + 'の講評'), null, UI.saying(RG.advisor.quip(st, res)), h('div', { class: 'notes' }, reviews.map((r) => UI.note(r.level, r.title, r.text))),
         RG.screens.adviceList(res.nextAdvice || RG.advisor.nextYear(st, res), null)),
       hs.length >= 2 ? h('div', { class: 'grid2' },
         UI.card('売上と所得の推移', null, RG.chart.line({ labels: hs.map((x) => x.year + '年'), series: [{ name: '売上高', values: hs.map((x) => x.sales) }, { name: hs.some((x) => x.corp) ? '所得（個人の年は農業所得、法人の年は税引前利益＋役員報酬）' : '農業所得', values: hs.map((x) => x.income) }] })),
@@ -277,7 +312,7 @@
     });
     const mrows = ['tractor', 'nursery', 'planter', 'combine', 'dryer', 'drone', 'smart'].map((t) => {
       const M = res.machines[t];
-      return [D.MACHINE_TYPES[t].name, { v: U.ha(M.need), cls: 'num' }, { v: U.ha(M.cap), cls: 'num' }, { v: M.cap > 0 ? U.pct(M.util) : '—', cls: 'num' }, { v: M.contract > 0.01 && D.MACHINE_TYPES[t].contract ? U.ha(M.contract) : '—', cls: 'num' }];
+      return [D.MACHINE_TYPES[t].icon + ' ' + D.MACHINE_TYPES[t].name, { v: U.ha(M.need), cls: 'num' }, { v: U.ha(M.cap), cls: 'num' }, { v: M.cap > 0 ? U.pct(M.util) : '—', cls: 'num' }, { v: M.contract > 0.01 && D.MACHINE_TYPES[t].contract ? U.ha(M.contract) : '—', cls: 'num' }];
     });
     return h('div', { class: 'stack' },
       UI.card('季節ごとの労働', '年間 ' + U.num(L.totalHours) + 'h（10aあたり ' + U.num(L.hoursPer10a, 1) + 'h）',

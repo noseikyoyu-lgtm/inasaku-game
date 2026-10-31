@@ -1,16 +1,34 @@
-// タイトル画面（ドット絵）と年初イベント
+// タイトル画面（夕暮れの田んぼの風景）と年初イベント
 (function (RG) {
   'use strict';
-  const UI = RG.ui, h = UI.h, D = RG.data, S = RG.state, PX = RG.pixel;
+  const UI = RG.ui, h = UI.h, D = RG.data, S = RG.state;
 
   const STARS = { shinki: 3, oyamoto: 2, hojin: 2 };
   const ORDER = ['custom'].concat(RG.data.SCENARIO_ORDER);
 
+  // 経営スタイルのアイコン（線画）
+  const ICONS = {
+    shinki: 'M24 41V22M24 27c-8 0-12-5-12-12 8 0 12 5 12 12zM24 23c0-8 5-12 12-12 0 8-5 12-12 12zM12 41h24',
+    oyamoto: 'M7 22 24 8l17 14M11 19v22h26V19M21 41v-10h6v10M30 25h4v4h-4z',
+    hojin: 'M10 41V11h18v30M28 19h10v22M15 17h3M21 17h3M15 23h3M21 23h3M15 29h3M21 29h3M32 25h2M32 31h2M6 41h36',
+    custom: 'M24 22a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM11 41c0-8 6-13 13-13s13 5 13 13M33 12l5-5M36 15h4',
+  };
+  const icon = (k) => {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 48 48'); svg.setAttribute('aria-hidden', 'true'); svg.setAttribute('class', 'sc-icon');
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', ICONS[k]); svg.appendChild(path);
+    return svg;
+  };
+
   RG.screens.title = function (app) {
     const view = app.titleView || 'menu';
-    const monthLabel = h('div', { class: 'title-month', 'aria-hidden': 'true' });
-    const scene = PX.scene({ cycleMs: 2600, startMonth: 4, label: '季節がめぐる田んぼの風景',
-      onMonth: (m) => { monthLabel.textContent = PX.MONTH_NAMES[m]; } });
+    // 風景は1つの canvas を使い回す（画面を切り替えてもアニメーションが途切れない）
+    let canvas = app.titleCanvas;
+    if (!canvas || !canvas._alive) {
+      canvas = app.titleCanvas = h('canvas', { class: 'title-canvas', role: 'img', 'aria-label': '夕暮れの黄金色の田んぼ' });
+      RG.titleScene.mount(canvas);
+    }
     const go = (v) => { app.titleView = v; app.render(); };
 
     let body;
@@ -19,19 +37,22 @@
     else if (view === 'load') body = loadWindow(app, go);
     else body = menuWindow(app, go);
 
-    return h('div', { class: 'title-screen' },
-      h('div', { class: 'title-stage' }, scene,
-        h('div', { class: 'title-logo' },
-          h('h1', { class: 'logo-main' }, '田んぼの経営者'),
-          h('div', { class: 'logo-sub' }, '〜 稲作経営 20年 〜')),
-        monthLabel),
-      h('div', { class: 'title-body' }, body,
-        h('p', { class: 'title-foot' }, '品種は新潟県の主な品種をもとにしています。取引先・制度は架空で、特性や数値は学習用に単純化しています。')));
+    const intro = !app.titleIntroDone; app.titleIntroDone = true;
+    const changed = app.titleLastView !== view; app.titleLastView = view;
+    return h('div', { class: 'title-screen view-' + view + (intro ? ' intro' : '') + (changed ? ' changed' : '') }, canvas,
+      h('div', { class: 'title-content' },
+        h('header', { class: 'title-logo' },
+          h('h1', null,
+            h('span', { class: 'logo-kanji' }, '米道'),
+            h('span', { class: 'logo-en' }, 'KOMEDO')),
+          h('p', { class: 'logo-sub' }, '稲作経営シミュレーション')),
+        h('div', { class: 'title-body' }, body),
+        h('p', { class: 'title-foot' }, '品種は新潟県の主な品種をもとにしています。取引先・制度の一部は架空で、特性や数値は学習用に単純化しています。')));
   };
 
   function menuWindow(app, go) {
     const auto = S.meta('auto');
-    const item = (label, sub, onClick) => h('button', { type: 'button', onclick: onClick }, label, sub ? h('span', { class: 'sub' }, sub) : null);
+    const item = (label, sub, onClick) => h('button', { type: 'button', onclick: onClick }, h('span', { class: 'lbl' }, label), sub ? h('span', { class: 'sub' }, sub) : null, h('span', { class: 'arr', 'aria-hidden': 'true' }, '→'));
     return h('div', { class: 'px-window title-menu' },
       h('nav', { class: 'px-menu', 'aria-label': 'タイトルメニュー' },
         auto ? item('つづきから', auto.farmName + '・' + auto.scenario + '・' + auto.year + '年目',
@@ -48,10 +69,11 @@
       const on = k === scenario;
       return h('button', { class: 'char' + (on ? ' on' : ''), type: 'button', role: 'radio', 'aria-checked': on ? 'true' : 'false',
         onclick: () => { app.titleScenario = k; app.render(); } },
-        on ? h('span', { class: 'cursor', 'aria-hidden': 'true' }, '▼') : null,
-        h('div', { class: 'avatar-box' }, PX.avatar(k === 'custom' ? 'self' : k, 5)),
+        on ? h('span', { class: 'cursor', 'aria-hidden': 'true' }, '✓') : null,
+        h('div', { class: 'avatar-box' }, icon(k)),
         h('div', { class: 'name' }, sc.name),
-        h('div', { class: 'stars', title: '難しさ' }, k === 'custom' ? 'むずかしさ ？？？' : 'むずかしさ ' + '★'.repeat(STARS[k]) + '☆'.repeat(3 - STARS[k])),
+        h('div', { class: 'stars', title: '難しさ' }, h('span', null, 'むずかしさ'),
+          k === 'custom' ? h('span', { class: 'q' }, 'あなたしだい') : h('span', { class: 'diff-meter' }, [1, 2, 3].map((i) => h('i', { class: i <= STARS[k] ? 'on' : '' })))),
         h('div', { class: 'sub' }, sc.sub),
         h('div', { class: 'desc' }, sc.desc));
     }));
@@ -80,7 +102,7 @@
         h('label', null, h('span', null, 'シード番号'), seedInp, h('small', null, '同じ番号なら天候・米価が同じ20年に。授業で条件をそろえるときに'))),
       h('div', { class: 'px-actions' },
         h('button', { class: 'px-btn plain', type: 'button', onclick: () => go('menu') }, 'もどる'),
-        h('button', { class: 'px-btn green', type: 'button', onclick: start }, '▶ この経営ではじめる')));
+        h('button', { class: 'px-btn green', type: 'button', onclick: start }, 'この経営ではじめる →')));
   }
 
   // ---------- 自分の経営の入力 ----------
@@ -92,6 +114,7 @@
     if (area > 300) return '面積が大きすぎます（300haまで）';
     if (!(n(c.age, 0) >= 18 && n(c.age, 0) <= 79)) return '経営主の年齢を18〜79歳で入れてください';
     if (c.successor !== 'none' && !(n(c.succAge, -1) >= 10 && n(c.succAge, -1) <= 70)) return '後継者の年齢を10〜70歳で入れてください';
+    if (c.successor === 'now' && n(c.succAge, 0) < 18) return '一緒に働いている後継者は18歳以上で入れてください（まだ学生なら「これから就農する予定」を選んでください）';
     if (c.successor === 'plan' && !(n(c.succYear, 0) >= 1 && n(c.succYear, 0) <= 19)) return '後継者が就農するまでの年数を1〜19年で入れてください';
     if (n(c.rent, 0) < 0) return '地代にマイナスは入れられません';
     if (!c.crops.some((x) => n(x.pct, 0) > 0)) return '作付する品種の割合を入れてください';
@@ -115,7 +138,7 @@
       .filter((o, i, a) => a.findIndex((x) => x.label === o.label) === i));
     const MT = ['tractor', 'nursery', 'planter', 'combine', 'dryer'];
     return h('div', { class: 'custom-form' },
-      h('p', { class: 'small' }, 'あなたの今の経営に近い数字を入れてください。だいたいで大丈夫です。入れた内容はこのブラウザの中だけに保存され、外には送られません。'),
+      h('p', { class: 'small' }, 'あなたの今の経営に近い数字を入れてください。だいたいで大丈夫です。入れた内容はこのブラウザの中に保存されます（感想を送るときも、農場名や名前は送りません）。'),
       section('経営主と家族'),
       h('div', { class: 'px-fields' },
         fld('経営の形', sel(c, 'corp', [{ value: '', label: '個人経営' }, { value: 'true', label: '法人' }], '経営の形', true)),
@@ -164,19 +187,19 @@
 
   function howtoWindow(go) {
     const steps = [
-      '毎年のはじめに、作付・農地・機械・労働力・販売・資金の計画を立てるんじゃ。',
-      '右の「今年の見通し」で、平年作のときの所得と資金繰りを確かめるとよい。',
-      '「この計画で1年を始める」を押すと、天候や米価が決まって1年が進む。',
-      '決算書（損益計算書・貸借対照表・資金繰り表）とわしの講評で振り返って、次の年に活かすんじゃ。',
-      '20年後、純資産・所得・経営の安定性で評価するぞ。資金が尽きたら、そこで経営終了じゃ。',
+      '年のはじめはサイコロで運だめし。6が出れば幸運、1が出たら不運のできごとだ。',
+      '作付・農地・機械・労働力・販売・資金の計画を立てる。右の「今年の見通し」で、平年作のときの所得と資金繰りを確かめよう。経営は段取り八分だよ。',
+      '「この計画で1年を始める」を押したら、1か月ずつ進めていく。台風や病気の知らせが来たら、お金をかけて備えるか、サイコロで勝負するかを選ぶ。',
+      '決算書（損益計算書・貸借対照表・資金繰り表）と私の講評で振り返って、次の年に活かす。反省は短く、次の段取りは長く。',
+      '5年ごとに中間評価、20年後に最終評価。資金が尽きたらそこで経営終了だから、財布の中身からは目を離さないこと。',
     ];
     return h('div', { class: 'px-window' },
       h('h2', null, 'あそびかた'),
-      h('div', { class: 'speech' }, h('div', { class: 'speech-face' }, PX.avatar('advisor', 4), h('div', { class: 'speech-name' }, 'JA 高橋さん')),
+      h('div', { class: 'speech' }, h('div', { class: 'speech-face' }, RG.portrait.svg('takahashi', 92, { label: '高橋さん', talk: true }), h('div', { class: 'speech-name' }, 'JA営農指導員 高橋さん')),
         h('div', { class: 'bubble' },
-          h('p', null, 'わしはJAで営農指導をしとる高橋じゃ。これから20年、あんたの田んぼ経営を見守らせてもらうよ。'),
+          h('p', null, 'JAで営農指導をしている高橋です。田んぼのことも、お金のことも、なんでも聞いてほしい。これから20年、あなたの田んぼの経営を見守らせてもらうよ。'),
           h('ol', null, steps.map((s) => h('li', null, s))),
-          h('p', null, '点線のついた言葉（', UI.term('減価償却'), 'など）を押すと、意味を教えるからの。'))),
+          h('p', null, '点線のついた言葉（', UI.term('減価償却'), 'など）を押すと、意味を教えるよ。聞くは一時の恥、聞かぬは一生の損、だからね。'))),
       h('div', { class: 'px-actions' }, h('button', { class: 'px-btn plain', type: 'button', onclick: () => go('menu') }, 'もどる')));
   }
 

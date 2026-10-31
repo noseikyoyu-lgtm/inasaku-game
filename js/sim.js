@@ -777,7 +777,7 @@
       if (sc && Number(sc.age) >= 20) {
         op.tag = 'retired'; op.role = '引退'; sc.tag = 'operator'; sc.role = st.corp ? '代表' : '経営主';
         notes.push(op.name + 'が' + op.age + '歳で引退し、経営を' + sc.name + 'に引き継いだ。');
-      } else {
+      } else if (st.year < st.maxYear) {
         st.retired = { year: st.year, age: op.age };
       }
     }

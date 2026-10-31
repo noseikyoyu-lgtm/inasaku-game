@@ -153,14 +153,16 @@
   };
 
   // ---------- 等級と単価 ----------
-  // 品質の低下幅 d → [1等, 2等, 3等, 規格外] の構成比（区切りの間で直線的に移り変わる）
+  // 品質の低下幅 d → [1等, 2等, 3等, 規格外] の構成比
+  // 1等の割合は、低下幅が大きくなるにつれてなだらかに下がる（平年はおよそ8〜9割、猛暑年で6割前後、
+  // 2023年のような記録的な猛暑が重なったときだけ1割を切る）。残りは低下幅に応じて2等・3等・規格外に分かれる
   AG.gradeMix = function (d) {
-    const G = A.gradeD;
-    if (!(d > G[0])) return [1, 0, 0, 0];
-    if (d <= G[1]) { const t = (d - G[0]) / (G[1] - G[0]); return [1 - t, t, 0, 0]; }
-    if (d <= G[2]) { const t = (d - G[1]) / (G[2] - G[1]); return [0, 1 - t, t, 0]; }
-    if (d <= G[3]) { const t = (d - G[2]) / (G[3] - G[2]); return [0, 0, 1 - t, t]; }
-    return [0, 0, 0, 1];
+    const G = A.grade;
+    const r1 = !(d > G.start) ? 1 : Math.max(G.floor, 1 - Math.pow((d - G.start) / G.scale, G.power));
+    const rest = 1 - r1;
+    const rx = rest * U.clamp((d - 30) / 50, 0, 0.4);
+    const r3 = Math.min(rest - rx, rest * U.clamp((d - 14) / 30, 0, 0.8));
+    return [r1, Math.max(0, rest - r3 - rx), r3, rx];
   };
   AG.gradePrices = function (v) {
     const p1 = v.pr, p2 = Math.min(v.pr2 != null ? v.pr2 : p1 - 600, p1);

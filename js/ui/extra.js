@@ -1,31 +1,22 @@
 // 画面の追加部品：新しい事業タブ・米の保管・地域の農家・称号・登場人物の顔
 (function (RG) {
   'use strict';
-  const UI = RG.ui, h = UI.h, D = RG.data, U = RG.util, BZ = RG.biz, PX = RG.pixel;
+  const UI = RG.ui, h = UI.h, D = RG.data, U = RG.util, BZ = RG.biz;
   const T = UI.term;
 
-  // ---------- 登場人物のドット絵 ----------
-  Object.assign(PX.SPRITES, {
-    banker: ['............', '....kkkk....', '...kkkkkk...', '...kkkkkk...', '...ssssss...', '...kekkek...', '...ssssss...', '....sSSs....',
-      '..nnnwwnnn..', '.snnnwbwnnns', '.snnnnbnnnns', '..nnnnnnnn..', '..NNNNNNNN..', '..NNN..NNN..', '..NNN..NNN..', '..kkk..kkk..'],
-    landlord: ['............', '............', '............', '...g....g...', '...gssssg...', '...sesses...', '...sSssSs...', '....ssss....',
-      '..pppppppp..', '.spppppppps.', '..pppppppp.p', '..WWWWWWWW.p', '..GGGGGGGG.p', '..GGG..GGG.p', '..GGG..GGG.p', '..kkk..kkk.p'],
-    buyer: ['............', '...kkkkkk...', '..kkkkkkkk..', '...ssssss...', '...ssssss...', '...sesses...', '...ssssss...', '....sSSs....',
-      '..wwwrrwww..', '.swwwrrwwws.', '.swwwrrwwws.', '..wwwwwwww..', '..nnnnnnnn..', '..nnn..nnn..', '..nnn..nnn..', '..kkk..kkk..'],
-    kenta: ['............', '...cccccc...', '..cccccccC..', '.CCCCCCCC...', '...ssssss...', '...sesses...', '...ssssss...', '....sSSs....',
-      '..oooooooo..', '.soooooooos.', '.soooooooos.', '..bbbbbbbb..', '..bbbbbbbb..', '..bbb..bbb..', '..bbb..bbb..', '..kkk..kkk..'],
-    oyama: ['............', '...rrrrrr...', '..rrrrrrrr..', '.RRRRRRRRRR.', '..ssssssss..', '..sesssess..', '..ssssssss..', '...sSSSSs...',
-      '.bbbbbbbbbb.', 'sbbbbbbbbbbs', 'sbbbwbbwbbbs', '.bbbbbbbbbb.', '.BBBBBBBBBB.', '.BBB....BBB.', '.BBB....BBB.', '.kkk....kkk.'],
-    ogawa: ['............', '....hhhh....', '..hhhhhhhh..', '.HHHHHHHHHH.', '...kssssk...', '...kesesk...', '...kssssk...', '....sSSs....',
-      '..wwvvvvww..', '.swvvvvvvws.', '.swvvvvvvws.', '..vvvvvvvv..', '..pppppppp..', '..ppp..ppp..', '..ppp..ppp..', '..kkk..kkk..'],
-    tamura: ['............', '............', '...gggggg...', '..gggggggg..', '..gssssssg..', '...sesses...', '...ssssss...', '...wwwwww...',
-      '..xxxxxxxx..', '.sxxxxxxxxs.', '.sxxxxxxxxs.', '..xxxxxxxx..', '..GGGGGGGG..', '..GGG..GGG..', '..GGG..GGG..', '..kkk..kkk..'],
-  });
-
-  UI.face = (who, scale) => {
+  // ---------- 登場人物のイラスト ----------
+  // scale は小さい順に 2（表の中）・3（話し手）・4（大きく）
+  const FACE_PX = { 2: 38, 3: 56, 4: 84 };
+  UI.face = (who, scale, talk) => {
     const p = D.PEOPLE[who];
-    return p ? h('span', { class: 'face' }, PX.canvas([p.sprite], scale || 3, p.name)) : null;
+    return p ? h('span', { class: 'face' }, RG.portrait.svg(who, FACE_PX[scale || 3] || 56, { label: p.name, talk })) : null;
   };
+  // 高橋さんのひとこと（顔と吹き出し）
+  UI.saying = (text) => h('div', { class: 'saying' }, UI.face('takahashi', 3, true),
+    h('div', { class: 'saying-bubble' }, h('div', { class: 'saying-who' }, '高橋さんのひとこと'), h('p', null, '「' + text + '」')));
+  // 見出しの前に小さな顔をつける
+  UI.whoTitle = (who, text) => h('span', { class: 'who-title' }, UI.face(who, 2), text);
+
   // 話し手（顔と名前）
   UI.speaker = (who) => {
     const p = D.PEOPLE[who];
@@ -116,19 +107,20 @@
   };
 
   // ---------- 称号 ----------
-  RG.screens.titlesCard = function (st) {
+  RG.screens.titlesCard = function (st, inModal) {
     const TT = RG.titles, mine = st ? st.titles || {} : {}, col = TT.collection();
     const n = TT.LIST.filter((t) => mine[t.id]).length, nc = TT.LIST.filter((t) => col[t.id]).length;
-    return UI.card('称号', (st ? 'このゲーム ' + n + '個・' : '') + 'これまでに集めた称号 ' + nc + ' / ' + TT.LIST.length,
-      h('div', { class: 'titles-grid' }, TT.LIST.map((t) => {
+    const sub = (st ? 'このゲーム ' + n + '個・' : '') + 'これまでに集めた称号 ' + nc + ' / ' + TT.LIST.length;
+    const grid = h('div', { class: 'titles-grid' }, TT.LIST.map((t) => {
         const got = mine[t.id], seen = col[t.id];
         return h('div', { class: 'title-item ' + (got ? 'got' : seen ? 'seen' : 'locked') },
           h('span', { class: 'ic', 'aria-hidden': 'true' }, got || seen ? t.icon : '❔'),
           h('div', null, h('b', null, got || seen ? t.name : '？？？'), h('div', { class: 'small muted' }, t.desc),
             got ? h('div', { class: 'small' }, got + '年目に獲得') : seen ? h('div', { class: 'small muted' }, '前のゲームで獲得') : null));
-      })));
+      }));
+    return inModal ? h('div', null, h('p', { class: 'small muted keep' }, sub), grid) : UI.card('称号', sub, grid);
   };
   RG.screens.showTitles = function (st) {
-    UI.modal({ title: '称号', body: RG.screens.titlesCard(st) });
+    UI.modal({ title: '🏅 称号', body: RG.screens.titlesCard(st, true) });
   };
 })(window.RG = window.RG || {});

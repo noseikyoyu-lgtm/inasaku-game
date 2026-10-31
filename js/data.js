@@ -11,6 +11,7 @@
   // ---------- 季節と労働 ----------
   D.SEASONS = ['spring', 'summer', 'autumn', 'winter'];
   D.SEASON_NAMES = { spring: '春（3〜5月）', summer: '夏（6〜8月）', autumn: '秋（9〜11月）', winter: '冬（12〜2月）' };
+  D.SEASON_ICON = { spring: '🌸', summer: '☀️', autumn: '🍁', winter: '❄️' };
   D.SEASON_SHORT = { spring: '春', summer: '夏', autumn: '秋', winter: '冬' };
   D.SEASON_CAP = { spring: 0.28, summer: 0.30, autumn: 0.28, winter: 0.14 }; // 年間労働時間の季節配分
   D.PART_CAP = { spring: 160, summer: 100, autumn: 160, winter: 60 };        // パート1人の季節別上限時間
@@ -150,6 +151,8 @@
       desc: '作付しない。地代・水利費と草刈りの手間はかかる。',
     },
   };
+  // 品種のアイコン（酒米・もち米・飼料用米・ブランド米は見分けやすく）
+  D.cropIcon = (k) => { const c = D.CROPS[k] || {}; return k === 'feed' ? '🐄' : k === 'none' ? '🟫' : c.sake ? '🍶' : c.group === 'mochi' ? '🍡' : c.unlock ? '✨' : '🌾'; };
   D.CROP_ORDER = ['koshiBL', 'koshi', 'shinnosuke', 'koshiibuki', 'hazuki', 'natsuhime', 'yukinko', 'akidawara', 'niji',
     'koganemochi', 'watabou', 'gohyaku', 'koshitanrei', 'ipponjime', 'feed', 'none'];
   D.CROP_ORDER.forEach((k) => { D.CROPS[k].priceCoef = D.CROPS[k].market ? D.CROPS[k].pr / D.REF_PRICE : 0; });
@@ -206,16 +209,16 @@
 
   // ---------- 機械・設備 ----------
   D.MACHINE_TYPES = {
-    tractor: { name: 'トラクタ', role: '耕起・代かき（直播の播種も）', contract: true },
-    nursery: { name: '育苗施設', role: '苗づくり。無いと苗を購入する', contract: true },
-    planter: { name: '田植機', role: '田植え', contract: true },
-    combine: { name: 'コンバイン', role: '稲刈り', contract: true },
-    dryer: { name: '乾燥調製施設', role: '乾燥・もみすり', contract: true },
-    drone: { name: '防除用ドローン', role: '夏の管理作業を省力化・病害虫を軽減', contract: false },
-    smart: { name: 'スマート農業システム', role: '自動操舵・水管理で全作業を省力化', contract: false },
-    mill: { name: '精米・選別設備', role: '直販用の精米を自前化（経費と手間を削減）', contract: false },
-    proc: { name: '加工場', role: '餅・米粉の加工（「新しい事業」タブ）', contract: false },
-    stand: { name: '直売所', role: '米や野菜の店（「新しい事業」タブ）', contract: false },
+    tractor: { icon: '🚜', name: 'トラクタ', role: '耕起・代かき（直播の播種も）', contract: true },
+    nursery: { icon: '🏠', name: '育苗施設', role: '苗づくり。無いと苗を購入する', contract: true },
+    planter: { icon: '🌱', name: '田植機', role: '田植え', contract: true },
+    combine: { icon: '🌾', name: 'コンバイン', role: '稲刈り', contract: true },
+    dryer: { icon: '🔥', name: '乾燥調製施設', role: '乾燥・もみすり', contract: true },
+    drone: { icon: '🛸', name: '防除用ドローン', role: '夏の管理作業を省力化・病害虫を軽減', contract: false },
+    smart: { icon: '📡', name: 'スマート農業システム', role: '自動操舵・水管理で全作業を省力化', contract: false },
+    mill: { icon: '⚙️', name: '精米・選別設備', role: '直販用の精米を自前化（経費と手間を削減）', contract: false },
+    proc: { icon: '🍡', name: '加工場', role: '餅・米粉の加工（「新しい事業」タブ）', contract: false },
+    stand: { icon: '🏪', name: '直売所', role: '米や野菜の店（「新しい事業」タブ）', contract: false },
   };
   D.MACHINE_TYPE_ORDER = ['tractor', 'nursery', 'planter', 'combine', 'dryer', 'drone', 'smart', 'mill'];
 
@@ -350,7 +353,7 @@
   D.AGRO = {
     tempNormal: { 1: 1.6, 2: 1.8, 3: 4.9, 4: 11.0, 5: 16.9, 6: 21.0, 7: 24.8, 8: 26.2, 9: 22.0, 10: 15.9, 11: 9.6, 12: 4.2 }, // アメダス長岡 平年値
     maxHarvestDelay: 30,
-    gradeD: [12, 22, 30, 40],   // 品質の低下幅 → 1等/2等/3等/規格外 の区切り
+    grade: { start: 6, scale: 40, power: 1.15, floor: 0.02 }, // 品質の低下幅 → 1等の割合（なだらかに下がる）
     grade3Gap: 1.0, gradeX: 0.55,
     harvestWorkDays: 20,        // 機械の能力(ha)をこなすのに必要な実働日数
     harvestWorkRate: 0.65,      // 収穫期の稼働率（秋雨で作業できない日がある）

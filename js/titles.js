@@ -79,7 +79,7 @@
   // ---------- コレクション（このブラウザに残る） ----------
   const KEY = 'inasaku.titles';
   TT.collection = function () {
-    try { return JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) { return {}; }
+    try { const v = JSON.parse(localStorage.getItem(KEY) || '{}'); return v && typeof v === 'object' && !Array.isArray(v) ? v : {}; } catch (e) { return {}; }
   };
   TT.remember = function (ids) {
     try {

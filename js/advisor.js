@@ -5,6 +5,39 @@
   const AD = RG.advisor = {};
   AD.NAME = 'JA営農指導員の高橋さん';
 
+  // ---------- 高橋さんのひとこと（その年の出来に合わせた、うまいこと） ----------
+  AD.QUIPS = {
+    first: ['一年目は「わからないことが、わかる年」。それがわかれば上出来だよ。', '最初の年の決算書は、来年の自分への手紙みたいなもの。じっくり読んでおくといい。'],
+    cash: ['利益は意見、現金は事実。帳簿が黒字でも、財布が空っぽじゃ苗は買えないよ。', 'お金は秋にまとめて入って、春から少しずつ出ていく。米づくりは、お金の田植えから始まるんだ。'],
+    loss: ['不作の年に覚えたことは、豊作の年には覚えられない。今年の赤字は授業料だと思えばいい。', '転ぶのは恥じゃない。同じ石で二度転ぶのがもったいないんだ。何が石だったか、決算書で確かめよう。'],
+    weather: ['天気は選べないけど、備えは選べる。そこが百姓の腕の見せどころだね。', '空模様は神様の担当、備えは人間の担当。今年は神様が少し意地悪だったね。'],
+    labor: ['田んぼは正直だよ。人手が足りない年は、刈り遅れがちゃんと教えてくれる。', '機械は夜も働けるけど、人は休まなきゃいけない。人手の計画は、無理のない線で立てよう。'],
+    priceHigh: ['米が高い年は、みんなが作りすぎる年の前ぶれでもある。浮かれず、蓄えておこう。'],
+    priceLow: ['安い年を生き残った人が、高い年に笑うんだ。今は踏んばりどころだよ。', '値段は市場が決めるけど、原価は自分で決められる。安い年こそ、原価を見直す好機だね。'],
+    good: ['実るほど頭を垂れる稲穂かな。儲かった年こそ、財布のひもは締めておくもんだよ。', '良い年の利益は、悪い年への仕送りだ。全部使わずに、少し残しておこう。'],
+    quality: ['一等米は、毎日の水見回りの通知表みたいなもの。今年はいい点がとれたね。'],
+    general: ['米づくりは八十八の手間、経営は八十八の判断。一つずつ片づけていけばいい。', '機械は買った日から年をとる。減価償却というのは、機械の誕生日の数え方なんだよ。',
+      '借金そのものは悪者じゃない。返すあてのない借金が悪者なんだ。', '田んぼを広げるのは簡単だ。広げた田んぼを回すのが難しい。'],
+  };
+  AD.quip = function (st, res) {
+    const r = RG.rng.make(st.seed, st.year, 'quip');
+    const Q = AD.QUIPS;
+    if (!res) return r.pick(Q.first);
+    const keys = [];
+    const hs = st.history, prev = hs.length >= 2 ? hs[hs.length - 2] : null, inc = res.analysis ? res.analysis.income : 0;
+    if (res.year === 1) keys.push('first');
+    if (res.cash.emergencyPeak > res.cash.emergencyStart + 1) keys.push('cash');
+    if (inc < 0) keys.push('loss');
+    if ((res.events || []).some((e) => e.id === 'typh' || e.id === 'heat' || e.id === 'cold')) keys.push('weather');
+    if (Math.max.apply(null, D.SEASONS.map((s) => res.labor.seasons[s].ratio)) > 0.05) keys.push('labor');
+    if (res.priceChange >= 0.08) keys.push('priceHigh');
+    if (res.priceChange <= -0.08) keys.push('priceLow');
+    if (prev && inc > 0 && inc > prev.income * 1.2) keys.push('good');
+    if (res.production.r1 > 0.92) keys.push('quality');
+    keys.push('general');
+    return r.pick(Q[keys[0]]);
+  };
+
   // ---------- 計画プレビューの注意 ----------
   AD.planHints = function (st, pv) {
     const out = [];
@@ -154,7 +187,7 @@
 
   // ---------- 来年に向けてのアドバイス ----------
   // 決算の結果と来年の山場から、具体的な数字つきで「来年やること」を優先度の高い順に返す（決算の反映後に呼ぶ）
-  AD.TAB_NAMES = { overview: '概況', crops: '作付計画', land: '農地', machines: '機械・設備', labor: '労働力', sales: '販売計画', finance: '資金・保険' };
+  AD.TAB_NAMES = { overview: '概況', crops: '作付計画', land: '農地', machines: '機械・設備', labor: '労働力', sales: '販売計画', biz: '新しい事業', finance: '資金・保険' };
   AD.nextYear = function (st, res) {
     const out = [];
     const add = (pri, title, text, tab) => out.push({ pri, title, text, tab });
