@@ -7,6 +7,9 @@
 
   // 登場人物（sprite は画面側のドット絵の名前）
   D.PEOPLE = {
+    jiichan: { name: 'じいちゃん', sprite: 'jiichan' },
+    kucho: { name: '区長の森さん', sprite: 'kucho' },
+    yamane: { name: 'ベテラン社員の山根さん', sprite: 'yamane' },
     takahashi: { name: 'JA営農指導員の高橋さん', sprite: 'advisor' },
     kimura: { name: '金融機関の木村さん', sprite: 'banker' },
     sato: { name: '地主の佐藤さん', sprite: 'landlord' },

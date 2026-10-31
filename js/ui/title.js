@@ -33,6 +33,7 @@
 
     let body;
     if (view === 'new') body = newGameWindow(app, go);
+    else if (view === 'story') body = storyWindow(app, go);
     else if (view === 'howto') body = howtoWindow(go);
     else if (view === 'load') body = loadWindow(app, go);
     else body = menuWindow(app, go);
@@ -57,13 +58,63 @@
       h('nav', { class: 'px-menu', 'aria-label': 'タイトルメニュー' },
         auto ? item('つづきから', auto.farmName + '・' + auto.scenario + '・' + auto.year + '年目',
           () => { const st = S.load('auto'); if (st) app.loadState(st); else UI.toast('読み込めませんでした', 'bad'); }) : null,
-        item('はじめから', '3つの経営スタイルから選ぶ', () => go('new')),
+        item('📖 ストーリーモード', '3つの物語から選ぶ（じいちゃんの田んぼ・棚田・法人の立て直し）', () => go('story')),
+        item('🏡 自分の経営モード', '自分の経営を入れて、区切りなく続ける', () => go('new')),
         item('データをよみこむ', 'セーブスロット・ファイル', () => go('load')),
         item('あそびかた', 'JAの営農指導員・高橋さんが説明します', () => go('howto'))));
   }
 
+  // ---------- ストーリーモード：3つの物語から選ぶ ----------
+  const STORY_INFO = {
+    story: { who: 'jiichan', stars: 1, years: 20, lead: '「……お前、うちの田んぼを、やってみてくれんか」',
+      points: ['🌱 2haの小さな田んぼから。機械もやり方も、少しずつ覚えていく', '🧭 5年目に自分の「経営の道」を選ぶ', '🤝 ゴールは「じいちゃんとの約束」（15ha以上で黒字）'] },
+    tanada: { who: 'kucho', stars: 2, years: 20, lead: '「20年後も、この集落の田んぼの7割で米を作っていてほしい」',
+      points: ['⛰️ 小さな棚田ばかり。機械が入りにくく、手間がかかる', '🗺️ 毎年「田んぼを預かって」と頼まれる。断ると荒れてしまう', '💎 棚田米のブランドと、次の担い手づくり'] },
+    saiken: { who: 'kimura', stars: 3, years: 15, lead: '「5年で立て直せなければ、これ以上はお貸しできません」',
+      points: ['🏢 40ha・社員3人・借入5,200万円の法人を引き継ぐ', '🏦 3年目と5年目に融資の審査。落ちると経営は終わる', '📊 決算書を読んで、赤字の契約・古い機械・人件費を見直す'] },
+  };
+  function storyWindow(app, go) {
+    const pick = app.titleStory || 'story';
+    const nameInp = h('input', { type: 'text', value: app.titleFarm || '稲穂ファーム', maxlength: 16, 'aria-label': '農場の名前',
+      oninput: (e) => { app.titleFarm = e.target.value; } });
+    const seedInp = h('input', { type: 'number', value: app.titleSeed || '', placeholder: 'おまかせ', min: 1, max: 999999, 'aria-label': 'シード番号',
+      oninput: (e) => { app.titleSeed = e.target.value; } });
+    const start = () => {
+      const s = parseInt(app.titleSeed, 10);
+      app.titleView = 'menu';
+      app.newGame({ scenarioId: pick, farmName: (app.titleFarm || '').trim() || '稲穂ファーム', seed: isFinite(s) && s > 0 ? s : RG.rng.randomSeed() });
+    };
+    const cards = h('div', { class: 'story-cards', role: 'radiogroup', 'aria-label': '物語' }, D.STORY_ORDER.map((k, i) => {
+      const sc = D.SCENARIOS[k], inf = STORY_INFO[k], on = k === pick;
+      return h('button', { type: 'button', class: 'story-card' + (on ? ' on' : ''), role: 'radio', 'aria-checked': on ? 'true' : 'false',
+        onclick: () => { app.titleStory = k; app.keepScroll = true; app.render(); } },
+        on ? h('span', { class: 'cursor', 'aria-hidden': 'true' }, '✓') : null,
+        h('span', { class: 'stc-no' }, '物語' + (i + 1)),
+        h('span', { class: 'stc-face' }, RG.portrait.svg(inf.who, 64, { label: D.PEOPLE[inf.who].name })),
+        h('b', { class: 'stc-name' }, sc.name),
+        h('span', { class: 'stc-meta' }, inf.years + '年', h('span', { class: 'diff-meter', title: 'むずかしさ' }, [1, 2, 3].map((n) => h('i', { class: n <= inf.stars ? 'on' : '' })))));
+    }));
+    const sc = D.SCENARIOS[pick], inf = STORY_INFO[pick];
+    return h('div', { class: 'px-window story-window' },
+      h('h2', null, '📖 ストーリーモード'),
+      cards,
+      h('div', { class: 'story-intro' },
+        h('div', { class: 'si-face' }, RG.portrait.svg(inf.who, 120, { label: D.PEOPLE[inf.who].name })),
+        h('div', { class: 'si-text' },
+          h('p', { class: 'si-lead' }, inf.lead),
+          h('p', null, sc.desc),
+          h('ul', { class: 'si-points' }, inf.points.map((t) => h('li', null, t)),
+            h('li', null, '📖 章と依頼、1年前に予告される試練の年。結果でエンディングが変わる')))),
+      h('div', { class: 'px-fields' },
+        h('label', null, h('span', null, sc.corp ? '法人の名前' : '農場の名前'), nameInp),
+        h('label', null, h('span', null, 'シード番号'), seedInp, h('small', null, '同じ番号なら天候・米価の流れが同じに。授業で条件をそろえるときに'))),
+      h('div', { class: 'px-actions' },
+        h('button', { class: 'px-btn plain', type: 'button', onclick: () => go('menu') }, 'もどる'),
+        h('button', { class: 'px-btn green', type: 'button', onclick: start }, '物語をはじめる →')));
+  }
+
   function newGameWindow(app, go) {
-    const scenario = app.titleScenario || 'shinki';
+    const scenario = app.titleScenario || 'custom';
     const chars = h('div', { class: 'chars', role: 'radiogroup', 'aria-label': '経営スタイル' }, ORDER.map((k) => {
       const sc = D.SCENARIOS[k];
       const on = k === scenario;
@@ -94,12 +145,13 @@
         farmName: (app.titleFarm || '').trim() || '稲穂ファーム', seed: isFinite(s) && s > 0 ? s : RG.rng.randomSeed() });
     };
     return h('div', { class: 'px-window' },
-      h('h2', null, 'どんな経営をはじめる？'),
+      h('h2', null, '🏡 自分の経営モード'),
+      h('p', { class: 'mode-note' }, 'あなたの今の経営を入れて、この先どうなるかを試せます。20年で終わらず、区切りなく続けられます（5年ごとに中間評価）。章・依頼・試練はなく、すべての品種・機械・事業を最初から使えます。用意された経営で遊ぶこともできます。'),
       chars,
       scenario === 'custom' ? customForm(app) : null,
       h('div', { class: 'px-fields' },
         h('label', null, h('span', null, '農場の名前'), nameInp),
-        h('label', null, h('span', null, 'シード番号'), seedInp, h('small', null, '同じ番号なら天候・米価が同じ20年に。授業で条件をそろえるときに'))),
+        h('label', null, h('span', null, 'シード番号'), seedInp, h('small', null, '同じ番号なら天候・米価の流れが同じに。授業で条件をそろえるときに'))),
       h('div', { class: 'px-actions' },
         h('button', { class: 'px-btn plain', type: 'button', onclick: () => go('menu') }, 'もどる'),
         h('button', { class: 'px-btn green', type: 'button', onclick: start }, 'この経営ではじめる →')));
@@ -191,13 +243,13 @@
       '作付・農地・機械・労働力・販売・資金の計画を立てる。右の「今年の見通し」で、平年作のときの所得と資金繰りを確かめよう。経営は段取り八分だよ。',
       '「この計画で1年を始める」を押したら、1か月ずつ進めていく。台風や病気の知らせが来たら、お金をかけて備えるか、サイコロで勝負するかを選ぶ。',
       '決算書（損益計算書・貸借対照表・資金繰り表）と私の講評で振り返って、次の年に活かす。反省は短く、次の段取りは長く。',
-      '5年ごとに中間評価、20年後に最終評価。資金が尽きたらそこで経営終了だから、財布の中身からは目を離さないこと。',
+      '5年ごとに中間評価。ストーリーモードは20年目にエンディング、自分の経営モードは好きなだけ続けられる。資金が尽きたらそこで経営終了だから、財布の中身からは目を離さないこと。',
     ];
     return h('div', { class: 'px-window' },
       h('h2', null, 'あそびかた'),
       h('div', { class: 'speech' }, h('div', { class: 'speech-face' }, RG.portrait.svg('takahashi', 92, { label: '高橋さん', talk: true }), h('div', { class: 'speech-name' }, 'JA営農指導員 高橋さん')),
         h('div', { class: 'bubble' },
-          h('p', null, 'JAで営農指導をしている高橋です。田んぼのことも、お金のことも、なんでも聞いてほしい。これから20年、あなたの田んぼの経営を見守らせてもらうよ。'),
+          h('p', null, 'JAで営農指導をしている高橋です。田んぼのことも、お金のことも、なんでも聞いてほしい。これから、あなたの田んぼの経営を見守らせてもらうよ。'),
           h('ol', null, steps.map((s) => h('li', null, s))),
           h('p', null, '点線のついた言葉（', UI.term('減価償却'), 'など）を押すと、意味を教えるよ。聞くは一時の恥、聞かぬは一生の損、だからね。'))),
       h('div', { class: 'px-actions' }, h('button', { class: 'px-btn plain', type: 'button', onclick: () => go('menu') }, 'もどる')));

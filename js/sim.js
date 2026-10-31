@@ -87,7 +87,7 @@
   };
 
   // 地域の受託組織・近所の農家が引き受けられる作業面積（作業ごと）
-  SIM.contractCap = (st) => D.CONTRACT_CAP.base + st.trust * D.CONTRACT_CAP.perTrust;
+  SIM.contractCap = (st) => D.CONTRACT_CAP.base + st.trust * D.CONTRACT_CAP.perTrust + (st.path === 'local' ? 4 : 0);
 
   // 出荷契約金（前渡金）の単価：その年の予想米価の約半分（1,000円単位）
   SIM.advanceUnit = (st) => U.clamp(Math.round((st.world.forecast * D.SALES.advanceRate) / 1000) * 1000, D.SALES.advanceMin, D.SALES.advanceMax);
@@ -522,7 +522,7 @@
     if (st.insurance === 'kyosai') premium = area.marketCrop * 10 * D.INSURANCE.kyosai.perArea;
     else kyosaiPay = 0;
     if (st.insurance === 'income' && ib.eligible) {
-      premium = ib.base * D.INSURANCE.income.rate;
+      premium = ib.base * D.INSURANCE.income.rate * (st.flags.incomeInsCheap ? 0.75 : 1); // 制度の見直しで掛金の補助が手厚く
       incomePay = Math.max(0, ib.base * 0.9 - insurableRev) * 0.9;
     }
     add('insuranceIn', kyosaiPay + incomePay);
@@ -647,12 +647,13 @@
     }
 
     // ---------- 10. ブランド・信頼 ----------
-    const brandGain = st.brandInvest > 0 ? D.BRAND.gain * Math.log10(1 + st.brandInvest / 100000) : 0;
+    const brandGain = (st.brandInvest > 0 ? D.BRAND.gain * Math.log10(1 + st.brandInvest / 100000) : 0) * (st.path === 'brand' ? 1.5 : 1); // ブランドの道は1.5倍
     let brandBonus = 0;
     if (direct.sold > 0 && dp && dp.ck === 'organic') brandBonus += 1;
     if (direct.sold > 0 && dp && dp.r1 > 0.85) brandBonus += 1;
     const brandEnd = U.clamp(st.brand * (1 - D.BRAND.decay) + brandGain + brandBonus, 0, 100);
     trustDelta += area.total > 0 && area.fallow / area.total > 0.2 ? -2 : 1;
+    if (st.path === 'local') trustDelta += 2; // 地域の要の道
 
     Object.assign(res, {
       rec, pl, tax, special, items,
@@ -790,6 +791,9 @@
     res.bsStart = bsStart;
     res.bs = bs;
     res.analysis = ACC.analyze(st, res, bs);
+    // 依頼の判定は、決算の数字（所得・純資産）が出てから
+    if (RG.chapters) RG.chapters.afterYear(st, res).forEach((t) => notes.push(t));
+    if (RG.era) RG.era.afterYear(st, res).forEach((t) => { notes.push(t); (res.missionNotes = res.missionNotes || []).push(t); });
     res.equityCheck = bs.equity - bsStart.equity - (res.pl.preTax - res.tax.amount) +
       (st.corp ? 0 : livingUsed) - U.sum(st.ledger.filter((x) => x.cat === 'capital'), (x) => x.amount);
     res.notes = notes;
@@ -817,6 +821,8 @@
     } else if (st.negEquityYears >= 3) {
       st.gameOver = { reason: 'insolvent', year: st.year, text: '3年続けて債務超過（負債が資産を上回る状態）となり、経営を続けられなくなりました。' };
     }
+    // ストーリーごとの決算のあとの出来事（融資の審査・社員の士気など）
+    if (RG.scenes && !st.gameOver) RG.scenes.afterYear(st, res).forEach((t) => { res.notes.push(t); (res.missionNotes = res.missionNotes || []).push(t); });
     st.phase = 'season';
   };
 })(window.RG = window.RG || {});

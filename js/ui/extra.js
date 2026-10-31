@@ -34,9 +34,13 @@
     const money = (x) => (x ? h('div', { class: 'kpis' },
       UI.kpi('売上の見込み', U.man(x.revenue), null, 'good'), UI.kpi('経費', U.man(x.cost)), UI.kpi('差し引き', U.man(x.revenue - x.cost), '労働時間・減価償却は別')) : null);
 
+    const ERA = RG.era;
+    const locked = (id, def) => UI.card(def.icon + ' ' + def.name, null, h('div', { class: 'locked-card' }, h('span', { class: 'lock-ic', 'aria-hidden': 'true' }, '🔒'),
+      h('div', null, h('b', null, ERA.lockText(st, id).replace('🔒 ', '')), h('p', { class: 'small muted keep' }, def.desc))));
     // 稲刈りの作業受託
     const D1 = BZ.DEFS.harvest, spC = BZ.spare(M.combine);
-    out.push(UI.card(D1.icon + ' ' + D1.name, null, h('p', { class: 'small' }, D1.desc),
+    if (ERA && !ERA.isOpen(st, 'harvest')) out.push(locked('harvest', D1));
+    else out.push(UI.card(D1.icon + ' ' + D1.name, null, h('p', { class: 'small' }, D1.desc),
       M.combine.count > 0
         ? [h('div', { class: 'row' }, '引き受ける面積', UI.numInput({ value: b.harvest, min: 0, max: 200, step: 0.5, suffix: 'ha', label: '作業受託の面積',
             onChange: (v) => app.update((s) => BZ.setArea(s, 'harvest', v)) }),
@@ -46,7 +50,8 @@
 
     // ドローン防除の請負
     const D2 = BZ.DEFS.drone, spD = BZ.spare(M.drone);
-    out.push(UI.card(D2.icon + ' ' + D2.name, null, h('p', { class: 'small' }, D2.desc),
+    if (ERA && !ERA.isOpen(st, 'droneBiz')) out.push(locked('droneBiz', D2));
+    else out.push(UI.card(D2.icon + ' ' + D2.name, null, h('p', { class: 'small' }, D2.desc),
       M.drone.count > 0
         ? (b.droneLicense
           ? [h('div', { class: 'row' }, '請け負う面積', UI.numInput({ value: b.drone, min: 0, max: 200, step: 1, suffix: 'ha', label: 'ドローン防除の面積',
@@ -58,7 +63,8 @@
     // 餅・米粉の加工
     const D3 = BZ.DEFS.proc;
     const demand = BZ.procDemand(st), mochi = BZ.procIsMochi(st);
-    out.push(UI.card(D3.icon + ' ' + D3.name, null, h('p', { class: 'small' }, D3.desc),
+    if (ERA && !ERA.isOpen(st, 'proc') && !BZ.has(st, 'proc')) out.push(locked('proc', D3));
+    else out.push(UI.card(D3.icon + ' ' + D3.name, null, h('p', { class: 'small' }, D3.desc),
       BZ.has(st, 'proc')
         ? [h('div', { class: 'row' }, '加工に回す米', UI.numInput({ value: b.proc, min: 0, max: 400, step: 5, suffix: '俵', label: '加工に回す量',
             onChange: (v) => app.update((s) => BZ.setProc(s, v)) }),
@@ -70,7 +76,8 @@
 
     // 直売所
     const D4 = BZ.DEFS.stand;
-    out.push(UI.card(D4.icon + ' ' + D4.name, null, h('p', { class: 'small' }, D4.desc),
+    if (ERA && !ERA.isOpen(st, 'stand') && !BZ.has(st, 'stand')) out.push(locked('stand', D4));
+    else out.push(UI.card(D4.icon + ' ' + D4.name, null, h('p', { class: 'small' }, D4.desc),
       BZ.has(st, 'stand') ? money(sb.stand) : buy('ds', '直売所を建てる（' + U.man(D.MODELS.ds.price * st.market.matInfl) + '）')));
 
     out.push(h('p', { class: 'small muted' }, '事業の作業時間は「労働力」タブの季節ごとの必要時間に入ります。加工場と直売所は機械と同じように減価償却し、修理費もかかります。'));
@@ -79,6 +86,7 @@
 
   // ---------- 米を保管して春に売る（販売計画タブ） ----------
   RG.screens.storageCard = function (app, st, pv) {
+    if (RG.era && !RG.era.isOpen(st, 'store') && !st.stock) return UI.card('⏳ 米を保管して春に売る', '売る時期の勝負', h('div', { class: 'locked-card' }, h('span', { class: 'lock-ic', 'aria-hidden': 'true' }, '🔒'), h('b', null, RG.era.lockText(st, 'store').replace('🔒 ', ''))));
     const max = BZ.storeMax(st), w = st.world;
     const rg = BZ.oldPriceRange(w.forecast);
     const ss = pv.sales.stockSale;

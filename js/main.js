@@ -5,7 +5,7 @@
   const app = RG.app = { st: null, tab: 'overview', resultTab: 'summary', undo: [], seasonRes: null, keepScroll: false };
 
   const SCREENS = () => ({
-    title: RG.screens.title, dice: RG.screens.dice, event: RG.screens.event, plan: RG.screens.plan, season: RG.screens.season,
+    title: RG.screens.title, scene: RG.screens.scene, chapter: RG.screens.chapter, dice: RG.screens.dice, event: RG.screens.event, plan: RG.screens.plan, season: RG.screens.season,
     result: RG.screens.result, midterm: RG.screens.midterm, end: RG.screens.end, gameover: RG.screens.end,
   });
 
@@ -93,6 +93,12 @@
 
   app.startSeason = async function () {
     const st = app.st;
+    if (S.plannedArea(st) < S.totalArea(st) * 0.5) {
+      const go = await UI.confirm('田んぼの半分以上が空いています',
+        h('div', { class: 'notes' }, UI.note('warn', null, '作付 ' + U.ha(S.plannedArea(st)) + ' / ' + U.ha(S.totalArea(st)) + '。何も作らない田にも地代や水利費はかかります。「作付計画」で作る品種と面積を決めましょう。')), '作付計画へ');
+      if (go) { app.tab = 'crops'; app.render(); }
+      return;
+    }
     const hints = RG.advisor.planHints(st, RG.sim.simulate(st, { preview: true })).filter((x) => x.level === 'bad');
     if (hints.length) {
       const ok = await UI.confirm('この計画で1年を始めますか？',
@@ -141,6 +147,23 @@
     app.render();
   };
 
+  // 自分の経営モード：ここまでで締めくくる／再開する
+  app.closeGame = function () {
+    const st = app.st;
+    st.closed = { year: st.year, phase: st.phase };
+    st.phase = 'end';
+    RG.sound.play('fanfare');
+    app.autosave();
+    app.render();
+  };
+  app.reopenGame = function () {
+    const st = app.st;
+    st.phase = st.closed ? st.closed.phase : 'plan';
+    st.closed = null;
+    app.autosave();
+    app.render();
+  };
+
   app.nextYear = function () {
     app.viewingLast = false;
     S.nextYear(app.st);
@@ -151,7 +174,7 @@
 
   // ---------- 共通ヘッダー ----------
   // 上のバー（ステータス表示）。ゲームのように、アイコンと大きな数字で今の状態を見せる
-  const PHASE = { dice: ['🎲', '運だめし'], event: ['📨', '年初のできごと'], plan: ['📝', '経営計画'], season: ['🌱', 'シーズン'], result: ['📊', '決算'],
+  const PHASE = { scene: ['💬', 'ものがたり'], chapter: ['📖', '章のはじまり'], dice: ['🎲', '運だめし'], event: ['📨', '年初のできごと'], plan: ['📝', '経営計画'], season: ['🌱', 'シーズン'], result: ['📊', '決算'],
     midterm: ['🏅', '中間評価'], end: ['🏁', '経営終了'], gameover: ['🏁', '経営終了'] };
   app.topbar = function () {
     const st = app.st;
@@ -163,14 +186,16 @@
     // シーズン中（決算前）は、表示している月の月末の資金を出す
     const cm = st.phase === 'season' && st.seasonPending && app.seasonRes && app.seasonRes.cash.months[(st.seasonMonth || 1) - 1];
     const cash = cm ? cm.end : st.cash;
+    const endless = st.mode === 'endless';
     return h('header', { class: 'topbar hud' },
       h('div', { class: 'hud-farm' },
         h('span', { class: 'hud-emblem', 'aria-hidden': 'true' }, '🌾'),
         h('div', { class: 'hud-name' }, h('b', null, st.farmName), h('small', null, D.SCENARIOS[st.scenarioId].name + '・' + (st.corp ? '法人' : '個人')))),
       h('div', { class: 'hud-year' },
-        h('div', { class: 'hud-yr' }, h('b', null, st.year), h('span', null, '年目'), h('small', null, '/ ' + st.maxYear)),
-        h('div', { class: 'hud-yrbar', title: st.maxYear + '年のうち ' + st.year + '年目' }, h('i', { style: { width: (st.year / st.maxYear * 100) + '%' } })),
-        h('span', { class: 'hud-phase' }, ph[0] + ' ' + phaseText)),
+        h('div', { class: 'hud-yr' }, h('b', null, st.year), h('span', null, '年目'), endless ? null : h('small', null, '/ ' + st.maxYear)),
+        endless ? null : h('div', { class: 'hud-yrbar', title: st.maxYear + '年のうち ' + st.year + '年目' }, h('i', { style: { width: (st.year / st.maxYear * 100) + '%' } })),
+        h('span', { class: 'hud-phase' }, ph[0] + ' ' + phaseText),
+        endless ? h('span', { class: 'hud-ch', title: '区切りなく続けられます。メニューの「経営を締めくくる」で、いつでも振り返りへ' }, '♾️ 自分の経営モード') : RG.chapters ? h('span', { class: 'hud-ch', title: RG.chapters.of(st.year, st).goal }, '第' + RG.chapters.of(st.year, st).n + '章 ' + RG.chapters.of(st.year, st).name) : null),
       h('div', { class: 'topstats hud-stats' },
         stat('💰', cm ? '資金（' + st.seasonMonth + '月末）' : '資金', U.man(cash), cash < 0 ? 'neg' : cash < 500000 ? 'warn' : ''),
         stat('📈', '純資産', U.man(bs.equity), bs.equity < 0 ? 'neg' : ''),
@@ -231,6 +256,12 @@
       };
       drawTut();
       body.appendChild(tutRow);
+    }
+    // 自分の経営モード：好きなところで経営を締めくくって、ふり返りへ
+    if (app.st && app.st.mode === 'endless' && app.st.phase === 'plan' && app.st.history.length) {
+      body.appendChild(h('h3', null, '経営を締めくくる'));
+      body.appendChild(h('div', { class: 'row' }, UI.btn('🏁 ここまでの経営をふり返る', () => { close(); app.closeGame(); }, 'sm'),
+        h('span', { class: 'muted small' }, '最終評価と高橋さんの見立てを出します。あとで続きから再開もできます')));
     }
     body.appendChild(h('h3', null, '称号'));
     body.appendChild(h('div', { class: 'row' }, UI.btn('称号を見る', () => RG.screens.showTitles(app.st), 'sm')));

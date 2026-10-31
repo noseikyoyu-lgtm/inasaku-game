@@ -24,6 +24,18 @@
       brows: 'thick', browC: '#2a2420', eyes: 'open', mouth: 'grin', stubble: true, cloth: 'overall', clothC: '#3d6ea8', clothS: '#2d5585', shirt: '#e9e2d0', cap: '#c94a3c' },
     ogawa: { bg: ['#eef6e8', '#d6ebc8'], skin: '#f6d3b3', shade: '#e2b18b', head: 'oval', hair: 'bob', hairC: '#5a3a26', hairS: '#3f281a',
       brows: 'thin', browC: '#5a3a26', eyes: 'open', mouth: 'smile', cheeks: true, cloth: 'apron', clothC: '#5f9d4c', clothS: '#4a8239', shirt: '#f4efe2', straw: true },
+    // じいちゃん：麦わら帽子に首のタオル。白い太い眉とひげ、目尻を下げて笑う。藍色の野良着
+    jiichan: { bg: ['#fbf1d8', '#f1dca8'], skin: '#e8b88c', shade: '#cc966a', head: 'round', hair: 'baldSides', hairC: '#f0efea', hairS: '#cfcec8',
+      brows: 'bushy', browC: '#f4f3ee', eyes: 'smile', mouth: 'smile', mustache: '#f4f3ee', wrinkles: true, cheeks: true,
+      cloth: 'work', clothC: '#3f5583', clothS: '#2f4268', shirt: '#e9e4d6', neckTowel: '#ffffff', straw: true },
+    // 区長の森さん：丸めがねの世話役。白髪まじりの短髪、ベスト姿
+    kucho: { bg: ['#eef3e2', '#d7e4bd'], skin: '#efc39b', shade: '#d6a179', head: 'square', hair: 'grayShort', hairC: '#c9c8c2', hairS: '#a3a29c',
+      brows: 'thick', browC: '#8f8e88', eyes: 'smile', mouth: 'smile', wrinkles: true, cheeks: true, glasses: '#6a4a2a',
+      cloth: 'vest', clothC: '#6f7f3f', clothS: '#56652f', shirt: '#f3efe3' },
+    // ベテラン社員の山根さん：日焼けした頑固な現場の人。会社の帽子と作業服
+    yamane: { bg: ['#e4ebf2', '#c3d3e2'], skin: '#d9a278', shade: '#bb835b', head: 'square', hair: 'short', hairC: '#55524d', hairS: '#3a3834',
+      brows: 'thick', browC: '#3a3834', eyes: 'open', mouth: 'flat', wrinkles: true, stubble: true,
+      cloth: 'work', clothC: '#4f6f8f', clothS: '#3d5874', shirt: '#e6e9ec', cap: '#2f4f6f' },
     tamura: { bg: ['#eaeef1', '#d2dbe1'], skin: '#ecbf96', shade: '#d39e74', head: 'oval', hair: 'grayShort', hairC: '#8d8d8a', hairS: '#6c6c69',
       brows: 'normal', browC: '#777774', eyes: 'smile', mouth: 'smile', wrinkles: true, cloth: 'work', clothC: '#6f8597', clothS: '#566b7c', shirt: '#dfe3e6', towel: '#ffffff' },
   };
@@ -77,6 +89,7 @@
     brows(g, p);
     el('path', { d: 'M50 41 q-2.5 6 0.5 7', fill: 'none', stroke: p.shade, 'stroke-width': 1.6, 'stroke-linecap': 'round' }, g);
     mouth(g, p);
+    if (p.mustache) el('path', { d: 'M39 50 Q44 45.5 50 48 Q56 45.5 61 50 Q56 51.5 50 50.2 Q44 51.5 39 50 Z', fill: p.mustache, stroke: OL, 'stroke-width': 1 }, g);
     if (p.glasses) {
       el('rect', { x: 34.5, y: 35, width: 12.5, height: 9, rx: 3.5, fill: 'rgba(255,255,255,.18)', stroke: p.glasses, 'stroke-width': 1.5 }, g);
       el('rect', { x: 53, y: 35, width: 12.5, height: 9, rx: 3.5, fill: 'rgba(255,255,255,.18)', stroke: p.glasses, 'stroke-width': 1.5 }, g);
@@ -121,7 +134,7 @@
     } else if (p.cloth === 'tshirt') {
       el('path', { d: 'M42 71 Q50 77 58 71', fill: 'none', stroke: cs, 'stroke-width': 2 }, g);
     }
-    if (p.towel) el('path', { d: 'M36 72 Q50 80 64 72 L66 76 Q50 85 34 76 Z', fill: p.towel, stroke: OL, 'stroke-width': 1 }, g);
+    if (p.towel || p.neckTowel) el('path', { d: 'M36 72 Q50 80 64 72 L66 76 Q50 85 34 76 Z', fill: p.towel || p.neckTowel, stroke: OL, 'stroke-width': 1 }, g);
   }
 
   function hairBack(g, p) {
@@ -202,6 +215,8 @@
       el('path', { d: 'M43 51 Q50 49.5 57 51 Q56 58 50 58.5 Q44 58 43 51 Z', fill: '#7a2e2a', stroke: OL, 'stroke-width': 1.2 }, m);
       el('path', { d: 'M44.5 51.4 Q50 50.4 55.5 51.4 L55 53 Q50 52.2 45 53 Z', fill: '#fff' }, m);
       el('ellipse', { cx: 50, cy: 56.4, rx: 3.6, ry: 1.6, fill: '#e07a6a' }, m);
+    } else if (p.mouth === 'flat') {
+      el('path', { d: 'M44 53.5 Q50 52.5 56 53.5', fill: 'none', stroke: OL, 'stroke-width': 1.9, 'stroke-linecap': 'round' }, g);
     } else if (p.mouth === 'grin') {
       el('path', { d: 'M42.5 51 Q50 50 57.5 51 Q55.5 57.5 50 57.5 Q44.5 57.5 42.5 51 Z', fill: '#fff', stroke: OL, 'stroke-width': 1.2 }, g);
     } else {

@@ -7,8 +7,9 @@
   M.genWorld = function (st) {
     const AG = RG.agro;
     const r = RG.rng.make(st.seed, st.year, 'world');
-    const yearType = r.weighted(AG.yearTypeProbs(st.year));
-    const events = AG.drawEvents(r, yearType);
+    const drawn = r.weighted(AG.yearTypeProbs(st.year));
+    const yearType = (RG.era && RG.era.forceYearType(st, st.year)) || drawn; // 試練の年は年タイプが決まっている
+    const events = RG.era ? RG.era.forceEvents(st, st.year, AG.drawEvents(r, yearType)) : AG.drawEvents(r, yearType);
     const yt = D.YEAR_TYPES[yearType];
 
     // 全国の作柄の代理：コシヒカリBL（適期田植え）の気象係数を長期平均で割ったもの（参考ファイルと同じ考え方）
@@ -22,10 +23,13 @@
     const base = prev * Math.exp(0.4 * Math.log(lr / prev));
     const vol = D.AGRO.priceVol;
     const shockMult = U.clamp(Math.exp(r.normal(0, vol) - (vol * vol) / 2), 0.6, 1.8);
-    const price = U.clamp(base * shockMult * (1 - D.AGRO.priceHedge * (nationalIndex / 100 - 1)), 9000, 32000);
-    const forecast = U.clamp(base * Math.exp(r.normal(0, 0.03)), 9000, 32000);
+    const crash = RG.era ? RG.era.priceMult(st, st.year) : 1; // 試練の年（米価暴落）
+    const hedge = RG.era && RG.era.hedgeOff(st, st.year) ? 0 : D.AGRO.priceHedge * (nationalIndex / 100 - 1);
+    const price = U.clamp(base * shockMult * crash * (1 - hedge), 9000, 32000);
+    const forecast = U.clamp(base * Math.exp(r.normal(0, 0.03)) * (RG.era ? RG.era.forecastMult(st, st.year) : 1), 9000, 32000);
     let shockText = null;
-    if (shockMult > 1.15) shockText = '米の需給がひっ迫し、米価が大きく上がった';
+    if (crash < 1) shockText = '全国の在庫が積み上がり、米価が暴落した';
+    else if (shockMult > 1.15) shockText = '米の需給がひっ迫し、米価が大きく上がった';
     else if (shockMult < 0.87) shockText = '在庫が積み上がり、米価が値下がりした';
     // 米価が動いた理由（米の需給）：全国の作柄・在庫と引き合い・前年からの流れ
     const idx = Math.round(nationalIndex);
@@ -33,7 +37,8 @@
     if (nationalIndex <= 98) why.push('全国の作柄が平年を下回り（作況指数' + idx + '）、出回る米が少なめ');
     else if (nationalIndex >= 102) why.push('全国的に豊作で（作況指数' + idx + '）、出回る米が多め');
     else why.push('全国の作柄はほぼ平年並み（作況指数' + idx + '）');
-    if (shockMult >= 1.06) why.push('在庫が少なく引き合いが強い（需給が引き締まった）');
+    if (crash < 1) why.push('全国で作付が増えて在庫が積み上がり、買い手がつかない（需給が大きく緩んだ）');
+    else if (shockMult >= 1.06) why.push('在庫が少なく引き合いが強い（需給が引き締まった）');
     else if (shockMult <= 0.94) why.push('在庫が積み上がり引き合いが弱い（需給が緩んだ）');
     const priceChange = Math.round(price) / prev - 1;
     // 前年からの流れは、実際の値動きと同じ向きのときだけ理由に挙げる

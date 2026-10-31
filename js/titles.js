@@ -35,7 +35,12 @@
     { id: 'rival_top', icon: '👑', name: '地域で一番', desc: '5年目以降に、地域の農家の中で評価が一番になる', check: (st) => st.year >= 5 && RG.rivals && (RG.rivals.table(st).find((r) => r.active) || {}).me },
     { id: 'successor', icon: '👨‍👩‍👦', name: '次の世代へ', desc: '後継者に経営を引き継ぐ', check: (st) => st.family.some((f) => f.tag === 'retired') && !st.retired },
     { id: 'third_party', icon: '🤲', name: '第三者継承', desc: '家族以外の若者を後継者に迎える', check: (st) => st.story && st.story.trainee.stage === 3 },
-    { id: 'complete20', icon: '🎌', name: '20年完走', desc: '20年の経営をやりとげる', check: (st) => st.year >= st.maxYear && !st.gameOver },
+    { id: 'trials3', icon: '⛈️', name: '嵐を越えて', desc: '3つの試練の年をすべて黒字で乗り越える', check: (st) => (st.trials || []).filter((t) => t.income > 0).length >= 3 },
+    { id: 'mission5', icon: '📜', name: '頼れる人', desc: '依頼を5つ達成する', check: (st) => (st.missions || []).filter((m) => m.status === 'done').length >= 5 },
+    { id: 'pathGoal', icon: '🧭', name: '道をきわめる', desc: '選んだ経営の道の目標を達成する', check: (st) => !!st.path && RG.chapters && RG.chapters.PATHS[st.path].check(st) },
+    { id: 'complete20', icon: '🎌', name: '20年完走', desc: '20年の経営をやりとげる', check: (st) => st.history.length >= 20 && !st.gameOver },
+    { id: 'promise', icon: '🤝', name: '約束を果たす', desc: 'ストーリーで、物語の約束を果たす', check: (st) => !!(RG.scenes && RG.scenes.isStory(st) && st.history.length >= st.maxYear && RG.scenes.promise(st).kept) },
+    { id: 'promise3', icon: '🌟', name: '米道をきわめた', desc: 'ストーリーで、星3つのエンディングを見る', check: (st) => !!(RG.scenes && RG.scenes.isStory(st) && st.history.length >= st.maxYear && RG.scenes.promise(st).stars >= 3) },
   ];
   TT.get = (id) => TT.LIST.find((t) => t.id === id);
 

@@ -79,6 +79,8 @@
   // 規模も販路も変えず、寿命の来た機械は同じ機種に買い替え（借りられなければ委託）、人手が足りなければパートを増やす
   OL.statusQuoPlan = function (st) {
     const SIM = RG.sim, A = RG.actions;
+    if (RG.scenes && st.phase === 'scene') RG.scenes.finish(st);
+    if (RG.chapters) RG.chapters.skip(st);
     if (RG.dice) RG.dice.auto(st);
     while (st.events.queue.length) RG.events.choose(st, st.events.queue[0], RG.events.statusQuoChoice(st.events.queue[0]));
     (st.scrapped || []).forEach((model) => {
@@ -99,7 +101,8 @@
     const st = S.fromJSON(snapshot);
     st.seed = seed;
     S.beginYear(st);
-    while (st.phase !== 'end' && st.phase !== 'gameover') {
+    // 自分の経営モードは区切りがないので、見立ては20年まで
+    while (st.phase !== 'end' && st.phase !== 'gameover' && st.history.length < D.MAX_YEAR) {
       OL.statusQuoPlan(st);
       SIM.apply(st, SIM.simulate(st));
       S.nextYear(st);
@@ -173,7 +176,7 @@
       const s = base.same;
       if (s) {
         const diff = last.equity - s.equity;
-        const you = st.gameOver ? 'あなたは' + st.gameOver.year + '年目で経営を続けられなくなりました' : st.retired ? 'あなたは' + st.retired.year + '年目に引退を迎えました' : 'あなたは20年続けました';
+        const you = st.gameOver ? 'あなたは' + st.gameOver.year + '年目で経営を続けられなくなりました' : st.retired ? 'あなたは' + st.retired.year + '年目に引退を迎えました' : 'あなたは' + st.history.length + '年続けました';
         say(diff >= 0 ? 'good' : 'warn', '同じ天候で比べると',
           '今回とまったく同じ天候・米価で「今のまま」だった場合は' + (s.over ? s.endYear + '年目で続けられなくなりました' : '最後の純資産が ' + U.man(s.equity) + ' でした') + '。' + you +
           '（純資産 ' + U.man(last.equity) + '）。' + (Math.abs(diff) > 1e6 ? 'あなたの判断で純資産が ' + U.man(Math.abs(diff)) + (diff >= 0 ? ' 多くなりました。' : ' 少なくなりました。') : '大きな差はありませんでした。'));

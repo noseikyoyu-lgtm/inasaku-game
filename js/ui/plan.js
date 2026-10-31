@@ -106,20 +106,34 @@
     return h('section', { class: 'home-hero' },
       h('span', { class: 'hero-scene', 'aria-hidden': 'true' }, '🏡🌾🚜'),
       h('h2', null, st.year + '年目の経営計画'),
-      h('div', { class: 'hero-sub' }, st.year === 1 ? 'まずは今年の段取りを決めよう。全部できたら、1年をスタート！' : '去年の結果をふまえて、今年の段取りを決めよう。'),
+      h('div', { class: 'hero-sub' }, st.year === 1 ? (st.starter && S.plannedArea(st) < 0.05 ? '田んぼはまだ空っぽ。何を作るか、誰と作るか、どこに売るか。自分で決めて、1年をスタート！' : 'まずは今年の段取りを決めよう。全部できたら、1年をスタート！') : '去年の結果をふまえて、今年の段取りを決めよう。'),
+      trialBanner(st),
       UI.saying(RG.advisor.quip(st, lr)));
+  }
+  function trialBanner(st) {
+    if (!RG.era) return null;
+    const now = RG.era.trialOf(st, st.year), next = RG.era.trialOf(st, st.year + 1);
+    if (now) return h('div', { class: 'trial-banner now' }, h('span', { class: 'tb-i', 'aria-hidden': 'true' }, now.icon), h('div', null, h('b', null, '試練の年：' + now.name), h('div', null, now.hit + 'ここまでの備え（品種・売り先・保険・資金）が試される。')));
+    if (next && st.year + 1 <= st.maxYear) return h('div', { class: 'trial-banner next' }, h('span', { class: 'tb-i', 'aria-hidden': 'true' }, '⚠️'), h('div', null, h('b', null, '来年の予告：' + next.icon + ' ' + next.name), h('div', null, next.notice)));
+    return null;
   }
   function questCard(app, st, pv) {
     const short = D.SEASONS.filter((s) => pv.labor.seasons[s].ratio > 0.01);
     const seen = (st.visit && st.visit.tabs) || {};
     const go = (tab) => () => { app.tab = tab; app.render(); };
+    const total = S.totalArea(st), planted = S.plannedArea(st);
+    const cropsDone = planted >= total * 0.9 && (st.year > 1 || !st.starter || !!seen.crops);
     const items = [
-      { done: !!seen.crops, text: '作る品種と面積を決める', sub: '「作付計画」で、どの品種を何ha作るかを確かめよう', tab: 'crops', go: '作付計画へ' },
-      short.length ? { warn: true, text: '人手が足りない季節があります', sub: short.map((s) => D.SEASON_SHORT[s]).join('・') + 'の作業時間が不足。パートを雇うか、作業を委託しよう', tab: 'labor', go: '労働力へ' }
-        : { done: true, text: '人手は足りている', sub: '春・夏・秋・冬の作業時間に余裕あり', tab: 'labor', go: '労働力へ' },
-      pv.cash.minBalance < 0 ? { warn: true, text: 'お金が足りなくなる月があります', sub: pv.cash.minMonth + '月に ' + U.man(pv.cash.minBalance) + '。運転資金を借りておこう', tab: 'finance', go: '資金・保険へ' }
-        : { done: true, text: 'お金は1年もちそう', sub: 'いちばん少ない ' + pv.cash.minMonth + '月でも ' + U.man(pv.cash.minBalance) + ' 残る見込み', tab: 'finance', go: '資金・保険へ' },
-      { done: !!seen.sales, text: '売り先を決める', sub: '「販売計画」で、農協・契約・直販の売り分けを確かめよう', tab: 'sales', go: '販売計画へ' },
+      cropsDone ? { done: true, text: '作る品種と面積を決めた', sub: '作付 ' + U.ha(planted) + ' / ' + U.ha(total), tab: 'crops', go: '作付計画へ' }
+        : planted < 0.05 ? { warn: true, text: '田んぼがまだ空っぽ！ 作る品種と面積を決めよう', sub: '「作付計画」の「作付の型」から選ぶと早いよ（' + U.ha(total) + '）', tab: 'crops', go: '作付計画へ' }
+          : { text: '作る品種と面積を決める', sub: '作付 ' + U.ha(planted) + ' / ' + U.ha(total) + '。残りの田にも何か作ろう', tab: 'crops', go: '作付計画へ' },
+      planted < 0.05 ? { text: '人手が足りるか確かめる', sub: '作付を決めると、季節ごとに必要な作業時間がわかる', tab: 'labor', go: '労働力へ' }
+        : short.length ? { warn: true, text: '人手が足りない季節があります', sub: short.map((s) => D.SEASON_SHORT[s]).join('・') + 'の作業時間が不足。パートを雇うか、作業を委託しよう', tab: 'labor', go: '労働力へ' }
+          : { done: true, text: '人手は足りている', sub: '春・夏・秋・冬の作業時間に余裕あり', tab: 'labor', go: '労働力へ' },
+      { done: !!seen.sales, text: '売り先を決める', sub: st.direct.customers > 0 && st.direct.alloc <= 0 ? '直販のお客さんが' + U.num(st.direct.customers) + '人いるのに、直販に回す米が0俵。農協・契約・直販の売り分けを決めよう' : '「販売計画」で、農協・契約・直販の売り分けを決めよう', tab: 'sales', go: '販売計画へ' },
+      planted < 0.05 ? { text: 'お金が1年もつか確かめる', sub: '作付を決めると、月ごとの資金の見込みがわかる', tab: 'finance', go: '資金・保険へ' }
+        : pv.cash.minBalance < 0 ? { warn: true, text: 'お金が足りなくなる月があります', sub: pv.cash.minMonth + '月に ' + U.man(pv.cash.minBalance) + '。運転資金を借りるか、出荷契約金を申し込もう', tab: 'finance', go: '資金・保険へ' }
+          : { done: !!seen.finance || st.year > 1, text: st.year === 1 ? '保険と出荷契約金を決める' : 'お金は1年もちそう', sub: st.year === 1 ? '「資金・保険」で、不作への備えと、農協の前渡金を申し込むか決めよう' : 'いちばん少ない ' + pv.cash.minMonth + '月でも ' + U.man(pv.cash.minBalance) + ' 残る見込み', tab: 'finance', go: '資金・保険へ' },
     ];
     const n = items.filter((x) => x.done).length;
     return UI.card('✅ 今年やること', n + ' / ' + items.length + ' クリア',
@@ -150,7 +164,7 @@
     const bs = ACC.bs(st);
     const area = U.sum(st.fields, (f) => f.area), owned = U.sum(st.fields.filter((f) => f.owned), (f) => f.area);
     const w = st.world;
-    const out = [homeHero(st), questCard(app, st, pv), meterCard(st, pv)];
+    const out = [homeHero(st), RG.scenes.isStory(st) ? RG.screens.promiseCard(st, { progress: true }) : null, questCard(app, st, pv), RG.chapters.on(st) ? RG.screens.missionsCard(app, st) : null, meterCard(st, pv)];
     out.push(UI.card('今年のニュース', null, h('div', { class: 'notes' }, st.news.map((n) => UI.note(n.kind === 'event' ? 'info' : n.kind, null, n.text)))));
     if (st.lastResult) {
       let adv = st.lastResult.nextAdvice;
@@ -226,7 +240,7 @@
 
   // ---------- 作付計画 ----------
   function cropOptions(st) {
-    return D.CROP_ORDER.filter((k) => k !== 'none' && (!D.CROPS[k].unlock || st.flags[D.CROPS[k].unlock]))
+    return D.CROP_ORDER.filter((k) => k !== 'none' && (!D.CROPS[k].unlock || st.flags[D.CROPS[k].unlock]) && !(RG.era && RG.era.cropLocked(st, k)))
       .map((k) => ({ value: k, label: D.cropIcon(k) + ' ' + D.CROPS[k].name + '［' + AG.maturityLabel(D.CROPS[k]) + '］' }));
   }
   function tabCrops(app, st, pv) {
@@ -265,7 +279,18 @@
       fallow > 0.05 ? h('span', { class: 'fallow', style: { width: (fallow / total) * 100 + '%' }, title: '休耕 ' + U.ha(fallow) }) : null);
     const org = SIM.organicStatus(st);
     const plist = pv.production.products;
+    // 作付の型（1〜2年目と、田がまだ空いているとき）
+    const showPresets = st.year <= 2 || S.plannedArea(st) < total * 0.5;
+    const presets = showPresets ? UI.card('🎯 作付の型を選ぶ', '選んだあと、下の表で1行ずつ直せます',
+      h('div', { class: 'preset-cards' }, S.CROP_PRESETS.filter((x) => x.id !== 'starter' || st.starter).map((x) => h('button', { type: 'button', class: 'preset-card',
+        onclick: () => app.update((s) => S.applyCropPreset(s, x.id), { msg: '「' + x.name + '」で作付を決めました' }) },
+        h('span', { class: 'pc-ic', 'aria-hidden': 'true' }, x.icon), h('b', null, x.name), h('span', { class: 'pc-d' }, x.desc),
+        x.mix ? h('span', { class: 'pc-mix' }, x.mix.map((m) => D.cropIcon(m[0]) + D.CROPS[m[0]].name.replace(/（.*）/, '') + ' ' + Math.round(m[2] * 100) + '%').join('・')) : null)))) : null;
+    const emptyNote = st.plan.length === 0 || S.plannedArea(st) < 0.05
+      ? UI.note('warn', '田んぼがまだ空っぽです', '上の「作付の型」から選ぶか、下の「＋ 品種を追加」で、作る品種と面積を決めましょう。') : null;
     return h('div', { class: 'stack' },
+      presets,
+      emptyNote,
       UI.card('品種ごとの作付', '経営面積 ' + U.ha(total) + '（作付 ' + U.ha(total - fallow) + '・休耕 ' + U.ha(fallow) + '）',
         bar,
         UI.table([{ label: '品種［早晩性］' }, { label: '栽培・植え方' }, { label: '田植え時期' }, { label: '面積', num: true }, { label: '見込み（平年作）', num: true }, { label: '' }], rows),
@@ -404,6 +429,10 @@
     const sub = !!st.yearFlags.machineSubsidy;
     const shop = D.MACHINE_TYPE_ORDER.map((t) => {
       const models = Object.keys(D.MODELS).filter((k) => D.MODELS[k].type === t);
+      if (RG.era && RG.era.mtypeLocked(st, t)) {
+        const u = RG.era.UNLOCKS.find((x) => x.mtype === t);
+        return h('div', { class: 'locked-row' }, h('span', null, D.MACHINE_TYPES[t].icon + ' ' + D.MACHINE_TYPES[t].name), h('span', { class: 'lock' }, RG.era.lockText(st, u.id)));
+      }
       return h('details', { class: 'more', open: app.openShop === t, ontoggle: (e) => { if (e.target.open) app.openShop = t; else if (app.openShop === t) app.openShop = null; } },
         h('summary', null, D.MACHINE_TYPES[t].icon + ' ' + D.MACHINE_TYPES[t].name + ' ― ' + D.MACHINE_TYPES[t].role),
         UI.table([{ label: '機種' }, { label: '能力', num: true }, { label: '省力', num: true }, { label: '価格', num: true }, { label: '年間の償却費', num: true }, { label: 'リース料/年', num: true }, { label: '' }],

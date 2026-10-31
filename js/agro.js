@@ -69,7 +69,7 @@
 
   // ---------- 年タイプと気象イベント ----------
   AG.yearTypeProbs = function (year) {
-    const boost = Math.min(0.12, 0.004 * year); // 温暖化で猛暑年が少しずつ増える
+    const boost = Math.min(0.12, 0.006 * year); // 温暖化で猛暑年が年々増える（20年目にはおよそ1.4倍）
     return D.YEAR_TYPE_ORDER.map((k) => [k, D.YEAR_TYPES[k].p + (k === 'hot' ? boost : k === 'normal' ? -boost : 0)]);
   };
   function sevBiased(r, bias) {

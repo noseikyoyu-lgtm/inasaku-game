@@ -14,7 +14,7 @@
 
   function genLand(st) {
     const r = RG.rng.make(st.seed, st.year, 'land');
-    let n = 1 + (r.chance(0.5 + st.trust / 200) ? 1 : 0) + (r.chance(st.trust / 150) ? 1 : 0) + (st.year >= 3 && r.chance(0.3) ? 1 : 0);
+    let n = 1 + (r.chance(0.5 + st.trust / 200) ? 1 : 0) + (r.chance(st.trust / 150) ? 1 : 0) + (st.year >= 3 && r.chance(0.3) ? 1 : 0) + (st.path === 'grow' ? 1 : 0);
     const out = [];
     const reasons = ['高齢のため離農する', '後継者がいない', '体調を崩して作業が難しくなった', '相続した田を任せたい', '兼業で手が回らなくなった'];
     for (let i = 0; i < n; i++) {

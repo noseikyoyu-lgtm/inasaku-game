@@ -8,7 +8,7 @@
   MT.EVERY = 5;
 
   // この年の決算のあとに中間評価を出すか
-  MT.due = (st) => !st.gameOver && !st.retired && st.year < st.maxYear && st.year % MT.EVERY === 0 && st.history.length === st.year;
+  MT.due = (st) => !st.gameOver && !st.retired && (st.mode === 'endless' || st.year < st.maxYear) && st.year % MT.EVERY === 0 && st.history.length === st.year;
 
   // 今の実績と、これまでのペースが20年続いたときの見込み
   MT.evaluate = function (st) {
@@ -91,7 +91,7 @@
     const next = UI.btn((st.year + 1) + '年目へ進む ▶', () => app.nextYear(), 'primary big');
     return h('div', null, app.topbar(),
       h('div', { class: 'layout one' },
-        h('main', { class: 'stack' }, head, items, RG.screens.rivalsCard(st, '地域の農家との比較'), guards, advice,
+        h('main', { class: 'stack' }, head, RG.chapters.on(st) ? RG.screens.chapterRecap(st, RG.chapters.of(st.year, st).n) : null, items, RG.screens.rivalsCard(st, '地域の農家との比較'), guards, advice,
           h('div', { class: 'row' }, UI.btn('◀ 決算書に戻る', () => { st.phase = 'result'; app.autosave(); app.render(); }, ''), h('span', { class: 'spacer' }), next))));
   };
 })(window.RG = window.RG || {});

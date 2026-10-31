@@ -463,9 +463,65 @@
     },
   };
   // 「自分の経営で始める」：中身は入力された内容から作る（js/state.js の S.buildCustom）
-  D.SCENARIOS.custom = { name: '自分の経営', sub: 'あなたの今の経営で20年', difficulty: 'あなた次第', custom: true,
-    desc: '今の農地・品種・機械・家族・お金の状況を入れて、あなたの経営で20年を体験します。家族の年齢や機械の寿命もゲームに入ります。' };
+  D.SCENARIOS.custom = { name: '自分の経営', sub: 'あなたの今の経営で', difficulty: 'あなた次第', custom: true,
+    desc: '今の農地・品種・機械・家族・お金の状況を入れて、あなたの経営の先行きを体験します。家族の年齢や機械の寿命もゲームに入ります。' };
   D.SCENARIO_ORDER = ['shinki', 'oyamoto', 'hojin'];
+  // ストーリーモード「じいちゃんの田んぼ」（js/scenes.js）
+  D.SCENARIOS.story = {
+    name: 'じいちゃんの田んぼ', sub: 'じいちゃんの2haを受け継ぐ', difficulty: 'ふつう', story: true,
+    desc: '腰を痛めたじいちゃんから、ご先祖さんの2haの田んぼを託された。米づくりはほぼ初めて。古いトラクタと田植機だけで、稲刈りと乾燥は人に頼むところから始まる。',
+    corp: false, cash: 3500000, living: 1800000, trust: 35, skill: 0.9, customers: 30, brand: 0,
+    fields: [
+      { area: 1.0, soil: 'normal', owned: true, name: '家の前の田' }, { area: 0.6, soil: 'good', owned: true, name: '川沿いの田' }, { area: 0.4, soil: 'poor', owned: true, name: '山の田' },
+    ],
+    machines: [{ model: 'tr_s', age: 14 }, { model: 'pl_s', age: 12 }],
+    loans: [],
+    family: [{ name: 'あなた', role: '経営主', hours: 2000, age: 28, tag: 'operator' }, { name: 'じいちゃん', role: '相談役', hours: 400, age: 73, tag: 'grandpa' }],
+    staff: 0, partTimers: 0,
+    grantYears: 3, grantAmount: 1500000, noInterestCap: 15000000,
+    defaultCrop: 'koshiBL',
+  };
+  // ストーリー「山あいの棚田を守れ」：条件の悪い小さな田が中心。集落の田んぼが毎年託されてくる
+  D.SCENARIOS.tanada = {
+    name: '山あいの棚田を守れ', sub: '中山間の集落で、田んぼを荒らさない', difficulty: 'むずかしい', story: true,
+    desc: 'ふるさとの山あいの集落に帰ってきた。集落の平均年齢は70歳を超え、田んぼを預かってほしいという話が毎年届く。小さな棚田は手間がかかるが、売り方しだいで高く売れる。',
+    corp: false, cash: 4000000, living: 2000000, trust: 55, skill: 0.9, customers: 40, brand: 10,
+    fields: [
+      { area: 1.2, soil: 'poor', owned: true, name: '家の棚田' }, { area: 0.8, soil: 'poor', rent: 4000, name: '上の棚田' },
+      { area: 0.6, soil: 'poor', rent: 4000, name: '森さんの田' }, { area: 0.4, soil: 'normal', rent: 7000, name: '川べりの田' },
+    ],
+    machines: [{ model: 'tr_s', age: 10 }, { model: 'pl_s', age: 8 }, { model: 'cb_s', age: 12 }],
+    loans: [],
+    family: [{ name: 'あなた', role: '経営主', hours: 2000, age: 32, tag: 'operator' }, { name: '母', role: '家族（手伝い）', hours: 900, age: 60 }],
+    staff: 0, partTimers: 0,
+    grantYears: 3, grantAmount: 1500000, noInterestCap: 15000000,
+    defaultCrop: 'koshiBL',
+  };
+  // ストーリー「農業法人を立て直せ」（15年）：借入が多く、機械は古く、赤字の契約が残る
+  D.SCENARIOS.saiken = {
+    name: '農業法人を立て直せ', sub: '借金だらけの40haの法人を再建', difficulty: 'むずかしい', story: true, maxYear: 15,
+    desc: '40haを作る農業法人の社長が急に引退し、新しい経営者として呼ばれた。借入は5,000万円を超え、機械は寿命間近、赤字の契約も残る。金融機関からは「5年で立て直せなければ、これ以上は貸せない」と言われている。',
+    corp: true, cash: 10000000, execPay: 4000000, trust: 30, skill: 0.95, customers: 0, brand: 5,
+    fields: [
+      { area: 4.0, soil: 'normal', owned: true, landValue: 24000000 }, { area: 3.0, soil: 'good', owned: true, landValue: 21000000 }, { area: 3.0, soil: 'poor', owned: true, landValue: 12000000 },
+      { area: 4.0, soil: 'good', rent: 15000 }, { area: 5.0, soil: 'normal', rent: 14000 }, { area: 5.0, soil: 'normal', rent: 14000 },
+      { area: 4.0, soil: 'normal', rent: 13000 }, { area: 4.0, soil: 'normal', rent: 13000 }, { area: 4.0, soil: 'poor', rent: 9000 }, { area: 4.0, soil: 'poor', rent: 9000 },
+    ],
+    machines: [
+      { model: 'tr_l', age: 13 }, { model: 'tr_m', age: 15 }, { model: 'pl_m', age: 12 }, { model: 'pl_m', age: 10 },
+      { model: 'cb_m', age: 9 }, { model: 'cb_m', age: 7 }, { model: 'dr_l', age: 15 }, { model: 'ns_l', age: 12 }, { model: 'tr_m', age: 6 }, { model: 'dr_m', age: 9 },
+    ],
+    loans: [
+      { kind: 'long', name: '設備資金（前の経営から）', balance: 40000000, rate: 0.02, yearsLeft: 15 },
+      { kind: 'long', name: '運転資金（前の経営から）', balance: 12000000, rate: 0.025, yearsLeft: 8 },
+    ],
+    contracts: [{ buyer: '業務用米の問屋（前の社長の契約）', crop: 'akidawara', minCult: 0, volume: 900, premium: 0.8, yearsLeft: 4 }],
+    plan: [{ crop: 'koshiBL', area: 18 }, { crop: 'koshiibuki', area: 10 }, { crop: 'akidawara', area: 12 }],
+    family: [{ name: 'あなた', role: '代表取締役', hours: 1800, age: 42, tag: 'operator' }],
+    staff: 3, partTimers: 4,
+    defaultCrop: 'koshiBL',
+  };
+  D.STORY_ORDER = ['story', 'tanada', 'saiken'];
 
   D.SOILS = {
     good: { name: '条件良（平坦・大区画）', short: '良', yieldMult: 1.05, laborMult: 0.95 },

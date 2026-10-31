@@ -1,4 +1,4 @@
-// 20年の経営終了・経営破綻の画面
+// 経営終了（ストーリーのエンディング・自分の経営のふり返り）・経営破綻の画面
 (function (RG) {
   'use strict';
   const UI = RG.ui, h = UI.h, D = RG.data, U = RG.util;
@@ -32,6 +32,7 @@
     const buttons = h('div', { class: 'row no-print' }, h('span', { class: 'spacer' }),
       UI.btn('印刷・PDFで保存', () => window.print(), ''),
       UI.btn('まとめをダウンロード', () => downloadReport(st), ''),
+      st.closed ? UI.btn('▶ 経営を続ける（' + st.year + '年目の計画へ）', () => app.reopenGame(), 'gold') : null,
       UI.btn('同じ条件でもう一度', () => app.newGame({ scenarioId: st.scenarioId, custom: st.custom, farmName: st.farmName, seed: st.seed }), ''),
       UI.btn('タイトルへ', () => { app.st = null; app.render(); }, 'primary'));
 
@@ -51,7 +52,7 @@
       const sc = RG.score(st);
       const ret = st.retired;
       const years = hs.length;
-      head = UI.card(ret ? years + '年目で経営主が引退しました' : '20年の経営を終えました', D.SCENARIOS[st.scenarioId].name + '・シード ' + st.seed,
+      head = UI.card(ret ? years + '年目で経営主が引退しました' : years + '年の経営を終えました', D.SCENARIOS[st.scenarioId].name + '・シード ' + st.seed,
         ret ? UI.note('warn', '経営主が' + ret.age + '歳になり、農作業から引退しました', '引き継げる後継者がいないため、ここで経営を終えます。引退時の純資産は ' + U.man(hs[years - 1].equity) + '、借入残高は ' + U.man(hs[years - 1].debt) + ' でした。') : null,
         h('div', { class: 'row', style: { gap: '20px', alignItems: 'center', marginTop: ret ? '10px' : 0 } },
           h('div', { style: { textAlign: 'center' } }, h('div', { class: 'rank' }, sc.rank), h('div', { class: 'muted small' }, U.num(sc.total, 1) + ' / 100点')),
@@ -61,7 +62,7 @@
     }
 
     return h('div', null, app.topbar(), h('div', { class: 'layout one' }, h('main', { class: 'stack' },
-      head, insightCard(app), RG.screens.rivalsCard(st, '地域の農家との比較'), RG.screens.titlesCard(st), RG.screens.surveyCard(app), charts, UI.card('年ごとの記録', null, table), buttons)));
+      RG.screens.storyEnding(st), head, insightCard(app), RG.screens.pathEnding(st), RG.chapters.on(st) ? RG.screens.chapterRecap(st, RG.chapters.of(st.year, st).n) : null, RG.screens.rivalsCard(st, '地域の農家との比較'), RG.screens.titlesCard(st), RG.screens.surveyCard(app), charts, UI.card('年ごとの記録', null, table), buttons)));
   };
 
   // 高橋さんの見立て：「今のやり方のまま続けたら」を裏で試算して、あなたの結果と並べる
@@ -95,7 +96,7 @@
         UI.kpi('今のままで続けられた割合', U.pct(b.rate), b.n + '通りの天候のうち ' + b.survived + '通り', b.rate >= 0.9 ? 'good' : b.rate >= 0.6 ? 'warn' : 'bad'),
         UI.kpi(b.retiredYear ? '今のままの引退時の純資産' : '今のままの20年後の純資産', U.man(b.equityMed), '中央値（悪いほうから1割：' + U.man(b.equityLow) + '）'),
         UI.kpi('今のままの平均所得', U.man(b.incomeMed), '1年あたり・中央値'),
-        UI.kpi('あなたの結果', U.man(st.history[st.history.length - 1].equity), st.gameOver ? st.gameOver.year + '年目で終了' : st.retired ? st.retired.year + '年目で引退' : '20年続けた')),
+        UI.kpi('あなたの結果', U.man(st.history[st.history.length - 1].equity), st.gameOver ? st.gameOver.year + '年目で終了' : st.retired ? st.retired.year + '年目で引退' : st.history.length + '年続けた')),
       h('div', { class: 'notes', style: { marginTop: '10px' } }, items.map((x) => UI.note(x.level, x.title, x.text))),
       h('p', { class: 'small muted' }, '「今のまま」は、始めたときの規模・品種・販路を変えず、寿命の来た機械だけを同じ機種に買い替え、人手が足りなければパートを増やした場合の試算です。ゲームの数値は学習用に単純化しています。実際の判断は、決算書や専門家との相談とあわせて行ってください。'));
   }
@@ -128,7 +129,7 @@
       '.n{padding:8px 12px;border-radius:6px;margin:6px 0;background:#f4f4ef}.good{background:#e5f3ea}.warn{background:#fbf0dc}.bad{background:#fae6e3}.tip{background:#fbf3dd}.muted{color:#666;font-size:12px}</style></head><body>' +
       '<h1>' + esc(st.farmName) + '：経営の振り返り</h1><p class="muted">米道 KOMEDO（' + esc(D.SCENARIOS[st.scenarioId].name) + '・シード ' + st.seed + '）　作成日 ' + new Date().toLocaleDateString('ja-JP') + '</p>' +
       input +
-      '<h2>結果</h2><p>' + (st.gameOver ? st.gameOver.year + '年目で経営を続けられなくなりました。' : st.retired ? st.retired.year + '年目に経営主が引退しました。' : '20年の経営を終えました。') +
+      '<h2>結果</h2><p>' + (st.gameOver ? st.gameOver.year + '年目で経営を続けられなくなりました。' : st.retired ? st.retired.year + '年目に経営主が引退しました。' : hs.length + '年の経営を終えました。') +
       ' 最後の純資産 ' + U.man(last.equity) + '、借入残高 ' + U.man(last.debt) + '、年平均の所得 ' + U.man(U.avg(hs.map((x) => x.income))) + '。</p>' +
       (b ? '<p>今のやり方のまま続けた場合：' + b.n + '通りの天候のうち ' + b.survived + '通りで続けられた（20年後の純資産の中央値 ' + U.man(b.equityMed) + '）。</p>' : '') +
       '<h2>' + esc(RG.advisor.NAME) + 'の見立て</h2>' + items.map((x) => '<div class="n ' + x.level + '"><b>' + esc(x.title) + '</b><br>' + esc(x.text) + '</div>').join('') +

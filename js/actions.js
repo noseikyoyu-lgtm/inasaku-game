@@ -30,6 +30,7 @@
     st.fields = st.fields.filter((x) => x.id !== fieldId);
     S.fitPlan(st);
     st.trust = Math.max(0, st.trust - 5);
+    if (f.village && st.village) st.village.abandoned = U.round(st.village.abandoned + f.area, 1); // 棚田：返した集落の田は荒れてしまう
     return null;
   };
 
@@ -45,7 +46,8 @@
   };
 
   // ---------- 機械 ----------
-  A.newPrice = (st, modelId) => D.MODELS[modelId].price * st.market.matInfl * (st.yearFlags.machineSubsidy ? 0.5 : 1);
+  A.newPrice = (st, modelId) => D.MODELS[modelId].price * st.market.matInfl * (st.yearFlags.machineSubsidy ? 0.5 : 1) *
+    (st.path === 'sixth' && (D.MODELS[modelId].type === 'proc' || D.MODELS[modelId].type === 'stand') ? 0.7 : 1); // 6次産業化の道は3割引き
 
   A.buyMachine = function (st, modelId, mode) {
     const md = D.MODELS[modelId];

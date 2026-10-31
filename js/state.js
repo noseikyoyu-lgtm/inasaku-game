@@ -58,7 +58,8 @@
     const sc = opts.scenarioId === 'custom' ? S.buildCustom(opts.custom) : D.SCENARIOS[opts.scenarioId];
     const st = {
       version: S.VERSION, seed: opts.seed, scenarioId: opts.scenarioId, farmName: opts.farmName || '稲穂ファーム',
-      year: 1, maxYear: D.MAX_YEAR, phase: 'event', nextId: 1, midterms: [], items: { omamori: 1, reroll: 1 },
+      // mode：'story'＝ストーリー（20年・章と依頼と試練）、'endless'＝自分の経営（区切りなく続けられる）
+      mode: S.modeOf(opts), year: 1, maxYear: sc.maxYear || D.MAX_YEAR, phase: 'event', nextId: 1, midterms: [], items: { omamori: 1, reroll: 1 },
       storePlan: 0, stock: null, biz: { harvest: 0, drone: 0, proc: 0, droneLicense: false },
       titles: {}, stats: { sixes: 0, omamori: 0, gambles: 0, guards: 0, typhoonWin: 0, counted: 0 }, rivalLand: [],
       corp: !!sc.corp, cash: sc.cash, yearStartCash: sc.cash, ledger: [], receivables: [],
@@ -93,6 +94,8 @@
       rate: l.rate, term: l.yearsLeft, yearsLeft: l.yearsLeft, grace: 0, newThisYear: false,
     }));
     for (let i = 0; i < (sc.staff || 0); i++) S.addStaff(st);
+    (sc.contracts || []).forEach((c) => st.contracts.push(Object.assign({ id: U.uid(st, 'c'), refPrice: st.market.price, years: c.yearsLeft }, c)));
+    if (RG.scenes) RG.scenes.init(st); // ストーリーごとの初期設定（集落の田んぼ・社員の士気など）
     // 直販は最初は少しだけ
     st.direct.alloc = Math.floor(sc.customers * D.DIRECT.perCustomer * 0.9);
     if (sc.plan && sc.plan.some((r) => D.CROPS[r.crop].unlock)) sc.plan.forEach((r) => { const u = D.CROPS[r.crop].unlock; if (u) st.flags[u] = true; });
@@ -102,8 +105,62 @@
     // 「今のやり方のまま続けたら」を後で試算するための、始めたときの状態
     st.initialSnapshot = JSON.stringify(st);
     st.playlog = { plans: [], events: [], results: [], notes: [] }; // プレイの記録（試算用の初期状態には入れない）
+    // 用意されたシナリオでは、1年目の大事な決めごと（作付・パート・直販・出荷契約金）を空けておき、自分で決めてもらう。
+    // 「今のまま続けたら」の試算は、上の初期状態（高橋さんのおすすめの計画）で行う
+    if (opts.scenarioId !== 'custom') {
+      st.starter = { plan: st.plan.map((r) => ({ crop: r.crop, cult: r.cult, sow: r.sow, area: r.area })), partTimers: st.partTimers, directAlloc: st.direct.alloc };
+      st.plan = [];
+      st.partTimers = 0;
+      st.direct.alloc = 0;
+      st.jaAdvance = { on: false, auto: true, qty: 0 };
+    }
     S.beginYear(st);
+    // ストーリーは、じいちゃんとの会話から始まる
+    if (RG.scenes && RG.scenes.isStory(st)) RG.scenes.start(st, 'prologue');
     return st;
+  };
+  S.modeOf = (opts) => opts.mode || (D.SCENARIOS[opts.scenarioId] && D.SCENARIOS[opts.scenarioId].story ? 'story' : 'endless');
+
+  // 高橋さんのおすすめ（シナリオの標準の計画）をそのまま使う。自動で進める試算・検証でも使う
+  S.applyStarter = function (st) {
+    if (!st.starter) return;
+    st.plan = st.starter.plan.map((r) => S.makeRow(st, r.crop, r.cult, r.sow, r.area));
+    st.partTimers = st.starter.partTimers;
+    st.direct.alloc = st.starter.directAlloc;
+    st.jaAdvance = { on: true, auto: true, qty: 0 };
+  };
+
+  // 作付の型：面積の割り振りを品種の組み合わせで選ぶ（あとで1行ずつ直せる）
+  S.CROP_PRESETS = [
+    { id: 'starter', icon: '👨‍🌾', name: '高橋さんのおすすめ', desc: 'この経営に合った、無理のない標準の組み合わせ' },
+    { id: 'safe', icon: '🛡️', name: '安定重視', desc: 'コシヒカリBLに早生のこしいぶきを組み合わせ、稲刈りを分散して天気の危険も分ける',
+      mix: [['koshiBL', 'conv', 0.6], ['koshiibuki', 'conv', 0.4]] },
+    { id: 'quality', icon: '💎', name: '単価重視', desc: '農薬と化学肥料を減らした特別栽培で、高く売れる米を作る。手間と経費は増える',
+      mix: [['koshiBL', 'special', 0.7], ['koshiibuki', 'conv', 0.3]] },
+    { id: 'volume', icon: '📦', name: '量で勝負', desc: '業務用の多収品種で、とれる量を増やす。単価は低め、天気には強め',
+      mix: [['akidawara', 'conv', 0.5], ['niji', 'conv', 0.3], ['koshiBL', 'conv', 0.2]] },
+  ];
+  S.applyCropPreset = function (st, id) {
+    const pr = S.CROP_PRESETS.find((x) => x.id === id);
+    if (!pr) return '作付の型が見つかりません';
+    if (pr.id === 'starter') {
+      if (!st.starter) return 'この経営には、おすすめの型がありません';
+      st.plan = st.starter.plan.map((r) => S.makeRow(st, r.crop, r.cult, r.sow, r.area));
+      return null;
+    }
+    const total = S.totalArea(st);
+    let left = U.round(total, 1);
+    st.plan = [];
+    // まだ使えない品種は、いちばん多い品種にまとめる
+    const mix = pr.mix.filter((m) => !(RG.era && RG.era.cropLocked(st, m[0])));
+    const lostShare = U.sum(pr.mix.filter((m) => mix.indexOf(m) < 0), (m) => m[2]);
+    if (lostShare > 0 && mix.length) mix[0] = [mix[0][0], mix[0][1], mix[0][2] + lostShare];
+    mix.forEach(([crop, cult, share], i) => {
+      const area = i === mix.length - 1 ? left : Math.min(left, U.round(total * share, 1));
+      if (area > 0.05) st.plan.push(S.makeRow(st, crop, cult, 'transplant', area));
+      left = U.round(left - area, 1);
+    });
+    return null;
   };
 
   // ---------- 年齢と働ける時間 ----------
@@ -237,13 +294,21 @@
     st.seasonMonth = 0;
     if (RG.dice) RG.dice.startYear(st);
     if (RG.story) RG.story.beginYear(st);
-    st.phase = RG.dice && RG.dice.active(st) ? 'dice' : st.events.queue.length ? 'event' : 'plan';
+    if (RG.chapters) RG.chapters.beginYear(st);
+    if (RG.era) RG.era.beginYear(st);
+    if (RG.scenes) RG.scenes.beginYear(st);
+    st.phase = RG.chapters && RG.chapters.needsDoor(st) ? 'chapter' : RG.dice && RG.dice.active(st) ? 'dice' : st.events.queue.length ? 'event' : 'plan';
+    // 章の節目には、じいちゃんとの会話の場面が先に入る
+    const scene = RG.scenes && RG.scenes.due(st);
+    if (scene) RG.scenes.start(st, scene);
   };
 
   S.nextYear = function (st) {
     if (st.gameOver) { st.phase = 'gameover'; return; }
     if (st.retired) { st.phase = 'end'; return; }
     st.year += 1;
+    // 自分の経営モードは区切りなく続く（中間評価と見立ての期間を10年ずつ延ばす）
+    if (st.year > st.maxYear && st.mode === 'endless') st.maxYear += 10;
     if (st.year > st.maxYear) { st.year = st.maxYear; st.phase = 'end'; return; }
     S.beginYear(st);
   };
@@ -296,6 +361,9 @@
     if (st.lastResult) inf(st.lastResult.analysis, ['repayYears', 'bepArea', 'bepAreaLiving', 'bepPrice', 'bepPriceLiving']);
     (st.history || []).forEach((x) => inf(x, ['bepArea']));
     if (!st.midterms) st.midterms = [];
+    // モードがなかった古いセーブ：自分の経営はエンドレス、用意されたシナリオはそれまでどおり20年（章あり）
+    if (!st.mode) st.mode = st.scenarioId === 'custom' ? 'endless' : 'story';
+    if (RG.chapters) RG.chapters.state(st);
     if (!st.items) st.items = { omamori: 1, reroll: 1 };
     if (st.storePlan == null) st.storePlan = 0;
     if (st.stock === undefined) st.stock = null;

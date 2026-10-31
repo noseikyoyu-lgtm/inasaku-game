@@ -22,7 +22,7 @@
     if (viewing) next = UI.btn('◀ 計画に戻る', () => { app.viewingLast = false; app.render(); }, 'primary big');
     else if (st.gameOver) next = UI.btn('経営の結果を見る ▶', () => app.nextYear(), 'primary big');
     else if (st.retired) next = UI.btn('経営の結果を見る ▶', () => app.nextYear(), 'gold big');
-    else if (st.year >= st.maxYear) next = UI.btn('20年の経営を終える ▶', () => app.nextYear(), 'gold big');
+    else if (st.mode !== 'endless' && st.year >= st.maxYear) next = UI.btn(RG.scenes.isStory(st) ? 'エンディングへ ▶' : '20年の経営を終える ▶', () => app.nextYear(), 'gold big');
     else if (RG.midterm.due(st)) next = UI.btn(st.year + '年目の中間評価を見る ▶', () => app.toMidterm(), 'gold big');
     else next = UI.btn((st.year + 1) + '年目へ進む ▶', () => app.nextYear(), 'primary big');
     return h('div', null, app.topbar(),
@@ -32,6 +32,7 @@
           st.gameOver && !viewing ? UI.note('bad', '経営を続けられなくなりました', st.gameOver.text) : null,
           st.retired && !st.gameOver && !viewing ? UI.note('warn', '経営主が引退します', '経営主が' + st.retired.age + '歳になり、引き継げる後継者がいないため、今年で経営を終えます。') : null,
           reportCard(app, st, res, viewing),
+          (res.missionNotes || []).length ? h('div', { class: 'notes' }, res.missionNotes.map((t) => UI.note(/達成|通過/.test(t) ? 'good' : 'warn', null, t))) : null,
           tabs, body,
           h('div', { class: 'row' }, h('span', { class: 'spacer' }), next))));
   };
