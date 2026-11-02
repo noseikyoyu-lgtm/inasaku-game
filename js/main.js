@@ -24,11 +24,23 @@
     }
     // 横にスクロールする表やタブの位置も覚えておく（スマホで＋－を押すたびに左端へ戻らないように）
     const view = scr + '/' + (scr === 'plan' ? app.tab : '');
-    const sideKeys = app.keepScroll && app.lastView === view ? Array.from(root.querySelectorAll('.tbl-wrap, .nav')).map((e) => e.scrollLeft) : null;
+    const sideKeys = app.keepScroll && app.lastView === view ? Array.from(root.querySelectorAll('.tbl-wrap')).map((e) => e.scrollLeft) : null;
+    // 計画のタブ（スマホでは下のメニュー）は、タブを切り替えても横の位置をそのままにする
+    const oldNav = root.querySelector('.nav'), navLeft = oldNav ? oldNav.scrollLeft : 0;
     root.innerHTML = '';
     root.appendChild(node);
     window.scrollTo(0, app.keepScroll ? y : 0);
-    if (sideKeys) root.querySelectorAll('.tbl-wrap, .nav').forEach((e, i) => { if (sideKeys[i]) e.scrollLeft = sideKeys[i]; });
+    if (sideKeys) root.querySelectorAll('.tbl-wrap').forEach((e, i) => { if (sideKeys[i]) e.scrollLeft = sideKeys[i]; });
+    const nav = root.querySelector('.nav');
+    if (nav) {
+      if (navLeft) nav.scrollLeft = navLeft;
+      // 選んだタブが画面の外に隠れているときだけ、見える位置まで動かす
+      const on = nav.querySelector('button.on');
+      if (on && nav.scrollWidth > nav.clientWidth) {
+        const nr = nav.getBoundingClientRect(), br = on.getBoundingClientRect();
+        if (br.left < nr.left || br.right > nr.right) nav.scrollLeft += br.left - nr.left - (nr.width - br.width) / 2;
+      }
+    }
     app.lastView = view;
     app.keepScroll = false;
     collapseLongNotes(root);
