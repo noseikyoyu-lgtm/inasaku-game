@@ -1,6 +1,6 @@
 // 登場人物のイラスト（SVG で描く。画像ファイルは使わない）
 // 顔の形・髪・眉・目・口・服・小物の組み合わせで、一人ひとりを描き分ける。
-// 大きく表示しても見られるよう、陰影・まぶた・瞳・しわ・髪の流れ・服の縫い目まで描く
+// 顔はすっきり簡単に、服や帽子はえり・縫い目・ポケット・編み目まで描く
 (function (RG) {
   'use strict';
   const PT = RG.portrait = {};
@@ -15,10 +15,10 @@
       cloth: 'work', clothC: '#8f9f86', clothS: '#6f8066', shirt: '#ffffff', pen: true, badge: true },
     // 金融機関の木村さん：きちんと分けた黒髪、細い眉、黒ぶちめがね。紺のスーツ
     kimura: { bg: ['#e6ecf5', '#c9d6ea'], skin: '#f3cfab', shade: '#ddb08a', head: 'oval', hair: 'neat', hairC: '#2f2a2a', hairS: '#141111',
-      brows: 'thin', browC: '#2f2a2a', eyes: 'open', glasses: '#2f2f3a', glassShape: 'rect', mouth: 'smile', cloth: 'suit', clothC: '#2f3d5c', clothS: '#1f2b45', shirt: '#ffffff', tie: '#b23a3a' },
+      brows: 'thin', browC: '#2f2a2a', eyes: 'open', glasses: '#2f2f3a', mouth: 'smile', cloth: 'suit', clothC: '#2f3d5c', clothS: '#1f2b45', shirt: '#ffffff', tie: '#b23a3a' },
     // 地主の佐藤さん：頭の横だけ白髪、おでこのしわ。茶色のカーディガン
     sato: { bg: ['#f3ebdc', '#e5d5b5'], skin: '#efc39b', shade: '#d6a179', head: 'oval', hair: 'baldSides', hairC: '#c9c9c4', hairS: '#9a9a95',
-      brows: 'bushy', browC: '#d9d9d4', eyes: 'smile', mouth: 'smile', wrinkles: true, forehead: true, cheeks: true, spots: true,
+      brows: 'bushy', browC: '#d9d9d4', eyes: 'smile', mouth: 'smile', wrinkles: true, cheeks: true,
       cloth: 'cardigan', clothC: '#9b6b45', clothS: '#7d5435', shirt: '#efe6d2' },
     // 米屋の青木さん：はちまきに紺の前かけ
     aoki: { bg: ['#f5ebe6', '#ead2c6'], skin: '#f2c8a2', shade: '#d9a67f', head: 'round', hair: 'short', hairC: '#3b2b22', hairS: '#1f1611',
@@ -31,14 +31,14 @@
       brows: 'thick', browC: '#2a2420', eyes: 'open', mouth: 'grin', stubble: true, cloth: 'overall', clothC: '#3d6ea8', clothS: '#2d5585', shirt: '#e9e2d0', plaid: '#c45a4a', cap: '#c94a3c' },
     // 直売所の小川さん：ボブの髪に麦わら帽子、緑の前かけ
     ogawa: { bg: ['#eef6e8', '#d6ebc8'], skin: '#f6d3b3', shade: '#e2b18b', head: 'oval', hair: 'bob', hairC: '#5a3a26', hairS: '#3a2416',
-      brows: 'thin', browC: '#5a3a26', eyes: 'open', lashes: true, lip: '#d46a5e', mouth: 'smile', cheeks: true, cloth: 'apron', clothC: '#5f9d4c', clothS: '#4a8239', shirt: '#f4efe2', straw: true },
+      brows: 'thin', browC: '#5a3a26', eyes: 'open', mouth: 'smile', cheeks: true, cloth: 'apron', clothC: '#5f9d4c', clothS: '#4a8239', shirt: '#f4efe2', straw: true },
     // じいちゃん：麦わら帽子に首のタオル。白い太い眉とひげ、目尻を下げて笑う。藍色の野良着
     jiichan: { bg: ['#fbf1d8', '#f1dca8'], skin: '#e8b88c', shade: '#cc966a', head: 'round', hair: 'baldSides', hairC: '#f0efea', hairS: '#c4c3bd',
-      brows: 'bushy', browC: '#f4f3ee', eyes: 'smile', mouth: 'smile', mustache: '#f4f3ee', wrinkles: true, cheeks: true, spots: true,
+      brows: 'bushy', browC: '#f4f3ee', eyes: 'smile', mouth: 'smile', mustache: '#f4f3ee', wrinkles: true, cheeks: true,
       cloth: 'work', clothC: '#3f5583', clothS: '#2f4268', shirt: '#e9e4d6', neckTowel: '#ffffff', straw: true },
     // 区長の森さん：丸めがねの世話役。白髪まじりの短髪、ベスト姿
     kucho: { bg: ['#eef3e2', '#d7e4bd'], skin: '#efc39b', shade: '#d6a179', head: 'square', hair: 'grayShort', hairC: '#c9c8c2', hairS: '#9a9993',
-      brows: 'thick', browC: '#8f8e88', eyes: 'smile', mouth: 'smile', wrinkles: true, forehead: true, cheeks: true, glasses: '#6a4a2a', glassShape: 'round',
+      brows: 'thick', browC: '#8f8e88', eyes: 'smile', mouth: 'smile', wrinkles: true, cheeks: true, glasses: '#6a4a2a',
       cloth: 'vest', clothC: '#6f7f3f', clothS: '#56652f', shirt: '#f3efe3' },
     // ベテラン社員の山根さん：日焼けした頑固な現場の人。会社の帽子と作業服
     yamane: { bg: ['#e4ebf2', '#c3d3e2'], skin: '#d9a278', shade: '#bb835b', head: 'square', hair: 'short', hairC: '#55524d', hairS: '#33312e',
@@ -76,12 +76,6 @@
     return 'url(#' + rg.getAttribute('id') + ')';
   }
 
-  // 顔の形
-  const HEAD = {
-    oval: 'M30 40 C30 24 39 17 50 17 C61 17 70 24 70 40 C70 52.5 63.5 62 50 65 C36.5 62 30 52.5 30 40 Z',
-    round: 'M29 42 C29 27.5 38 20 50 20 C62 20 71 27.5 71 42 C71 55 63 63.5 50 64.2 C37 63.5 29 55 29 42 Z',
-    square: 'M29 33 C29 22 37 18 50 18 C63 18 71 22 71 33 L71 46.5 C71 56 64 63 50 64.4 C36 63 29 56 29 46.5 Z',
-  };
   let uid = 0;
 
   PT.svg = function (who, size, opts) {
@@ -92,20 +86,44 @@
     const s = el('svg', { viewBox: '0 0 100 100', width: size || 64, height: size || 64, class: 'portrait' + (opts.talk ? ' talking' : ''), role: 'img', 'aria-label': opts.label || '' });
     const defs = el('defs', {}, s);
     const cp = el('clipPath', { id: id + 'c' }, defs); el('circle', { cx: 50, cy: 50, r: 50 }, cp);
-    const fc = el('clipPath', { id: id + 'f' }, defs); el('path', { d: HEAD[p.head] }, fc);
-    const ctx = { id, defs, p,
-      skin: rgrad(defs, id + 's', [[0, mix(p.skin, '#ffffff', 0.22)], [0.55, p.skin], [1, mix(p.skin, p.shade, 0.7)]], 0.42, 0.38, 0.62),
-      hair: grad(defs, id + 'h', [[0, mix(p.hairC, '#ffffff', 0.18)], [0.6, p.hairC], [1, p.hairS]]),
-      cloth: grad(defs, id + 'w', [[0, mix(p.clothC, '#ffffff', 0.12)], [1, p.clothS]]),
-    };
+    const ctx = { id, defs, p, cloth: grad(defs, id + 'w', [[0, mix(p.clothC, '#ffffff', 0.12)], [1, p.clothS]]) };
     const g = el('g', { 'clip-path': 'url(#' + id + 'c)' }, s);
     background(g, ctx);
+    // 体と服（えり・縫い目・ポケットまで描く）
     body(g, ctx);
-    neck(g, ctx);
-    hairBack(g, ctx);
-    ears(g, ctx);
-    face(g, ctx);
-    hairFront(g, ctx);
+    // 首
+    el('path', { d: 'M42 58 h16 v14 q-8 6 -16 0 z', fill: p.shade }, g);
+    // 後ろ髪
+    hairBack(g, p);
+    // 耳
+    el('ellipse', { cx: p.head === 'square' ? 27.5 : 29, cy: 45, rx: 4.2, ry: 6, fill: p.skin, stroke: OL, 'stroke-width': 1.2 }, g);
+    el('ellipse', { cx: p.head === 'square' ? 72.5 : 71, cy: 45, rx: 4.2, ry: 6, fill: p.skin, stroke: OL, 'stroke-width': 1.2 }, g);
+    // 顔
+    const face = p.head === 'square' ? el('rect', { x: 29, y: 19, width: 42, height: 44, rx: 11, fill: p.skin, stroke: OL, 'stroke-width': 1.4 }, g)
+      : p.head === 'round' ? el('ellipse', { cx: 50, cy: 42, rx: 21, ry: 21.5, fill: p.skin, stroke: OL, 'stroke-width': 1.4 }, g)
+        : el('ellipse', { cx: 50, cy: 41.5, rx: 20, ry: 23, fill: p.skin, stroke: OL, 'stroke-width': 1.4 }, g);
+    void face;
+    // あごの影
+    el('path', { d: p.head === 'square' ? 'M33 56 q17 9 34 0 v2 q-17 8 -34 0z' : 'M36 56 q14 9 28 0 q-14 11 -28 0z', fill: p.shade, opacity: 0.45 }, g);
+    if (p.cheeks) { el('ellipse', { cx: 38, cy: 49, rx: 4.5, ry: 2.6, fill: '#f08a7a', opacity: 0.35 }, g); el('ellipse', { cx: 62, cy: 49, rx: 4.5, ry: 2.6, fill: '#f08a7a', opacity: 0.35 }, g); }
+    if (p.stubble) el('path', { d: 'M36 52 q14 12 28 0 q-2 9 -14 10 q-12 -1 -14 -10z', fill: '#2a2420', opacity: 0.12 }, g);
+    if (p.wrinkles) {
+      el('path', { d: 'M42 27 q8 -2 16 0', fill: 'none', stroke: p.shade, 'stroke-width': 1.1, 'stroke-linecap': 'round' }, g);
+      el('path', { d: 'M38 51 q-2 3 0 6 M62 51 q2 3 0 6', fill: 'none', stroke: p.shade, 'stroke-width': 1.1, 'stroke-linecap': 'round' }, g);
+    }
+    // 目・眉・鼻・口
+    eyes(g, p);
+    brows(g, p);
+    el('path', { d: 'M50 41 q-2.5 6 0.5 7', fill: 'none', stroke: p.shade, 'stroke-width': 1.6, 'stroke-linecap': 'round' }, g);
+    mouth(g, p);
+    if (p.mustache) el('path', { d: 'M39 50 Q44 45.5 50 48 Q56 45.5 61 50 Q56 51.5 50 50.2 Q44 51.5 39 50 Z', fill: p.mustache, stroke: OL, 'stroke-width': 1 }, g);
+    if (p.glasses) {
+      el('rect', { x: 34.5, y: 35, width: 12.5, height: 9, rx: 3.5, fill: 'rgba(255,255,255,.18)', stroke: p.glasses, 'stroke-width': 1.5 }, g);
+      el('rect', { x: 53, y: 35, width: 12.5, height: 9, rx: 3.5, fill: 'rgba(255,255,255,.18)', stroke: p.glasses, 'stroke-width': 1.5 }, g);
+      el('path', { d: 'M47 39 h6 M34.5 38 l-5 -1 M65.5 38 l5 -1', stroke: p.glasses, 'stroke-width': 1.4, fill: 'none' }, g);
+    }
+    // 前髪・帽子など
+    hairFront(g, p);
     hat(g, ctx);
     // ふちの線
     el('circle', { cx: 50, cy: 50, r: 49.4, fill: 'none', stroke: 'rgba(58,42,34,.18)', 'stroke-width': 1.2 }, s);
@@ -122,182 +140,6 @@
     [[14, 22, 9], [86, 30, 7], [82, 66, 10], [18, 64, 6]].forEach((q) => el('circle', { cx: q[0], cy: q[1], r: q[2], fill: '#ffffff', opacity: 0.22 }, g));
     // 下のほうを少し濃く
     el('rect', { x: 0, y: 60, width: 100, height: 40, fill: grad(c.defs, c.id + 'v', [[0, p.bg[1], 0], [1, mix(p.bg[1], '#3a2a22', 0.25), 0.6]]) }, g);
-  }
-
-  // ---------- 首 ----------
-  function neck(g, c) {
-    const p = c.p;
-    el('path', { d: 'M43.5 55 L43.2 70.5 Q50 75.5 56.8 70.5 L56.5 55 Z', fill: p.skin, stroke: OL, 'stroke-width': 1.1 }, g);
-    // あごの下の影
-    el('path', { d: 'M43.4 58 Q50 67 56.6 58 L56.7 64.5 Q50 70.5 43.3 64.5 Z', fill: p.shade, opacity: 0.75 }, g);
-    if (p.wrinkles) el('path', line('M46 67.5 Q50 69 54 67.5', p.shade, 0.7, { opacity: 0.8 }), g);
-  }
-
-  // ---------- 耳 ----------
-  function ears(g, c) {
-    const p = c.p, x = p.head === 'square' ? 28.4 : p.head === 'round' ? 29.2 : 30.2;
-    sym(g, (q) => {
-      el('path', { d: 'M' + (x + 1.6) + ' 39.5 C' + (x - 3.6) + ' 37.6 ' + (x - 5.4) + ' 44.5 ' + (x - 3.4) + ' 49.2 C' + (x - 2.2) + ' 52 ' + (x + 0.6) + ' 52.6 ' + (x + 2.2) + ' 50.4 Z', fill: c.skin, stroke: OL, 'stroke-width': 1.1 }, q);
-      el('path', line('M' + (x - 0.2) + ' 41.6 C' + (x - 3) + ' 42.2 ' + (x - 3.4) + ' 46 ' + (x - 1.8) + ' 48.4 C' + (x - 1) + ' 49.4 ' + (x + 0.2) + ' 49 ' + x + ' 47.8', p.shade, 0.9), q);
-      el('path', { d: 'M' + (x - 1.2) + ' 44 C' + (x - 2) + ' 45 ' + (x - 1.6) + ' 46.4 ' + (x - 0.6) + ' 46.8 Z', fill: p.shade, opacity: 0.7 }, q);
-    });
-  }
-
-  // ---------- 顔 ----------
-  function face(g, c) {
-    const p = c.p;
-    el('path', { d: HEAD[p.head], fill: c.skin, stroke: OL, 'stroke-width': 1.3 }, g);
-    // 顔の中の陰影（光は左上から）
-    const f = el('g', { 'clip-path': 'url(#' + c.id + 'f)' }, g);
-    el('path', { d: 'M61 16 C72 26 73.5 50 63 66 L82 66 L82 16 Z', fill: p.shade, opacity: 0.28 }, f);
-    el('path', { d: 'M28 50 C33 60 42 64.5 50 64.5 C58 64.5 67 60 72 50 L72 70 L28 70 Z', fill: p.shade, opacity: 0.22 }, f);
-    el('ellipse', { cx: 43, cy: 29, rx: 9, ry: 5, fill: '#ffffff', opacity: 0.16 }, f);
-    // 髪や帽子の下の影
-    if (p.cap) el('rect', { x: 20, y: 29, width: 60, height: 7, fill: p.shade, opacity: 0.45 }, f);
-    else if (p.straw) el('ellipse', { cx: 50, cy: 28, rx: 26, ry: 6, fill: p.shade, opacity: 0.5 }, f);
-    else if (p.hair !== 'baldSides') el('path', { d: 'M26 30 C34 25 44 26.5 50 27 C57 26 66 25.5 74 30 L74 35 C66 30.5 57 30.5 50 31 C43 30.5 34 30 26 35 Z', fill: p.shade, opacity: 0.35 }, f);
-    // ほお
-    if (p.cheeks) sym(f, (q) => el('ellipse', { cx: 38.5, cy: 49.5, rx: 5.6, ry: 3.4, fill: rgrad(c.defs, c.id + 'k', [[0, '#f07f6e', 0.55], [1, '#f07f6e', 0]]) }, q));
-    // ほお骨のつや
-    sym(f, (q) => el('ellipse', { cx: 38, cy: 46.5, rx: 3.2, ry: 1.4, fill: '#ffffff', opacity: 0.13 }, q));
-    // 無精ひげ（点の模様）
-    if (p.stubble) {
-      const pat = el('pattern', { id: c.id + 'p', width: 1.5, height: 1.5, patternUnits: 'userSpaceOnUse' }, c.defs);
-      el('circle', { cx: 0.5, cy: 0.5, r: 0.28, fill: '#2a2420' }, pat);
-      el('circle', { cx: 1.25, cy: 1.15, r: 0.22, fill: '#2a2420' }, pat);
-      el('path', { d: 'M34 49 C36 60 43.5 65 50 65 C56.5 65 64 60 66 49 C63 56 58 57.5 55.5 56.6 C53 55.8 47 55.8 44.5 56.6 C42 57.5 37 56 34 49 Z M44 51.6 C47 50.2 53 50.2 56 51.6 L55.4 53 C52.5 52 47.5 52 44.6 53 Z', fill: 'url(#' + c.id + 'p)', opacity: 0.55 }, f);
-    }
-    // しみ
-    if (p.spots) [[60, 31, 1.1], [63.5, 45, 0.8], [36, 33, 0.7]].forEach((q) => el('ellipse', { cx: q[0], cy: q[1], rx: q[2], ry: q[2] * 0.8, fill: p.shade, opacity: 0.45 }, f));
-    // しわ
-    if (p.forehead) {
-      el('path', line('M41 25.6 Q50 23.6 59 25.6', p.shade, 0.9, { opacity: 0.9 }), f);
-      el('path', line('M42.5 28.6 Q50 27 57.5 28.6', p.shade, 0.8, { opacity: 0.8 }), f);
-    }
-    if (p.wrinkles) {
-      sym(f, (q) => {
-        el('path', line('M44.6 47.8 C42.4 50.4 41.8 53.2 42.8 56', p.shade, 0.95), q); // ほうれい線
-        el('path', line('M37.6 44.2 C39.6 45.4 42.2 45.4 44.2 44.2', p.shade, 0.7, { opacity: 0.8 }), q); // 目の下
-      });
-      el('path', line('M47.2 33.4 L47.8 35.6 M52.8 33.4 L52.2 35.6', p.shade, 0.7, { opacity: 0.7 }), f); // 眉間
-    }
-    // 目・眉・鼻・口
-    eyes(g, c);
-    brows(g, c);
-    nose(g, c);
-    mouth(g, c);
-    if (p.mustache) mustache(g, c);
-    if (p.glasses) glasses(g, c);
-  }
-
-  function nose(g, c) {
-    const p = c.p;
-    el('path', line('M51.2 37 C51.6 40.5 52.6 44 53.4 46.2', p.shade, 0.9, { opacity: 0.7 }), g); // 鼻すじの影
-    el('path', line('M47 47.6 C47.6 49.6 49.4 50.2 50.4 49.6 C51.4 50.2 53 49.8 53.6 47.8', p.shade, 1.1), g);
-    el('ellipse', { cx: 48.4, cy: 48.6, rx: 0.9, ry: 0.55, fill: OL, opacity: 0.45 }, g);
-    el('ellipse', { cx: 52.2, cy: 48.6, rx: 0.9, ry: 0.55, fill: OL, opacity: 0.45 }, g);
-    el('ellipse', { cx: 49.4, cy: 46.4, rx: 1.4, ry: 0.9, fill: '#ffffff', opacity: 0.4 }, g); // 鼻先のつや
-  }
-
-  function eyes(g, c) {
-    const p = c.p;
-    if (p.eyes === 'smile') {
-      // にっこり細めた目（上まぶたの弧・まつげ・下のふくらみ）
-      sym(g, (q) => {
-        el('path', line('M36.2 41.6 C38.4 37.6 43 37.4 45.6 41', OL, 1.9), q);
-        el('path', line('M36.4 41.4 L35 42.4 M38.6 38.9 L38 37.6', OL, 0.9), q);
-        el('path', line('M37.6 43.6 C40 45 43.2 44.8 45.2 43.2', p.shade, 0.9, { opacity: 0.8 }), q);
-        if (p.wrinkles) el('path', line('M34.8 40 L33 39.2 M34.9 41.6 L32.8 41.8 M35.3 43.1 L33.6 44.2', p.shade, 0.8), q); // 目尻のしわ
-      });
-      return;
-    }
-    const ec = el('clipPath', { id: c.id + 'e' }, c.defs);
-    const EYE = 'M36.4 41 C37.6 38 40 37 42.1 37.2 C43.9 37.4 45.3 38.6 45.9 40.3 C44.4 42.5 42.4 43.3 40.6 43.2 C38.7 43.1 37.2 42.3 36.4 41 Z';
-    el('path', { d: EYE }, ec);
-    const iris = rgrad(c.defs, c.id + 'i', [[0, '#7a5236'], [0.6, '#4a2f1e'], [1, '#22150d']], 0.5, 0.35, 0.6);
-    sym(g, (q) => {
-      el('path', { d: EYE, fill: '#fffaf3' }, q);
-      const ig = el('g', { 'clip-path': 'url(#' + c.id + 'e)' }, q);
-      el('circle', { cx: 41.6, cy: 40.2, r: 2.75, fill: iris }, ig);
-      el('circle', { cx: 41.6, cy: 40.3, r: 1.2, fill: '#120b07' }, ig);
-      el('path', { d: 'M36 37 L46.5 37 L46.5 39.4 C44 38 39 38 36 40 Z', fill: OL, opacity: 0.18 }, ig); // まぶたの影
-      el('path', line('M36 41.4 C37.4 38 40 36.8 42.2 37 C44.2 37.2 45.6 38.6 46.3 40.4', OL, 1.6), q); // 上まぶた
-      el('path', line('M37.4 38.2 C39.4 36 42.8 35.6 45.2 37.4', p.shade, 0.7, { opacity: 0.85 }), q); // 二重
-      el('path', line('M37.8 42.2 C39.6 43.6 42.6 43.7 45 41.6', p.shade, 0.7), q); // 下まぶた
-      if (p.lashes) el('path', line('M36.6 40.6 L34.8 39.4 M37.4 39.3 L36 37.8 M38.8 38.1 L38 36.6', OL, 0.8), q);
-    });
-    // 瞳の光（光は左上から、左右とも同じ向き）
-    [41.6, 58.4].forEach((x) => {
-      el('circle', { cx: x - 0.7 + 1, cy: 39.1, r: 0.95, fill: '#ffffff' }, g);
-      el('circle', { cx: x - 1, cy: 41.3, r: 0.45, fill: '#ffffff', opacity: 0.85 }, g);
-    });
-  }
-
-  function brows(g, c) {
-    const p = c.p, col = p.browC, dark = mix(col, '#000000', 0.35);
-    if (p.brows === 'bushy') {
-      // 年配の人の、ふさふさと長い眉
-      sym(g, (q) => {
-        el('path', { d: 'M33.6 35 C35.6 31.2 40.8 29.4 46 31.6 C45.8 33 45.4 33.8 45 34.4 C41 32.4 37 33.2 34.4 36.4 C33.6 36.4 33.2 35.8 33.6 35 Z', fill: col, stroke: OL, 'stroke-width': 0.8 }, q);
-        el('path', line('M35.4 33.6 L33.2 35.2 M37 32.4 L34.8 33.4 M39.2 31.6 L38.4 30.6 M41.6 31.2 L41.4 30 M43.8 31.4 L44.4 30.4 M36 34.4 L33.8 37.2', dark, 0.6, { opacity: 0.55 }), q);
-      });
-      return;
-    }
-    const t = p.brows === 'thick' ? 2.5 : p.brows === 'thin' ? 1.1 : 1.7;
-    sym(g, (q) => {
-      el('path', { d: 'M35 35.2 C37.6 32.4 41.4 31.4 45.8 32.8 C41.4 ' + (31.4 + t) + ' 37.8 ' + (32.4 + t) + ' 35.4 ' + (35.2 + t * 0.45) + ' Z', fill: col, stroke: col, 'stroke-width': 0.5, 'stroke-linejoin': 'round' }, q);
-      el('path', line('M36.6 34.4 L37.6 33.2 M38.6 33.4 L39.8 32.4 M40.8 32.8 L42.2 32.2 M43 32.6 L44.4 32.4', dark, 0.45, { opacity: 0.6 }), q);
-    });
-  }
-
-  function mouth(g, c) {
-    const p = c.p;
-    const lipC = p.lip || mix(p.shade, '#c0605a', 0.35);
-    if (p.mouth === 'talk') {
-      // 話している口（説明中は動く）
-      const m = el('g', { class: 'pt-mouth' }, g);
-      el('path', { d: 'M42.8 51.4 Q50 49.6 57.2 51.4 Q56.2 58.6 50 59 Q43.8 58.6 42.8 51.4 Z', fill: '#6e2620', stroke: OL, 'stroke-width': 1.1 }, m);
-      el('path', { d: 'M44.3 51.6 Q50 50.4 55.7 51.6 L55.2 53.4 Q50 52.6 44.8 53.4 Z', fill: '#ffffff' }, m);
-      el('path', line('M47 51.2 L47.1 53 M50 50.9 L50 52.8 M53 51.2 L52.9 53', '#d8d0c4', 0.4), m);
-      el('path', { d: 'M45.6 57 Q50 54.4 54.4 57 Q52.4 58.6 50 58.7 Q47.6 58.6 45.6 57 Z', fill: '#e07a6a' }, m);
-      el('path', line('M45.6 60.6 Q50 61.8 54.4 60.6', lipC, 0.9, { opacity: 0.7 }), g);
-    } else if (p.mouth === 'flat') {
-      // 口をへの字に結ぶ
-      el('path', line('M43.8 54.4 Q50 52.8 56.2 54.4', OL, 1.7), g);
-      el('path', line('M43.6 54.4 L43 55.4 M56.4 54.4 L57 55.4', OL, 0.9), g);
-      el('path', line('M46.4 56.6 Q50 57.6 53.6 56.6', lipC, 1, { opacity: 0.8 }), g);
-    } else if (p.mouth === 'grin') {
-      // 歯を見せて笑う
-      el('path', { d: 'M42.4 51.6 Q50 50.4 57.6 51.6 Q56.2 59.2 50 59.4 Q43.8 59.2 42.4 51.6 Z', fill: '#6e2620', stroke: OL, 'stroke-width': 1.1 }, g);
-      el('path', { d: 'M43.7 51.9 Q50 51 56.3 51.9 L55.8 54.2 Q50 53.4 44.2 54.2 Z', fill: '#ffffff' }, g);
-      el('path', line('M46.6 51.5 L46.8 53.6 M50 51.2 L50 53.4 M53.4 51.5 L53.2 53.6', '#d8d0c4', 0.4), g);
-      el('path', { d: 'M45.4 57.2 Q50 54.8 54.6 57.2 Q52.6 59 50 59.1 Q47.4 59 45.4 57.2 Z', fill: '#e07a6a' }, g);
-      el('path', line('M41.8 51.2 L41 50.4 M58.2 51.2 L59 50.4', OL, 0.9), g);
-      el('path', line('M45.6 61 Q50 62.2 54.4 61', lipC, 0.9, { opacity: 0.7 }), g);
-    } else {
-      // ほほえみ（口角を上げる）
-      el('path', line('M43.2 52.4 Q50 57.8 56.8 52.4', OL, 1.6), g);
-      el('path', line('M42.6 52.6 L42 51.4 M57.4 52.6 L58 51.4', OL, 0.9), g);
-      el('path', { d: 'M46 55.6 Q50 57.2 54 55.6 Q52.6 58 50 58.2 Q47.4 58 46 55.6 Z', fill: lipC, opacity: p.lip ? 0.85 : 0.45 }, g);
-    }
-  }
-
-  function mustache(g, c) {
-    const p = c.p, dark = mix(p.mustache, '#7a7a74', 0.5);
-    el('path', { d: 'M38.8 52 C41.2 47.4 46.2 46.8 50 49 C53.8 46.8 58.8 47.4 61.2 52 C58 51.6 55.4 53 50 51.4 C44.6 53 42 51.6 38.8 52 Z', fill: p.mustache, stroke: OL, 'stroke-width': 0.9 }, g);
-    el('path', line('M42 50.6 L43.6 48.8 M44.6 50.8 L46 48.4 M47.4 50.4 L48.4 48.8 M52.6 50.4 L51.6 48.8 M55.4 50.8 L54 48.4 M58 50.6 L56.4 48.8', dark, 0.5, { opacity: 0.7 }), g);
-  }
-
-  function glasses(g, c) {
-    const p = c.p, col = p.glasses;
-    const lens = grad(c.defs, c.id + 'l', [[0, '#ffffff', 0.35], [1, '#bcd4e6', 0.12]]);
-    sym(g, (q) => {
-      if (p.glassShape === 'round') el('circle', { cx: 40.8, cy: 40.4, r: 5.6, fill: lens, stroke: col, 'stroke-width': 1.4 }, q);
-      else el('rect', { x: 34.2, y: 35.6, width: 13, height: 9.2, rx: 2.4, fill: lens, stroke: col, 'stroke-width': 1.5 }, q);
-      el('path', line('M34.4 39.4 L29.4 38.2', col, 1.3), q); // つる
-      el('path', line('M37 37.6 L39.2 36.8', '#ffffff', 0.9, { opacity: 0.8 }), q); // レンズの光
-    });
-    el('path', line('M47 39.6 Q50 37.8 53 39.6', col, 1.3), g); // ブリッジ
   }
 
   // ---------- 体と服 ----------
@@ -425,71 +267,78 @@
     }
   }
 
-  // ---------- 髪 ----------
-  function hairBack(g, c) {
-    const p = c.p;
-    if (p.hair === 'bob') {
-      el('path', { d: 'M27 46 C24 26 33 14.5 50 14.5 C67 14.5 76 26 73 46 C73.5 53 75 58 73 61.5 C69 62.5 66 60.5 65 57 L35 57 C34 60.5 31 62.5 27 61.5 C25 58 26.5 53 27 46 Z', fill: c.hair, stroke: OL, 'stroke-width': 1.2 }, g);
-      el('path', line('M28.6 52 Q28 57 30.6 60.4 M71.4 52 Q72 57 69.4 60.4', p.hairS, 0.7), g);
-    }
+  // ---------- 髪・顔の部品 ----------
+  function hairBack(g, p) {
+    if (p.hair === 'bob') el('path', { d: 'M27 44 Q26 16 50 15 Q74 16 73 44 L74 60 Q66 62 64 56 L36 56 Q34 62 26 60 Z', fill: p.hairC, stroke: OL, 'stroke-width': 1.3 }, g);
   }
 
-  function hairFront(g, c) {
-    const p = c.p, col = c.hair, sh = p.hairS, hi = mix(p.hairC, '#ffffff', 0.55);
-    const st = { stroke: OL, 'stroke-width': 1.2, 'stroke-linejoin': 'round' };
-    const strands = (d, w, op) => el('path', line(d, sh, w || 0.65, { opacity: op == null ? 0.85 : op }), g);
-    const shine = (d, w) => el('path', line(d, hi, w || 1.2, { opacity: 0.75 }), g);
+  function hairFront(g, p) {
+    const c = p.hairC, sh = p.hairS;
+    const st = { stroke: OL, 'stroke-width': 1.3 };
     if (p.hair === 'whiteSide') {
       // 豊かな白髪。横分けで、ふんわり立ち上がる
-      el('path', Object.assign({ d: 'M27 43 C24.5 30 27.5 18.5 38 13.5 C47 9.5 60 10 68.5 15 C75.5 19.5 77.5 30 74 43 C72.5 36.5 70.5 31.5 67 29 C63 26.5 58.5 26.5 54 25 C49.5 23.5 46 21.5 43.5 19.5 C41 24 36.5 27 33 29.5 C30 32 28.3 37 27 43 Z', fill: col }, st), g);
-      strands('M43.5 19.5 C50 15 60 15 67 21 M45.2 21.6 C52 18.4 61 19.6 68.6 25 M41.6 17 C46 12.6 56 12 64 15 M50 23.4 C56 22 62 23.6 66.6 27.4');
-      strands('M42.6 20 C38 22 33 26 30 33 M40 17.4 C35 19.6 30.6 24 28.6 31 M38.6 14.6 C33.6 17 29.6 22 28 27');
-      shine('M47 14.2 C53 12.6 59 13.2 63 15');
-      sym(g, (q) => el('path', { d: 'M28.6 38 C27.6 43 28 47 29.6 50.4 L31.2 50.2 C30.4 46 30.4 42 31 38 Z', fill: col, stroke: OL, 'stroke-width': 0.8 }, q));
+      el('path', Object.assign({ d: 'M27 40 Q24 20 36 14 Q46 8 58 11 Q72 13 75 27 Q76 34 73 41 Q70 31 64 27 Q60 22 50 23 Q44 18 38 24 Q31 28 30 41 Z', fill: c }, st), g);
+      el('path', { d: 'M38 22 Q46 15 58 17 M44 19 Q52 14 62 18', fill: 'none', stroke: sh, 'stroke-width': 1.2, 'stroke-linecap': 'round' }, g);
+      el('path', { d: 'M28 38 Q27 46 29 50 M72 38 Q73 46 71 50', fill: 'none', stroke: c, 'stroke-width': 3.2, 'stroke-linecap': 'round' }, g);
     } else if (p.hair === 'neat') {
-      el('path', Object.assign({ d: 'M29.5 40 C27.5 26 34 15 50 14.8 C65 14.6 72.8 24 70.6 39 C69.6 32 67 28 62.5 26.5 C55 24.5 47 25.5 41 22.6 C37.5 27.5 33 32 29.5 40 Z', fill: col }, st), g);
-      strands('M41 22.6 C42 19 44 16.5 47 15.4', 0.9, 1);
-      el('path', line('M42.6 21 C50 18.6 60 19.6 67.6 25.6 M44 18.6 C52 16 61 17.6 68 22.2 M47 24 C54 22.6 61 24 66 27.4', '#5a5050', 0.6, { opacity: 0.8 }), g);
-      strands('M40 22.6 C36 26 32.6 31 30.6 36 M38.4 20.6 C34.6 23 31.6 27 30 31.6');
-      shine('M51 16.4 C56.6 15.8 61.6 17 65 19.2', 1.1);
-      sym(g, (q) => el('path', { d: 'M29.8 37.6 L30 44.4 L31.4 44.4 L31.6 37.6 Z', fill: col, stroke: OL, 'stroke-width': 0.7 }, q));
+      el('path', Object.assign({ d: 'M30 38 Q29 16 50 15 Q71 16 70 36 Q66 26 56 24 Q46 22 40 28 Q34 31 30 38 Z', fill: c }, st), g);
+      el('path', { d: 'M44 18 Q48 22 47 27', fill: 'none', stroke: '#5a5050', 'stroke-width': 1 }, g);
     } else if (p.hair === 'baldSides') {
-      // 頭の横だけ残った髪
-      sym(g, (q) => {
-        el('path', { d: 'M27.6 46.6 C26 40 27.2 33.6 31.6 30 C31.8 33 31.2 36 32.2 38.6 C32.4 41.6 31.8 44 31.4 47 Z', fill: col, stroke: OL, 'stroke-width': 1 }, q);
-        el('path', line('M28.6 44 C28 40 28.6 36 30.4 33 M30 45.4 C29.6 41.6 30.2 38 31.2 35', sh, 0.55), q);
-      });
-      if (!p.straw) {
-        el('path', line('M44 19.6 C47 18 50 18.6 52.4 17.2 M50 18.8 C53 17.6 56 18 58.4 16.8', p.hairC, 0.8), g);
-        el('ellipse', { cx: 44, cy: 22.4, rx: 5, ry: 2.4, fill: '#ffffff', opacity: 0.35, transform: 'rotate(-12 44 22.4)' }, g); // 頭のつや
-      }
+      el('path', Object.assign({ d: 'M29 44 Q27 34 32 30 Q34 36 33 46 Z', fill: c }, st), g);
+      el('path', Object.assign({ d: 'M71 44 Q73 34 68 30 Q66 36 67 46 Z', fill: c }, st), g);
+      el('path', { d: 'M40 21 Q50 18 60 21', fill: 'none', stroke: '#fff', 'stroke-width': 1.5, opacity: 0.5, 'stroke-linecap': 'round' }, g);
     } else if (p.hair === 'short') {
-      el('path', Object.assign({ d: 'M28.8 40 C27.5 24 35.5 15.2 50 15.2 C64.5 15.2 72.5 24 71.2 40 C70 33 67.5 28.5 63.5 27 C58 25.2 53 26.6 48 25.6 C42.5 24.8 38 25.8 35 28.5 C31.8 31.2 30 35 28.8 40 Z', fill: col }, st), g);
-      strands('M34 29 L32.6 26.4 M38 26.4 L37.4 23.8 M43 25.4 L42.8 22.8 M48 25.6 L48.4 23 M53.4 26.2 L54.2 23.6 M58.6 26 L59.6 23.6 M63.4 27 L64.8 24.8 M67 29.4 L68.8 27.6');
-      shine('M42 18.4 C47 16.8 53 16.8 58 18.4', 1);
-      sym(g, (q) => el('path', { d: 'M29 36.6 L29.2 45 L31 45 L31.4 36.6 Z', fill: col, stroke: OL, 'stroke-width': 0.7 }, q));
+      el('path', Object.assign({ d: 'M29 40 Q27 17 50 16 Q73 17 71 40 Q68 28 62 26 Q50 22 38 26 Q32 29 29 40 Z', fill: c }, st), g);
     } else if (p.hair === 'young') {
-      el('path', Object.assign({ d: 'M28.5 42 C26.5 26 35 16 50 16 C65 16 73.5 26 71.5 42 C70.5 36 68.5 32 65.5 30.5 L64.5 34 L61 29.5 L58.5 33.5 L55.5 29 L52 33 L49.5 28.5 L46 32.6 L43.5 28.8 L40 32.4 L38 29.5 C33.5 32 30 36 28.5 42 Z', fill: col }, st), g);
-      strands('M40 32 L41.6 27 M46 32.2 L46.8 27 M52 32.6 L51.6 27.4 M58.4 33 L57.4 28 M64.4 33.6 L62.8 29.4 M33.6 33.6 L35.6 29');
-      sym(g, (q) => el('path', { d: 'M28.8 38 C28.2 42 28.6 45 29.8 47.6 L31.4 47 C30.8 44 30.8 41 31.4 38 Z', fill: col, stroke: OL, 'stroke-width': 0.7 }, q));
+      el('path', Object.assign({ d: 'M29 42 Q26 18 50 16 Q74 18 71 42 Q69 32 64 30 L62 26 L58 31 L54 25 L50 31 L46 25 L42 31 L38 27 Q32 31 29 42 Z', fill: c }, st), g);
     } else if (p.hair === 'bob') {
-      el('path', Object.assign({ d: 'M29 42 C28.5 25 37 17 50 17 C63 17 71.5 25 71 42 C69 35 66.5 31 62.5 28.8 C58 31.5 53 32.2 48 31.4 C43 30.6 39.5 31.5 36.5 33.5 C32.5 36 30.5 39 29 42 Z', fill: col }, st), g);
-      strands('M62.5 28.8 C60 24 56 21 50 20 M58 31.4 C56.6 27 53.6 24 49 22.6 M48 31.4 C46.6 27.6 44 25 40 24 M40 32 C38 29.4 35.6 28 32.6 28.4');
-      shine('M40 20.6 C45 18.6 52 18.4 57 19.8', 1.2);
-      sym(g, (q) => {
-        el('path', { d: 'M28.8 38 C27 46 27.4 53 30.6 58.4 L32.4 57.6 C30.6 52 30.6 45 31.4 38.6 Z', fill: col, stroke: OL, 'stroke-width': 0.8 }, q);
-        el('path', line('M29.6 44 C29.2 49 29.8 53.6 31.4 57', sh, 0.5), q);
-      });
+      el('path', Object.assign({ d: 'M29 40 Q30 18 50 18 Q70 18 71 40 Q66 30 56 27 Q48 30 38 30 Q32 33 29 40 Z', fill: c }, st), g);
     } else if (p.hair === 'grayShort') {
-      el('path', Object.assign({ d: 'M28.8 40 C27.6 24 36 16.2 50 16.2 C64 16.2 72.4 24 71.2 40 C69.6 32 65 28 58 27.2 C52 26.6 46 27 41.5 27.4 C35 28.4 30.8 33 28.8 40 Z', fill: col }, st), g);
-      // 短く刈った髪の、白と黒のまじり
-      const dots = [[36, 24], [40, 21.4], [45, 19.6], [50, 19], [55, 19.6], [60, 21.4], [64, 24], [38, 26.4], [43, 24], [48, 23], [53, 23], [58, 24], [62, 26.6], [33.6, 28.6], [66.4, 28.6], [31.4, 33], [68.6, 33]];
-      dots.forEach((d, i) => el('path', line('M' + d[0] + ' ' + d[1] + ' l' + (i % 2 ? 0.6 : -0.6) + ' -1.1', i % 3 ? sh : hi, 0.55), g));
-      shine('M43 18.6 C47 17.6 53 17.6 57 18.6', 1);
-      sym(g, (q) => el('path', { d: 'M29 36.6 L29.2 44.6 L31 44.6 L31.4 36.6 Z', fill: col, stroke: OL, 'stroke-width': 0.7 }, q));
+      el('path', Object.assign({ d: 'M29 39 Q28 18 50 17 Q72 18 71 39 Q67 29 50 27 Q33 29 29 39 Z', fill: c }, st), g);
+    }
+    void sh;
+  }
+
+  function eyes(g, p) {
+    if (p.eyes === 'smile') {
+      // にっこり細めた目
+      el('path', { d: 'M36.5 41 Q40.5 37 44.5 41', fill: 'none', stroke: OL, 'stroke-width': 2, 'stroke-linecap': 'round' }, g);
+      el('path', { d: 'M55.5 41 Q59.5 37 63.5 41', fill: 'none', stroke: OL, 'stroke-width': 2, 'stroke-linecap': 'round' }, g);
+    } else {
+      [40.5, 59.5].forEach((x) => {
+        el('ellipse', { cx: x, cy: 40, rx: 2.6, ry: 3.1, fill: OL }, g);
+        el('circle', { cx: x + 0.9, cy: 38.9, r: 0.9, fill: '#fff' }, g);
+      });
     }
   }
 
+  function brows(g, p) {
+    const c = p.browC;
+    if (p.brows === 'bushy') {
+      el('path', { d: 'M34 33 Q40 28.5 46 32 L45.5 34 Q40 31.5 34.5 35 Z', fill: c, stroke: OL, 'stroke-width': 0.9 }, g);
+      el('path', { d: 'M66 33 Q60 28.5 54 32 L54.5 34 Q60 31.5 65.5 35 Z', fill: c, stroke: OL, 'stroke-width': 0.9 }, g);
+    } else {
+      const w = p.brows === 'thick' ? 2.8 : p.brows === 'thin' ? 1.4 : 2;
+      el('path', { d: 'M35.5 33.5 Q40.5 30.5 45 33', fill: 'none', stroke: c, 'stroke-width': w, 'stroke-linecap': 'round' }, g);
+      el('path', { d: 'M64.5 33.5 Q59.5 30.5 55 33', fill: 'none', stroke: c, 'stroke-width': w, 'stroke-linecap': 'round' }, g);
+    }
+  }
+
+  function mouth(g, p) {
+    if (p.mouth === 'talk') {
+      // 話している口（説明中は動く）
+      const m = el('g', { class: 'pt-mouth' }, g);
+      el('path', { d: 'M43 51 Q50 49.5 57 51 Q56 58 50 58.5 Q44 58 43 51 Z', fill: '#7a2e2a', stroke: OL, 'stroke-width': 1.2 }, m);
+      el('path', { d: 'M44.5 51.4 Q50 50.4 55.5 51.4 L55 53 Q50 52.2 45 53 Z', fill: '#fff' }, m);
+      el('ellipse', { cx: 50, cy: 56.4, rx: 3.6, ry: 1.6, fill: '#e07a6a' }, m);
+    } else if (p.mouth === 'flat') {
+      el('path', { d: 'M44 53.5 Q50 52.5 56 53.5', fill: 'none', stroke: OL, 'stroke-width': 1.9, 'stroke-linecap': 'round' }, g);
+    } else if (p.mouth === 'grin') {
+      el('path', { d: 'M42.5 51 Q50 50 57.5 51 Q55.5 57.5 50 57.5 Q44.5 57.5 42.5 51 Z', fill: '#fff', stroke: OL, 'stroke-width': 1.2 }, g);
+    } else {
+      el('path', { d: 'M43.5 52 Q50 57 56.5 52', fill: 'none', stroke: OL, 'stroke-width': 1.8, 'stroke-linecap': 'round' }, g);
+    }
+  }
   // ---------- 帽子・はちまき ----------
   function hat(g, c) {
     const p = c.p;
