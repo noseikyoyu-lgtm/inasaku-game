@@ -1,6 +1,7 @@
 // 効果音とBGM（音のファイルは使わず、ブラウザで合成する）
 // 最初にどこかを押したときに鳴らせるようになる（ブラウザの決まり）
-// BGM は場面ごとの曲（タイトル・物語・計画・四季・試練・決算・エンディングなど）を、画面が変わるたびにフェードで切り替える
+// BGM は場面ごとの曲（タイトル・物語・計画・四季・梅雨・試練・決算・エンディングなど）を、画面が変わるたびにフェードで切り替える
+// 多くの場面は2〜3曲あり、年ごとに順番に変わる（タイトルは4曲からランダム）
 (function (RG) {
   'use strict';
   const SD = RG.sound = {};
@@ -78,6 +79,8 @@
     snare: (f, t, d, v, out) => noise(t, 0.12, v, out, { freq: 1800, q: 0.8 }),
     hat: (f, t, d, v, out) => noise(t, 0.03, v, out, { type: 'highpass', freq: 7000 }),
     kane: (f, t, d, v, out) => { osc('square', 1650, t, 0.12, v * 0.35, out, { lp: 5000, rel: 0.15 }); osc('square', 2330, t, 0.1, v * 0.25, out, { lp: 6000, rel: 0.12 }); },
+    mushi: (f, t, d, v, out) => { for (let i = 0; i < 4; i++) osc('sine', 4200, t + i * 0.045, 0.025, v, out, { att: 0.005, rel: 0.015 }); }, // 秋の虫の声
+    drop: (f, t, d, v, out) => { const fr = 1300 + Math.random() * 1500; osc('sine', fr, t, 0.07, v, out, { slide: fr * 1.6, rel: 0.06 }); }, // 雨のしずく
   };
 
   // ---------- 効果音 ----------
@@ -127,7 +130,9 @@
   const seq = (list) => { const out = []; list.forEach(([n, len]) => { out.push(n ? [n, len] : null); for (let i = 1; i < len; i++) out.push(null); }); return out; };
   const hold = (notes, len) => seq(notes.map((n) => [n, len]));
   const chords = (list, len) => { const out = []; list.forEach((c) => { out.push([c, len]); for (let i = 1; i < len; i++) out.push(null); }); return out; };
-  const beat = (bars, hits) => { const out = []; for (let b = 0; b < bars; b++) for (let i = 0; i < 16; i++) out.push(hits.indexOf(i) >= 0 ? [1, 1] : null); return out; };
+  const beat = (bars, hits, size) => { const out = []; size = size || 16; for (let b = 0; b < bars; b++) for (let i = 0; i < size; i++) out.push(hits.indexOf(i) >= 0 ? [1, 1] : null); return out; };
+  // 3拍子の伴奏（1拍目は休み、2・3拍目に和音）
+  const waltz = (list) => [].concat.apply([], list.map((c) => [null, null, null, null, [c, 4], null, null, null, [c, 4], null, null, null]));
   const arp = (chordList, pattern, len) => seq([].concat.apply([], chordList.map((c) => pattern.map((i) => [c[i], len]))));
 
   const TRACKS = {
@@ -228,8 +233,140 @@
       { inst: 'pad', vol: 0.2, chord: true, notes: chords([[57, 60, 64], [53, 57, 60], [50, 53, 57], [52, 56, 59]], 16) },
       { inst: 'bass', vol: 0.32, notes: hold([45, 41, 38, 40], 16) },
     ] },
+
+    // ----- 同じ場面の別の曲（年ごとに切り替わる） -----
+    // タイトル2「月夜の田んぼ」：琴と秋の虫
+    title2: { bpm: 66, parts: [
+      { inst: 'koto', vol: 0.3, notes: seq([[81, 4], [79, 2], [76, 2], [74, 8], [76, 4], [79, 4], [81, 4], [83, 4], [81, 6], [79, 2], [76, 8], [74, 4], [76, 4], [71, 8],
+        [69, 4], [71, 2], [74, 2], [76, 8], [79, 4], [76, 4], [74, 4], [71, 4], [69, 6], [71, 2], [74, 4], [76, 4], [74, 16]]) },
+      { inst: 'pad', vol: 0.18, chord: true, notes: chords([[62, 66, 69], [64, 67, 71], [62, 67, 71], [62, 66, 71], [62, 64, 69], [62, 67, 71], [64, 67, 71], [62, 66, 69]], 16) },
+      { inst: 'bass', vol: 0.34, notes: hold([38, 40, 43, 35, 33, 31, 40, 38], 16) },
+      { inst: 'mushi', vol: 0.05, notes: beat(8, [6, 13]) },
+    ] },
+    // タイトル3「朝もやの田んぼ」：篠笛とオルゴール
+    title3: { bpm: 80, parts: [
+      { inst: 'flute', vol: 0.25, notes: seq([[67, 4], [71, 4], [74, 8], [76, 4], [74, 4], [71, 4], [74, 4], [79, 8], [76, 4], [74, 4], [71, 12], [0, 4],
+        [72, 4], [76, 4], [79, 8], [81, 4], [79, 4], [76, 4], [74, 4], [76, 4], [74, 4], [71, 4], [69, 4], [67, 12], [0, 4]]) },
+      { inst: 'bell', vol: 0.07, notes: arp([[55, 59, 62], [52, 55, 59], [55, 60, 64], [54, 57, 62], [55, 60, 64], [57, 60, 64], [54, 57, 62], [55, 59, 62]], [0, 1, 2, 1], 4) },
+      { inst: 'pad', vol: 0.16, chord: true, notes: chords([[55, 59, 62], [52, 55, 59], [55, 60, 64], [54, 57, 62], [55, 60, 64], [57, 60, 64], [54, 57, 62], [55, 59, 62]], 16) },
+      { inst: 'bass', vol: 0.32, notes: hold([43, 40, 36, 38, 36, 45, 38, 43], 16) },
+    ] },
+    // タイトル4「稲穂の海」：琴と和太鼓でおおらかに
+    title4: { bpm: 76, parts: [
+      { inst: 'koto', vol: 0.3, notes: seq([[76, 2], [78, 2], [81, 4], [83, 4], [81, 4], [78, 4], [76, 4], [73, 8], [71, 2], [73, 2], [76, 4], [78, 4], [76, 4], [73, 4], [71, 4], [69, 8],
+        [76, 2], [78, 2], [81, 4], [83, 4], [85, 4], [83, 4], [81, 4], [78, 8], [76, 4], [78, 4], [73, 4], [71, 4], [69, 16]]) },
+      { inst: 'pad', vol: 0.2, chord: true, notes: chords([[57, 61, 64], [54, 57, 61], [57, 62, 66], [56, 59, 64], [57, 61, 64], [57, 62, 66], [56, 59, 64], [57, 61, 64]], 16) },
+      { inst: 'bass', vol: 0.36, notes: hold([45, 42, 38, 40, 45, 38, 40, 45], 16) },
+      { inst: 'taiko', vol: 0.28, notes: beat(8, [0, 10]) },
+    ] },
+    // 物語2「ふるさとの記憶」：篠笛と琴の分散和音
+    story2: { bpm: 60, parts: [
+      { inst: 'flute', vol: 0.25, notes: seq([[71, 6], [72, 2], [74, 8], [76, 4], [74, 4], [71, 8], [69, 6], [71, 2], [72, 4], [74, 4], [71, 16],
+        [71, 6], [72, 2], [74, 4], [79, 4], [78, 4], [76, 4], [74, 8], [72, 4], [71, 4], [69, 4], [71, 4], [67, 16]]) },
+      { inst: 'koto', vol: 0.1, notes: arp([[55, 59, 62], [52, 55, 59], [57, 60, 64], [55, 59, 62], [55, 59, 62], [54, 57, 62], [55, 60, 64], [55, 59, 62]], [0, 1, 2, 1, 0, 1, 2, 1], 2) },
+      { inst: 'pad', vol: 0.14, chord: true, notes: chords([[55, 59, 62], [52, 55, 59], [57, 60, 64], [55, 59, 62], [55, 59, 62], [54, 57, 62], [55, 60, 64], [55, 59, 62]], 16) },
+      { inst: 'bass', vol: 0.32, notes: hold([43, 40, 45, 43, 43, 38, 36, 43], 16) },
+    ] },
+    // 計画2「あぜ道さんぽ」：はずむ足どり
+    field2: { bpm: 96, parts: [
+      { inst: 'pluck', vol: 0.28, notes: seq([[72, 2], [69, 2], [72, 2], [74, 2], [72, 4], [69, 4], [67, 2], [69, 2], [70, 2], [69, 2], [67, 4], [65, 4],
+        [69, 2], [72, 2], [77, 2], [76, 2], [74, 4], [72, 4], [70, 2], [69, 2], [67, 2], [69, 2], [65, 8],
+        [74, 2], [72, 2], [74, 2], [77, 2], [76, 4], [74, 4], [72, 2], [70, 2], [69, 2], [70, 2], [72, 8],
+        [74, 2], [76, 2], [77, 4], [74, 2], [72, 2], [69, 4], [70, 2], [67, 2], [69, 2], [67, 2], [65, 8]]) },
+      { inst: 'bass', vol: 0.36, notes: hold([41, 45, 48, 45, 36, 40, 43, 40, 41, 45, 48, 50, 46, 45, 43, 40, 38, 41, 45, 41, 36, 40, 43, 40, 46, 41, 46, 48, 43, 36, 41, 41], 4) },
+      { inst: 'kick', vol: 0.18, notes: beat(8, [0, 8]) },
+      { inst: 'hat', vol: 0.04, notes: beat(8, [4, 12]) },
+    ] },
+    // 計画3「縁側でひと休み」：3拍子のワルツ
+    field3: { bpm: 84, parts: [
+      { inst: 'flute', vol: 0.24, notes: seq([[74, 8], [76, 2], [74, 2], [71, 8], [67, 4], [69, 4], [71, 4], [72, 4], [74, 12],
+        [76, 8], [78, 2], [79, 2], [76, 4], [74, 8], [72, 4], [71, 4], [69, 4], [67, 12]]) },
+      { inst: 'koto', vol: 0.14, chord: true, notes: waltz([[59, 62, 67], [59, 64, 67], [60, 64, 69], [57, 62, 66], [60, 64, 67], [59, 62, 67], [57, 62, 66], [59, 62, 67]]) },
+      { inst: 'bass', vol: 0.36, notes: hold([43, 40, 45, 38, 36, 43, 38, 43], 12) },
+      { inst: 'hat', vol: 0.03, notes: beat(8, [0], 12) },
+    ] },
+    // 春2「田植えうた」：篠笛の呼びかけに琴が答える
+    spring2: { bpm: 104, parts: [
+      { inst: 'flute', vol: 0.25, notes: seq([[74, 2], [77, 2], [79, 4], [77, 2], [74, 2], [72, 4], [74, 4], [69, 4], [74, 8], [0, 32],
+        [79, 2], [81, 2], [84, 4], [81, 2], [79, 2], [77, 4], [79, 4], [77, 2], [74, 2], [74, 8], [0, 32]]) },
+      { inst: 'koto', vol: 0.24, notes: seq([[0, 32], [72, 2], [74, 2], [77, 4], [74, 2], [72, 2], [69, 4], [72, 4], [67, 4], [69, 8],
+        [0, 32], [77, 2], [79, 2], [81, 4], [79, 2], [77, 2], [74, 4], [72, 4], [69, 4], [74, 8]]) },
+      { inst: 'pad', vol: 0.12, chord: true, notes: chords([[62, 65, 69], [62, 65, 69], [60, 64, 67], [57, 60, 64], [62, 67, 69], [62, 65, 69], [60, 65, 67], [62, 65, 69]], 16) },
+      { inst: 'bass', vol: 0.34, notes: hold([38, 38, 36, 33, 38, 38, 36, 38], 16) },
+      { inst: 'taiko', vol: 0.26, notes: beat(8, [0, 8]) },
+      { inst: 'kane', vol: 0.1, notes: beat(8, [12]) },
+    ] },
+    // 梅雨（6月）「梅雨のしずく」：雨だれとオルゴール
+    tsuyu: { bpm: 72, parts: [
+      { inst: 'bell', vol: 0.16, notes: seq([[76, 4], [0, 4], [72, 4], [74, 4], [76, 8], [0, 8], [79, 4], [0, 4], [76, 4], [74, 4], [72, 8], [0, 8],
+        [74, 4], [0, 4], [72, 4], [69, 4], [71, 8], [0, 8], [72, 4], [74, 4], [76, 4], [79, 4], [76, 16]]) },
+      { inst: 'pad', vol: 0.16, chord: true, notes: chords([[57, 60, 64], [53, 57, 60], [55, 60, 64], [55, 59, 62], [57, 62, 65], [52, 55, 59], [53, 57, 60], [57, 60, 64]], 16) },
+      { inst: 'bass', vol: 0.28, notes: hold([45, 41, 48, 43, 38, 40, 41, 45], 16) },
+      { inst: 'drop', vol: 0.05, notes: beat(8, [1, 5, 7, 11, 14]) },
+    ] },
+    // 夏2「盆おどり」：ドン・ドン・ドドンの太鼓と篠笛
+    summer2: { bpm: 118, parts: [
+      { inst: 'flute', vol: 0.25, notes: seq([[79, 4], [76, 2], [74, 2], [76, 4], [79, 4], [81, 4], [79, 2], [76, 2], [74, 8], [72, 4], [74, 2], [76, 2], [79, 4], [76, 4], [74, 4], [72, 2], [69, 2], [67, 8],
+        [69, 4], [72, 2], [74, 2], [76, 4], [74, 4], [76, 4], [79, 2], [81, 2], [79, 8], [76, 4], [74, 2], [72, 2], [74, 4], [76, 4], [74, 4], [69, 2], [72, 2], [67, 8]]) },
+      { inst: 'bass', vol: 0.38, notes: hold([43, 50, 43, 50, 43, 50, 43, 50, 48, 55, 48, 55, 43, 50, 43, 50, 48, 55, 48, 55, 43, 50, 43, 50, 38, 45, 38, 45, 43, 50, 43, 43], 4) },
+      { inst: 'taiko', vol: 0.3, notes: beat(8, [0, 4, 6]) },
+      { inst: 'kane', vol: 0.12, notes: beat(8, [8, 12]) },
+      { inst: 'hat', vol: 0.04, notes: beat(8, [2, 10, 14]) },
+    ] },
+    // 秋2「実りの秋」：琴と虫の声
+    harvest2: { bpm: 92, parts: [
+      { inst: 'koto', vol: 0.3, notes: seq([[76, 4], [79, 4], [81, 6], [79, 2], [76, 4], [74, 4], [72, 8], [74, 4], [76, 4], [79, 4], [76, 4], [74, 12], [0, 4],
+        [72, 4], [74, 4], [76, 6], [79, 2], [81, 4], [84, 4], [81, 8], [79, 4], [76, 4], [74, 4], [76, 4], [72, 12], [0, 4]]) },
+      { inst: 'bell', vol: 0.07, notes: arp([[60, 64, 67], [57, 60, 64], [57, 60, 65], [55, 59, 62], [60, 64, 67], [57, 60, 65], [55, 59, 62], [60, 64, 67]], [0, 1, 2, 1], 4) },
+      { inst: 'bass', vol: 0.36, notes: hold([48, 55, 45, 52, 41, 48, 43, 50, 48, 55, 41, 48, 43, 50, 48, 48], 8) },
+      { inst: 'taiko', vol: 0.15, notes: beat(8, [0]) },
+      { inst: 'mushi', vol: 0.04, notes: beat(8, [2, 10]) },
+    ] },
+    // 冬2「雪の夜」：しんしんと
+    winter2: { bpm: 60, parts: [
+      { inst: 'bell', vol: 0.17, notes: seq([[69, 4], [72, 4], [76, 8], [74, 4], [72, 4], [71, 8], [69, 4], [72, 4], [77, 8], [76, 16],
+        [74, 4], [76, 4], [79, 8], [77, 4], [76, 4], [74, 8], [72, 4], [71, 4], [69, 4], [71, 4], [69, 16]]) },
+      { inst: 'pad', vol: 0.14, chord: true, notes: chords([[57, 60, 64], [55, 59, 62], [53, 57, 60], [55, 60, 64], [55, 59, 62], [57, 62, 65], [52, 56, 59], [57, 60, 64]], 16) },
+      { inst: 'bass', vol: 0.26, notes: hold([45, 43, 41, 48, 43, 38, 40, 45], 16) },
+    ] },
+    // 試練2「嵐の前」：刻むリズム
+    tension2: { bpm: 120, parts: [
+      { inst: 'pluck', vol: 0.24, notes: seq([[64, 2], [64, 2], [67, 2], [64, 2], [71, 4], [69, 4], [67, 2], [66, 2], [64, 4], [0, 8],
+        [64, 2], [64, 2], [67, 2], [69, 2], [71, 4], [74, 4], [72, 2], [71, 2], [69, 2], [66, 2], [64, 8]]) },
+      { inst: 'bass', vol: 0.4, notes: hold([40, 40, 52, 40, 40, 40, 52, 40, 40, 40, 52, 40, 40, 40, 52, 40, 36, 36, 48, 36, 36, 36, 48, 36, 35, 35, 47, 35, 35, 35, 47, 35], 2) },
+      { inst: 'pad', vol: 0.12, chord: true, notes: chords([[52, 55, 59], [52, 55, 59], [48, 52, 55], [47, 51, 54]], 16) },
+      { inst: 'kick', vol: 0.24, notes: beat(4, [0, 4, 8, 12]) },
+      { inst: 'snare', vol: 0.08, notes: beat(4, [4, 12]) },
+      { inst: 'taiko', vol: 0.2, notes: beat(4, [14]) },
+    ] },
+    // 決算2「帳簿をつける夜」：おだやかに
+    result2: { bpm: 84, parts: [
+      { inst: 'koto', vol: 0.28, notes: seq([[74, 2], [78, 2], [81, 4], [78, 4], [76, 4], [74, 4], [71, 4], [69, 8], [71, 2], [74, 2], [76, 4], [78, 4], [81, 4], [79, 4], [78, 4], [76, 8],
+        [74, 2], [78, 2], [81, 4], [83, 4], [81, 4], [79, 4], [76, 4], [78, 8], [76, 4], [74, 4], [73, 4], [76, 4], [74, 16]]) },
+      { inst: 'pad', vol: 0.16, chord: true, notes: chords([[62, 66, 69], [59, 62, 66], [55, 59, 62], [57, 61, 64], [62, 66, 69], [55, 59, 64], [57, 61, 64], [62, 66, 69]], 16) },
+      { inst: 'bass', vol: 0.34, notes: hold([38, 45, 35, 42, 31, 38, 33, 40, 38, 45, 40, 47, 33, 40, 38, 38], 8) },
+      { inst: 'hat', vol: 0.03, notes: beat(8, [4, 12]) },
+    ] },
   };
   SD.TRACKS = Object.keys(TRACKS);
+  // 同じ場面で使う曲の組（年ごとに順番に切り替わる。タイトルは開くたび・戻るたびにランダムに選ぶ）
+  const VARIANTS = {
+    title: ['title', 'title2', 'title3', 'title4'], story: ['story', 'story2'], field: ['field', 'field2', 'field3'],
+    spring: ['spring', 'spring2'], summer: ['summer', 'summer2'], harvest: ['harvest', 'harvest2'], winter: ['winter', 'winter2'],
+    tension: ['tension', 'tension2'], result: ['result', 'result2'],
+  };
+  let titlePick = Math.floor(Math.random() * VARIANTS.title.length);
+  // タイトルの曲を選び直す（さっきと同じ曲にはしない）
+  function rerollTitle() {
+    const n = VARIANTS.title.length;
+    titlePick = (titlePick + 1 + Math.floor(Math.random() * (n - 1))) % n;
+  }
+  function variant(base, st) {
+    const list = VARIANTS[base];
+    if (!list) return base;
+    const i = st ? ((st.year || 1) - 1) % list.length : titlePick;
+    return list[i];
+  }
 
   // ---------- BGM の再生（先読みスケジューラ） ----------
   let cur = null, step = 0, nextAt = 0, timer = null, pending = null;
@@ -282,6 +419,9 @@
   // 画面の状態から曲を選ぶ
   SD.trackFor = function (app) {
     const st = app && app.st;
+    return variant(baseTrack(st), st);
+  };
+  function baseTrack(st) {
     if (!st) return 'title';
     const ph = st.phase;
     if (ph === 'scene') return 'story';
@@ -292,24 +432,25 @@
       const trial = RG.era && RG.era.trialOf(st, st.year);
       const crisis = st.seasonPending && RG.dice && RG.dice.pending && RG.dice.pending(st);
       if ((trial && m >= 6 && m <= 9) || (crisis && crisis.month <= m)) return 'tension';
-      return m >= 3 && m <= 6 ? 'spring' : m <= 8 && m >= 7 ? 'summer' : m >= 9 && m <= 11 ? 'harvest' : 'winter';
+      if (m === 6) return 'tsuyu';
+      return m >= 3 && m <= 5 ? 'spring' : m <= 8 && m >= 7 ? 'summer' : m >= 9 && m <= 11 ? 'harvest' : 'winter';
     }
     if (ph === 'result' || ph === 'midterm') return 'result';
     if (ph === 'gameover') return 'sad';
     if (ph === 'end') return RG.scenes && RG.scenes.isStory(st) && RG.scenes.ending(st).kind === 'bad' ? 'sad' : 'ending';
     return 'field';
-  };
+  }
   // 画面を描くたびに呼ぶ（曲の切り替えと、章の扉などの合図の音）
   let lastPhase = null;
   SD.sync = function (app) {
-    const name = SD.trackFor(app);
     const ph = app && app.st ? app.st.phase : 'title';
     if (ph !== lastPhase) {
+      if (ph === 'title' && lastPhase) rerollTitle(); // ゲームからタイトルに戻ったら別の曲に
       if (ph === 'chapter') SD.play('gong');
       else if (ph === 'scene' && lastPhase && lastPhase !== 'scene') SD.play('whoosh');
       lastPhase = ph;
     }
-    SD.setBgm(name);
+    SD.setBgm(SD.trackFor(app));
   };
 
   SD.toggle = function (kind) {

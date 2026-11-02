@@ -179,7 +179,7 @@
   SIM.expectedJA = function (st) {
     const units = SIM.planUnits(st).filter((u) => D.CROPS[u.crop].market);
     const bales = U.sum(units, (u) => (D.CROPS[u.crop].by * u.yieldMult * D.CULTS[u.cult].yield * D.SOWS[u.sow].yield * u.area * 10) / 60);
-    return Math.max(0, bales - U.sum(st.contracts, (c) => c.volume) - SIM.directPlanned(st) - (RG.biz ? RG.biz.procPlanned(st) + RG.biz.storePlanned(st) : 0));
+    return Math.max(0, bales - U.sum(st.contracts, (c) => c.volume) - SIM.directPlanned(st) - (RG.biz ? RG.biz.procPlanned(st) : 0));
   };
   // 直販に回す見込み量：入力値を、その商品の平年作での量で頭打ちにする（作付していなければ0）
   SIM.directPlanned = function (st) {
@@ -560,24 +560,13 @@
     trustDelta += biz.trust;
     sales.biz = biz;
 
-    // 保管米：前年産を4月に売る / 今年産の一部を保管に回す
-    let stockSale = null, stockEnd = null;
+    // 保管米：古いセーブに残っている前年産を4月に売る（新しく保管する仕組みはなくした）
+    let stockSale = null;
+    const stockEnd = null;
     if (st.stock && st.stock.bales > 0) {
       const op = BZ.oldPrice(st, preview);
       stockSale = { bales: st.stock.bales, price: op, revenue: st.stock.bales * op * st.stock.coef, value: st.stock.value,
         fee: st.stock.bales * BZ.STORE.fee * mInf, harvestPrice: st.stock.price };
-    }
-    const storeQ = BZ.storePlanned(st);
-    if (storeQ > 0) {
-      let left = storeQ, value = 0;
-      for (const p of plist) {
-        if (!D.CROPS[p.crop].market || p.crop === 'feed' || p.rem <= 0.01) continue;
-        const t = Math.min(p.rem, left);
-        p.rem -= t; left -= t;
-        value += t * price * D.CROPS[p.crop].priceCoef * D.CULT_KEYS[p.ck].jaPrem * p.gc;
-      }
-      const bales = storeQ - left;
-      if (bales > 0.01) stockEnd = { bales, value, price, coef: value / (bales * price), year: st.year };
     }
     sales.stockSale = stockSale;
     sales.stockEnd = stockEnd;

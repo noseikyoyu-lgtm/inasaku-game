@@ -18,6 +18,9 @@
     oyama: { name: '大山さん（規模拡大型）', sprite: 'oyama' },
     ogawa: { name: '小川さん（こだわり直販型）', sprite: 'ogawa' },
     tamura: { name: '田村さん（兼業農家）', sprite: 'tamura' },
+    ishii: { name: '集落法人の石井さん', sprite: 'ishii' },
+    nishikawa: { name: '営農組合の西川さん', sprite: 'nishikawa' },
+    hayashi: { name: '新規就農の林さん', sprite: 'hayashi' },
   };
   // 今あるイベントの話し手
   const WHO = { machine_subsidy: 'takahashi', training: 'takahashi', feed_policy: 'takahashi', shinnosuke_reg: 'takahashi', min_wage: 'takahashi',

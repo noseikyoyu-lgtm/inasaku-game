@@ -9,9 +9,9 @@
 
   // ---------- 人物の設定 ----------
   PT.PEOPLE = {
-    // 白髪頭で四角い顔。いつも目を細めて笑っている、話好きの先生。作業服に名札とペン
-    takahashi: { bg: ['#e8f1e4', '#cfe3c6'], skin: '#f2c9a0', shade: '#dba77d', head: 'square', hair: 'whiteSide', hairC: '#f1f1ee', hairS: '#bfbfb9',
-      brows: 'bushy', browC: '#e9e9e4', eyes: 'smile', mouth: 'talk', wrinkles: true, cheeks: true,
+    // 白髪まじり（白7：黒3）で四角い顔。いつも目を細めて笑っている、話好きの先生。作業服に名札とペン
+    takahashi: { bg: ['#e8f1e4', '#cfe3c6'], skin: '#f2c9a0', shade: '#dba77d', head: 'square', hair: 'whiteSide', hairC: '#f1f1ee', hairS: '#bfbfb9', pepper: '#3a3532',
+      brows: 'bushy', browC: '#c9c7c2', eyes: 'smile', mouth: 'talk', wrinkles: true, cheeks: true,
       cloth: 'work', clothC: '#8f9f86', clothS: '#6f8066', shirt: '#ffffff', pen: true, badge: true },
     // 金融機関の木村さん：きちんと分けた黒髪、細い眉、黒ぶちめがね。紺のスーツ
     kimura: { bg: ['#e6ecf5', '#c9d6ea'], skin: '#f3cfab', shade: '#ddb08a', head: 'oval', hair: 'neat', hairC: '#2f2a2a', hairS: '#141111',
@@ -47,6 +47,16 @@
     // 近所の田村さん：頭に手ぬぐい、灰色の作業服
     tamura: { bg: ['#eaeef1', '#d2dbe1'], skin: '#ecbf96', shade: '#d39e74', head: 'oval', hair: 'grayShort', hairC: '#8d8d8a', hairS: '#62625f',
       brows: 'normal', browC: '#777774', eyes: 'smile', mouth: 'smile', wrinkles: true, cloth: 'work', clothC: '#6f8597', clothS: '#566b7c', shirt: '#dfe3e6', towel: '#ffffff' },
+    // 集落法人の石井さん：白髪まじりの短髪、法人の帽子と緑の作業服に名札。しっかり者の代表
+    ishii: { bg: ['#e6f2ea', '#c6e2cf'], skin: '#ebbd93', shade: '#d09d72', head: 'square', hair: 'grayShort', hairC: '#a9a8a2', hairS: '#7d7c77',
+      brows: 'thick', browC: '#6d6c67', eyes: 'open', mouth: 'smile', wrinkles: true, cloth: 'work', clothC: '#3f7a52', clothS: '#2f6040', shirt: '#eef2ec', badge: true, cap: '#2f6040' },
+    // 営農組合の西川さん：頭の横だけ白髪、めがね。紺のベストの世話好きな組合長
+    nishikawa: { bg: ['#ece8f4', '#d6cde8'], skin: '#efc39b', shade: '#d6a179', head: 'round', hair: 'baldSides', hairC: '#dcdcd6', hairS: '#a9a9a3',
+      brows: 'bushy', browC: '#cfcfc9', eyes: 'smile', mouth: 'talk', wrinkles: true, cheeks: true, glasses: '#4a4a52',
+      cloth: 'vest', clothC: '#34466e', clothS: '#26365a', shirt: '#f1ece0' },
+    // 新規就農の林さん：短い前髪にはちまき、チェックのシャツ
+    hayashi: { bg: ['#e4f1f6', '#c4e1ec'], skin: '#f4cfa9', shade: '#dfac82', head: 'oval', hair: 'young', hairC: '#2b2420', hairS: '#16110e',
+      brows: 'normal', browC: '#2b2420', eyes: 'open', mouth: 'grin', cheeks: true, cloth: 'overall', clothC: '#5c7f9e', clothS: '#47677f', shirt: '#eae4d4', plaid: '#3f8f8a', headband: '#2e6fb0' },
   };
 
   // ---------- 部品 ----------
@@ -277,9 +287,18 @@
     const st = { stroke: OL, 'stroke-width': 1.3 };
     if (p.hair === 'whiteSide') {
       // 豊かな白髪。横分けで、ふんわり立ち上がる
-      el('path', Object.assign({ d: 'M27 40 Q24 20 36 14 Q46 8 58 11 Q72 13 75 27 Q76 34 73 41 Q70 31 64 27 Q60 22 50 23 Q44 18 38 24 Q31 28 30 41 Z', fill: c }, st), g);
+      const shape = 'M27 40 Q24 20 36 14 Q46 8 58 11 Q72 13 75 27 Q76 34 73 41 Q70 31 64 27 Q60 22 50 23 Q44 18 38 24 Q31 28 30 41 Z';
+      el('path', Object.assign({ d: shape, fill: c }, st), g);
+      if (p.pepper) {
+        // 白髪まじり：分け目から流れる黒い毛筋を、髪の形の中だけに描く（白7：黒3くらい）
+        const hid = 'hs' + (++uid);
+        const cp = el('clipPath', { id: hid }, g); el('path', { d: shape }, cp);
+        el('path', line('M30 36 Q30 24 38 18 M33 37 Q33 27 40 21 M36 25 Q42 17 50 15 M41 21 Q48 14 56 14 M47 19 Q55 13 63 15 M53 20 Q61 16 68 20 M58 22 Q66 19 71 25 M63 25 Q69 24 73 31 M66 28 Q71 29 73 36 M48 12 Q57 10 65 13 M34 30 Q35 22 43 17',
+          p.pepper, 1.25, { opacity: 0.9, 'clip-path': 'url(#' + hid + ')' }), g);
+      }
       el('path', { d: 'M38 22 Q46 15 58 17 M44 19 Q52 14 62 18', fill: 'none', stroke: sh, 'stroke-width': 1.2, 'stroke-linecap': 'round' }, g);
       el('path', { d: 'M28 38 Q27 46 29 50 M72 38 Q73 46 71 50', fill: 'none', stroke: c, 'stroke-width': 3.2, 'stroke-linecap': 'round' }, g);
+      if (p.pepper) el('path', line('M28.6 39 Q27.8 45 29.2 49 M71.4 39 Q72.2 45 70.8 49', p.pepper, 1, { opacity: 0.8 }), g); // もみあげも少し黒く
     } else if (p.hair === 'neat') {
       el('path', Object.assign({ d: 'M30 38 Q29 16 50 15 Q71 16 70 36 Q66 26 56 24 Q46 22 40 28 Q34 31 30 38 Z', fill: c }, st), g);
       el('path', { d: 'M44 18 Q48 22 47 27', fill: 'none', stroke: '#5a5050', 'stroke-width': 1 }, g);

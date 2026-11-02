@@ -1,22 +1,15 @@
-// 新しい事業（作業受託・ドローン防除・餅と米粉の加工・直売所）と、米を保管して春に売る
+// 新しい事業（作業受託・ドローン防除・餅と米粉の加工・直売所）
+// （「米を保管して春に売る」はなくした。古いセーブに残っている保管米を翌年4月に売る計算だけ残している）
 // 計算はシミュレーション（sim.js）から呼ばれる。DOM 非依存
 (function (RG) {
   'use strict';
   const D = RG.data, U = RG.util;
   const BZ = RG.biz = {};
 
-  // ---------- 米を保管して春に売る ----------
+  // ---------- 古いセーブに残っている保管米 ----------
   // 収穫した年は「収穫したときの値段」で在庫（棚卸資産）として利益に入る（収穫基準）。
   // 翌年4月に売り、売った値段との差が翌年の損益になる
-  BZ.STORE = { fee: 450, month: 4, maxShare: 0.5, drift: 0.03, sens: 0.4, vol: 0.06 };
-
-  // 保管に回せる量の上限：平年作の見込みで、契約と直販に回したあとの半分まで
-  BZ.storeMax = function (st) {
-    const units = RG.sim.planUnits(st).filter((u) => D.CROPS[u.crop].market);
-    const bales = U.sum(units, (u) => (D.CROPS[u.crop].by * u.yieldMult * D.CULTS[u.cult].yield * D.SOWS[u.sow].yield * u.area * 10) / 60);
-    return Math.max(0, Math.floor((bales - U.sum(st.contracts, (c) => c.volume) - RG.sim.directPlanned(st) - BZ.procPlanned(st)) * BZ.STORE.maxShare));
-  };
-  BZ.storePlanned = (st) => Math.max(0, Math.min(st.storePlan || 0, BZ.storeMax(st)));
+  BZ.STORE = { fee: 450, month: 4, drift: 0.03, sens: 0.4, vol: 0.06 };
 
   // 翌年4月の値段（古米の相場）：保管した年の値段から、新しい年の米の需給で上下する
   BZ.oldPrice = function (st, preview) {
@@ -27,8 +20,6 @@
     const f = U.clamp(1 + BZ.STORE.drift + BZ.STORE.sens * (st.world.priceChange || 0) + r.normal(0, BZ.STORE.vol), 0.82, 1.22);
     return Math.round(s.price * f);
   };
-  // 保管した年に見込む、翌春の値段の幅
-  BZ.oldPriceRange = (price) => [Math.round(price * (1 + BZ.STORE.drift - 0.12)), Math.round(price * (1 + BZ.STORE.drift + 0.12))];
 
   // ---------- 新しい事業 ----------
   BZ.DEFS = {

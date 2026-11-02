@@ -1,4 +1,4 @@
-// 画面の追加部品：新しい事業タブ・米の保管・地域の農家・称号・登場人物の顔
+// 画面の追加部品：新しい事業タブ・地域の農家・称号・登場人物の顔
 (function (RG) {
   'use strict';
   const UI = RG.ui, h = UI.h, D = RG.data, U = RG.util, BZ = RG.biz;
@@ -95,31 +95,15 @@
     return h('div', { class: 'stack' }, out);
   };
 
-  // ---------- 米を保管して春に売る（販売計画タブ） ----------
-  RG.screens.storageCard = function (app, st, pv) {
-    if (RG.era && !RG.era.isOpen(st, 'store') && !st.stock) return UI.card('⏳ 米を保管して春に売る', '売る時期の勝負', h('div', { class: 'locked-card' }, h('span', { class: 'lock-ic', 'aria-hidden': 'true' }, '🔒'), h('b', null, RG.era.lockText(st, 'store').replace('🔒 ', ''))));
-    const max = BZ.storeMax(st), w = st.world;
-    const rg = BZ.oldPriceRange(w.forecast);
-    const ss = pv.sales.stockSale;
-    return UI.card('⏳ 米を保管して春に売る', '売る時期の勝負',
-      h('p', { class: 'small' }, '秋に全部を売らずに、一部を低温倉庫に置いて翌年4月に売ります。春の値段は、翌年の米の需給しだいで上がることも下がることもあります。保管料（1俵あたり' + U.yen(BZ.STORE.fee) + '）がかかり、売れるまで代金が入らないので資金繰りも苦しくなります。'),
-      ss ? UI.note('info', '前年産の保管米 ' + U.bales(ss.bales), '4月に売ります。収穫したときの値段は1俵 ' + U.yen(ss.harvestPrice) + '。今の見込みは ' + U.yen(ss.price) + '前後です。') : null,
-      h('div', { class: 'row' }, '今年産から保管する量', UI.numInput({ value: st.storePlan || 0, min: 0, max: 2000, step: 10, suffix: '俵', label: '保管する量',
-        onChange: (v) => app.update((s) => { s.storePlan = Math.max(0, Math.round(v)); }) }),
-        h('span', { class: 'muted small' }, '上限 ' + U.bales(max) + '（農協に出す予定の半分まで）')),
-      (st.storePlan || 0) > 0 ? h('p', { class: 'small' }, '来年4月の値段の目安：1俵 ' + U.yen(rg[0]) + '〜' + U.yen(rg[1]) + '（今年の予想 ' + U.yen(w.forecast) + '）') : null,
-      h('p', { class: 'small muted' }, '保管した米は、収穫した年に「収穫したときの値段」で', T('棚卸資産'), 'として利益に入ります（', T('収穫基準'), '）。そのぶん税金も収穫した年にかかり、売った年は「売った値段 − 収穫時の値段」だけが損益になります。'));
-  };
-
   // ---------- 地域の農家 ----------
   RG.screens.rivalsCard = function (st, title) {
     if (!st.rivals) return null;
     const rows = RG.rivals.table(st);
     const lastRank = rows.filter((r) => r.active).findIndex((r) => r.me) + 1;
-    return UI.card(title || '地域の農家', st.history.length ? 'あなたは ' + lastRank + '位（同じ物差しの今の評価）' : '同じ集落で一緒に20年を過ごす',
+    return UI.card(title || '地域の農家', st.history.length ? 'あなたは ' + lastRank + '位（同じ物差しの今の評価）' : '同じ集落の6つの経営（個人・集落法人・営農組合）',
       UI.table([{ label: '農家' }, { label: '面積', num: true }, { label: '平均所得', num: true }, { label: '純資産の増加', num: true }, { label: '評価', num: true }],
         rows.map((r) => ({ cls: r.me ? 'me' : r.active ? '' : 'muted', cells: [
-          h('span', { class: 'rv-name' }, r.me ? null : UI.face(r.id, 2), h('span', null, h('b', null, r.name), r.label ? h('div', { class: 'small muted' }, r.label) : null, r.endText ? h('div', { class: 'small' }, r.endText) : null)),
+          h('span', { class: 'rv-name' }, r.me ? null : UI.face(r.sprite || r.id, 2), h('span', null, h('b', null, r.name), r.label ? h('div', { class: 'small muted' }, r.label) : null, r.endText ? h('div', { class: 'small' }, r.endText) : null)),
           { v: U.ha(r.area), cls: 'num' }, { v: U.man(r.avgInc), cls: 'num' }, { v: U.man(r.eqGain), cls: 'num ' + (r.eqGain < 0 ? 'neg' : '') },
           { v: r.active ? r.rank + '（' + U.num(r.total, 0) + '点）' : '—', cls: 'num' }] }))),
       h('p', { class: 'small muted' }, '評価は最後の評価と同じ物差し（純資産の増加・平均所得・自己資本比率・面積・地域の信頼・ブランド力）で、今の実績を比べたものです。離農した人の田は、あなたに話が来ることがあります。'));

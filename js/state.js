@@ -442,12 +442,12 @@
     if (!st.mode) st.mode = st.scenarioId === 'custom' ? 'endless' : 'story';
     if (RG.chapters) RG.chapters.state(st);
     if (!st.items) st.items = { omamori: 1, reroll: 1 };
-    if (st.storePlan == null) st.storePlan = 0;
+    st.storePlan = 0; // 「米を保管して春に売る」はなくした
     if (st.stock === undefined) st.stock = null;
     if (!st.biz) st.biz = { harvest: 0, drone: 0, proc: 0, droneLicense: false };
     if (!st.titles) st.titles = {};
     if (!st.stats) st.stats = { sixes: 0, omamori: 0, gambles: 0, guards: 0, typhoonWin: 0, counted: 0 };
-    if (!st.rivals && RG.rivals) RG.rivals.init(st);
+    if (RG.rivals) RG.rivals.fill(st);
     if (RG.story) RG.story.state(st);
     // 田んぼ1枚ごとの作付だった古いセーブを、品種ごとの作付に変換する
     if (!st.plan) {

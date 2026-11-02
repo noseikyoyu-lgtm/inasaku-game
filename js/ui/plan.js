@@ -34,7 +34,7 @@
       land: st.offers.land.length > 0,
     };
     const nav = h('nav', { class: 'nav', 'aria-label': '計画のタブ' }, TABS.map(([k, l, ic]) =>
-      h('button', { class: app.tab === k ? 'on' : '', type: 'button', onclick: () => { app.tab = k; app.render(); } }, h('span', { class: 'nav-ic', 'aria-hidden': 'true' }, ic), h('span', { class: 'nav-l' }, l),
+      h('button', { class: 'nav-' + k + (app.tab === k ? ' on' : ''), type: 'button', onclick: () => { app.tab = k; app.render(); } }, h('span', { class: 'nav-ic', 'aria-hidden': 'true' }, ic), h('span', { class: 'nav-l' }, l),
         dots[k] ? h('span', { class: 'dot', title: k === 'land' || k === 'sales' ? '新しい話があります' : '注意があります' }) : null)));
     const tabFn = TAB_FNS[app.tab] || TAB_FNS.overview;
     const content = [];
@@ -99,8 +99,7 @@
         h('p', { class: 'muted small' }, '※ 実際の天候・米価・病害虫・機械の故障はシーズン中に決まります。')));
   }
 
-  // ---------- 概況 ----------
-  // ---------- ホーム：今年やること・見込みのメーター ----------
+  // ---------- 概況（ホーム）：今年やること・申し送り・山場など ----------
   function homeHero(st) {
     const lr = st.lastResult && st.lastResult.year === st.year - 1 ? st.lastResult : null;
     return h('section', { class: 'home-hero' },
@@ -145,21 +144,6 @@
         h('span', { class: 'qgo' }, x.go + ' →')))),
       h('p', { class: 'small muted', style: { marginTop: '10px' } }, n === items.length ? '準備ばっちり！ 右の「この計画で1年を始める」を押そう。' : 'チェックがそろったら、右の「この計画で1年を始める」を押そう。'));
   }
-  function meterCard(st, pv) {
-    const pl = pv.pl;
-    const income = ACC.ownerIncome(st, pl);
-    const left = st.corp ? pl.preTax - pv.tax.amount : pl.preTax - pv.tax.amount - st.living;
-    const short = D.SEASONS.filter((s) => pv.labor.seasons[s].ratio > 0.01);
-    const m = (cls, face, label, value, note) => h('div', { class: 'meter ' + cls }, h('span', { class: 'mf', 'aria-hidden': 'true' }, face), h('span', { class: 'ml' }, label), h('span', { class: 'mv' }, value), h('span', { class: 'mn' }, note));
-    return UI.card('🔮 今年の見込み', '平年並みの天気・予想米価の場合',
-      h('div', { class: 'meters' },
-        m(income > 3000000 ? 'good' : income > 0 ? 'warn' : 'bad', income > 3000000 ? '😄' : income > 0 ? '🙂' : '😟', st.corp ? 'もうけ（税引前利益）' : 'もうけ（農業所得）', U.man(income), '売上 ' + U.man(pl.sales) + ' − 経費'),
-        m(left >= 0 ? 'good' : 'bad', left >= 0 ? '👛' : '💸', '手元に残るお金', U.man(left), st.corp ? '税金を払ったあと' : '家計費と税金を払ったあと'),
-        m(pv.cash.minBalance >= 500000 ? 'good' : pv.cash.minBalance >= 0 ? 'warn' : 'bad', pv.cash.minBalance >= 0 ? '🏦' : '🚨', 'お金がいちばん少ない月', pv.cash.minMonth + '月 ' + U.man(pv.cash.minBalance), pv.cash.minBalance >= 0 ? '1年もちそう' : '借入でしのぐ必要あり'),
-        m(short.length ? 'bad' : 'good', short.length ? '😓' : '💪', '人手', short.length ? short.map((s) => D.SEASON_SHORT[s]).join('・') + 'が不足' : '足りている', short.length ? '刈り遅れなどで収量が落ちる' : '作業は間に合いそう'),
-        m('good', '🌾', '収穫の見込み', U.bales(pv.production.totalBales), '10aあたり ' + U.num(pv.production.yieldPer10a) + 'kg')));
-  }
-
   function tabOverview(app, st, pv) {
     const bs = ACC.bs(st);
     const area = U.sum(st.fields, (f) => f.area), owned = U.sum(st.fields.filter((f) => f.owned), (f) => f.area);
@@ -169,52 +153,76 @@
       return h('div', { class: 'dl' }, h('span', { class: 'dl-ic', 'aria-hidden': 'true' }, '⏳'), h('div', null, h('b', null, d.icon + ' ' + d.title + '　' + (x.until === st.year ? '今年が期限！' : '期限まであと' + (x.until - st.year + 1) + '年（' + x.until + '年目の決算まで）')),
         h('div', { class: 'small' }, '目標：' + d.goalText + '。達成できなければ経営終了')));
     })) : null;
-    const out = [homeHero(st), deadlineBox, RG.scenes.isStory(st) ? RG.screens.promiseCard(st, { progress: true }) : null, questCard(app, st, pv), RG.chapters.on(st) ? RG.screens.missionsCard(app, st) : null, RG.screens.unlocksCard(app, st), meterCard(st, pv)];
-    out.push(UI.card('今年のニュース', null, h('div', { class: 'notes' }, st.news.map((n) => UI.note(n.kind === 'event' ? 'info' : n.kind, null, n.text)))));
+    // 4つのまとまりに分けて、まとまりごとに色を変える（今年のこと＝緑、これから＝橙、お金と経営＝青、まわり＝紫）
+    // 資金・純資産・借入・面積は上の帯に、今年の見込みは右の「今年の見通し」に出ているので、ここには出さない
+    const sec = (tone, ic, text, sub) => h('div', { class: 'ov-sec tone-' + tone }, h('span', { class: 'ov-sec-ic', 'aria-hidden': 'true' }, ic), h('span', null, text), sub ? h('small', null, sub) : null);
+    const tone = (el, cls) => { if (el) el.classList.add('ov', ...cls.split(' ')); return el; };
+    const pair = (x, y) => (x && y ? h('div', { class: 'ov-pair' }, x, y) : x || y);
+    const out = [homeHero(st), deadlineBox, RG.scenes.isStory(st) ? RG.screens.promiseCard(st, { progress: true }) : null];
+
+    // ① 今年のこと
+    out.push(sec('green', '🌱', '今年のこと'));
+    out.push(tone(questCard(app, st, pv), 'tone-green ov-big'));
     if (st.lastResult) {
       let adv = st.lastResult.nextAdvice;
       if (!adv) { try { adv = RG.advisor.nextYear(st, st.lastResult); } catch (e) { adv = null; } }
-      if (adv && adv.length) out.push(UI.card(UI.whoTitle('takahashi', RG.advisor.NAME + 'からのアドバイス'), '昨年の決算より', RG.screens.adviceList(adv, app, '今年やること')));
+      if (adv && adv.length) out.push(tone(UI.card(UI.whoTitle('takahashi', RG.advisor.NAME + 'からのアドバイス'), '昨年の決算より', RG.screens.adviceList(adv, app, '今年気をつけること')), 'tone-gold ov-advice'));
     }
-    out.push(milestoneCard(st));
-    out.push(RG.screens.rivalsCard(st));
-    out.push(UI.card('経営の状況', null, h('div', { class: 'kpis' },
-      UI.kpi('資金', U.man(st.cash), 'つなぎ資金 ' + U.man(st.emergency || 0), st.cash < 500000 ? 'warn' : ''),
-      UI.kpi('借入残高', U.man(bs.longLoans + bs.emergency), '借入可能額 ' + U.man(SIM.loanCapacity(st))),
-      UI.kpi('純資産', U.man(bs.equity), h('span', null, T('自己資本比率'), ' ' + U.pct(bs.equityRatio)), bs.equity < 0 ? 'bad' : ''),
-      UI.kpi('経営面積', U.ha(area), '所有 ' + U.ha(owned) + '・借地 ' + U.ha(area - owned)),
-      UI.kpi('直販の顧客', U.num(st.direct.customers) + '人', h('span', null, T('ブランド力'), ' ' + U.num(st.brand))),
-      UI.kpi('地域の信頼', U.num(st.trust), h('span', null, T('地域の信頼', '信頼'), 'が高いと良い農地の話が来る')),
-      UI.kpi('技術力', U.num(st.skill * 100), h('span', null, T('技術力'), '（100が標準）')),
-      UI.kpi('家族・社員', st.family.length + '人・' + st.staff.length + '人', 'パート ' + st.partTimers + '人'),
-      UI.kpi('持ち物', '🧧' + st.items.omamori + '・🎟️' + st.items.reroll, 'お守り・振り直し券'))));
-    const mh = st.market.history;
-    out.push(UI.card('米価の見通し', '60kg（1俵）あたり',
+    if (st.news.length) out.push(tone(UI.card('今年のニュース', null, h('div', { class: 'notes' }, st.news.map((n) => UI.note(n.kind === 'event' ? 'info' : n.kind, null, n.text)))), 'tone-green'));
+
+    // ② これからのこと
+    out.push(sec('orange', '🗓️', 'これからのこと', RG.chapters.on(st) ? '依頼と、5年以内の節目' : '5年以内の節目'));
+    out.push(pair(RG.chapters.on(st) ? tone(RG.screens.missionsCard(app, st), 'tone-orange') : null, tone(milestoneCard(st), 'tone-orange')));
+
+    // ③ お金と経営
+    out.push(sec('blue', '💴', 'お金と経営'));
+    const mh = st.market.history, lastM = mh.length ? mh[mh.length - 1] : null;
+    const diff = lastM ? w.forecast - lastM.price : 0;
+    const price = UI.card('米価の見通し', '60kg（1俵）あたり',
+      h('div', { class: 'ov-price' },
+        h('div', { class: 'ov-hero' }, h('span', { class: 'l' }, '今年の予想'), h('b', null, U.yen(w.forecast)),
+          h('span', { class: 's' }, U.num(w.forecastLow) + '〜' + U.num(w.forecastHigh) + '円'),
+          lastM ? h('span', { class: 'ov-diff ' + (diff >= 0 ? 'up' : 'down') }, (diff >= 0 ? '▲ ' : '▼ ') + '昨年より ' + U.num(Math.abs(diff)) + '円') : null),
+        h('div', { class: 'ov-side' },
+          UI.kpi('昨年の実績', lastM ? U.yen(lastM.price) : U.yen(st.market.price), lastM ? '作況指数 ' + lastM.index.toFixed(0) : 'R8年産 コシヒカリ概算金'),
+          Math.abs(st.market.feedSubsidyMult - 1) > 0.005 ? UI.kpi('飼料用米の交付金', U.pct(st.market.feedSubsidyMult), '基準に対する水準', st.market.feedSubsidyMult < 1 ? 'warn' : '') : null)),
+      lastM && lastM.reason ? h('p', { class: 'small', style: { marginTop: '8px' } }, h('b', null, '昨年の', T('米の需給'), '：'), lastM.reason) : null,
+      mh.length >= 2 ? h('details', { class: 'more' }, h('summary', null, '米価の移り変わり'),
+        RG.chart.line({ labels: mh.map((x) => x.year + '年'), series: [{ name: '米価（円/60kg）', values: mh.map((x) => x.price) }],
+          fmt: (v) => U.num(v), tipFmt: (v) => U.yen(v), zero: false, height: 160 })) : null);
+    const mini = (ic, label, value, sub, cls) => UI.kpi(h('span', null, h('span', { class: 'ov-ki', 'aria-hidden': 'true' }, ic), label), value, sub, cls);
+    const inner = UI.card('経営の中身', null,
       h('div', { class: 'kpis' },
-        UI.kpi('今年の予想', U.yen(w.forecast), U.num(w.forecastLow) + '〜' + U.num(w.forecastHigh) + '円'),
-        UI.kpi('昨年の実績', mh.length ? U.yen(mh[mh.length - 1].price) : U.yen(st.market.price), mh.length ? '作況指数 ' + mh[mh.length - 1].index.toFixed(0) : 'R8年産 コシヒカリ概算金'),
-        UI.kpi('飼料用米の交付金', U.pct(st.market.feedSubsidyMult), '基準に対する水準')),
-      mh.length && mh[mh.length - 1].reason ? h('p', { class: 'small', style: { marginTop: '8px' } }, h('b', null, '昨年の', T('米の需給'), '：'), mh[mh.length - 1].reason) : null,
-      h('p', { class: 'small muted' }, '今年の米価は、収穫の年の米の需給（全国の作柄・在庫）で決まります。契約栽培の価格も同じように動きます。'),
-      mh.length >= 2 ? RG.chart.line({ labels: mh.map((x) => x.year + '年'), series: [{ name: '米価（円/60kg）', values: mh.map((x) => x.price) }],
-        fmt: (v) => U.num(v), tipFmt: (v) => U.yen(v), zero: false, height: 160 }) : null));
+        mini('⚖️', T('自己資本比率'), U.pct(bs.equityRatio), '純資産 ÷ 総資産', bs.equity < 0 ? 'bad' : bs.equityRatio < 0.2 ? 'warn' : ''),
+        mini('🏦', 'あと借りられる額', U.man(SIM.loanCapacity(st)), st.emergency > 0 ? 'つなぎ資金 ' + U.man(st.emergency) : null, st.emergency > 0 ? 'warn' : ''),
+        mini('🗾', '田んぼ', '所有 ' + U.ha(owned), '借地 ' + U.ha(area - owned)),
+        mini('🛍️', '直販のお客さん', U.num(st.direct.customers) + '人', h('span', null, T('ブランド力'), ' ' + U.num(st.brand))),
+        mini('🤝', T('地域の信頼'), U.num(st.trust), '高いと良い農地の話が来る'),
+        mini('🌾', T('技術力'), U.num(st.skill * 100), '100が標準'),
+        st.items.omamori + st.items.reroll > 0 ? mini('🎒', '持ち物', '🧧' + st.items.omamori + '・🎟️' + st.items.reroll, 'お守り・振り直し券') : null));
+    out.push(pair(tone(price, 'tone-blue'), tone(inner, 'tone-blue ov-mini')));
     const hs = st.history;
     if (hs.length) {
       const last = hs[hs.length - 1];
-      out.push(UI.card('昨年の結果', null, h('div', { class: 'kpis' },
-        UI.kpi('売上高', U.man(last.sales)), UI.kpi((last.corp != null ? last.corp : st.corp) ? '税引前利益＋役員報酬' : '農業所得', U.man(last.income), null, last.income < 0 ? 'bad' : ''),
-        UI.kpi('10aあたり収量', U.num(last.yieldPer10a) + 'kg', '1等比率 ' + U.pct(last.r1)),
-        UI.kpi('60kgあたり生産費', U.yen(last.costPer60), '米価 ' + U.yen(last.price))),
-        h('p', { class: 'small' }, UI.btn('昨年の決算書を見る', () => RG.screens.showLastResult(app), 'sm'))));
-    }
-    if (hs.length >= 2) {
       const labels = hs.map((x) => x.year + '年');
-      out.push(h('div', { class: 'grid2' },
-        UI.card('売上と所得の推移', null, RG.chart.line({ labels, series: [{ name: '売上高', values: hs.map((x) => x.sales) }, { name: hs.some((x) => x.corp) ? '所得（個人の年は農業所得、法人の年は税引前利益＋役員報酬）' : '農業所得', values: hs.map((x) => x.income) }] })),
-        UI.card('純資産と借入の推移', null, RG.chart.line({ labels, series: [{ name: '純資産', values: hs.map((x) => x.equity) }, { name: '借入残高', values: hs.map((x) => x.debt), cls: 'c4' }, { name: '年末の資金', values: hs.map((x) => x.cashEnd), cls: 'c3' }] }))));
+      const margin = last.price - last.costPer60;
+      out.push(tone(UI.card('これまでの成績', '昨年（' + last.year + '年目）',
+        h('div', { class: 'kpis ov-results' },
+          UI.kpi('売上高', U.man(last.sales)), UI.kpi((last.corp != null ? last.corp : st.corp) ? '税引前利益＋役員報酬' : '農業所得', U.man(last.income), null, last.income < 0 ? 'bad' : 'good'),
+          UI.kpi('10aあたり収量', U.num(last.yieldPer10a) + 'kg', '1等比率 ' + U.pct(last.r1)),
+          UI.kpi('60kgあたり生産費', U.yen(last.costPer60), '米価 ' + U.yen(last.price) + '（' + (margin >= 0 ? '1俵 ' + U.num(margin) + '円のもうけ' : '1俵 ' + U.num(-margin) + '円の赤字') + '）', margin < 0 ? 'warn' : '')),
+        h('p', { class: 'small' }, UI.btn('昨年の決算書を見る', () => RG.screens.showLastResult(app), 'sm')),
+        hs.length >= 2 ? h('details', { class: 'more' }, h('summary', null, '年ごとの推移のグラフ'),
+          h('div', { class: 'grid2' },
+            h('div', null, h('h4', null, '売上と所得'), RG.chart.line({ labels, series: [{ name: '売上高', values: hs.map((x) => x.sales) }, { name: hs.some((x) => x.corp) ? '所得（個人の年は農業所得、法人の年は税引前利益＋役員報酬）' : '農業所得', values: hs.map((x) => x.income) }] })),
+            h('div', null, h('h4', null, '純資産と借入'), RG.chart.line({ labels, series: [{ name: '純資産', values: hs.map((x) => x.equity) }, { name: '借入残高', values: hs.map((x) => x.debt), cls: 'c4' }, { name: '年末の資金', values: hs.map((x) => x.cashEnd), cls: 'c3' }] })))) : null), 'tone-blue'));
     }
-    out.push(UI.card('20年後の評価', null, h('p', { class: 'small' }, '純資産の増加・家族（経営者）の所得・', T('自己資本比率'), '・経営面積・地域の信頼・ブランド力で評価されます。資金がショートして融資枠を超えるか、3年続けて', T('債務超過'), 'になると経営終了です。')));
-    return h('div', { class: 'stack' }, out);
+
+    // ④ まわりと成長
+    out.push(sec('purple', '🏘️', 'まわりと成長'));
+    out.push(tone(RG.screens.rivalsCard(st), 'tone-purple ov-quiet'));
+    out.push(tone(RG.screens.unlocksCard(app, st), 'tone-purple ov-quiet'));
+    return h('div', { class: 'stack ov-home' }, out);
   }
 
   // 来年に向けてのアドバイス一覧。app を渡すと、該当するタブへ移るボタンを付ける
@@ -239,8 +247,7 @@
       h('div', { class: 'kpis', style: { marginTop: '10px' } },
         UI.kpi(h('span', null, '10年以内の', T('機械の寿命', '機械の買い替え')), U.man(cost10), '今の資金 ' + U.man(st.cash), cost10 > st.cash + SIM.loanCapacity(st) ? 'warn' : ''),
         op && op.age != null ? UI.kpi('経営主の年齢', op.age + '歳', D.AGING.retire + '歳で引退まで ' + Math.max(0, D.AGING.retire - op.age) + '年') : null,
-        UI.kpi(h('span', null, T('経営継承', '後継者')), sc ? sc.name + '（' + sc.age + '歳）' : st.custom && st.custom.successor === 'plan' && !st.events.seen.successor_join ? '就農予定' : 'いない', null, sc ? 'good' : ''),
-        UI.kpi('家族が働ける時間', U.num(U.sum(st.family, (f) => S.effHours(f))) + 'h', '年齢を考えた1年の合計')));
+        UI.kpi(h('span', null, T('経営継承', '後継者')), sc ? sc.name + '（' + sc.age + '歳）' : st.custom && st.custom.successor === 'plan' && !st.events.seen.successor_join ? '就農予定' : 'いない', null, sc ? 'good' : '')));
   }
 
   // ---------- 作付計画 ----------
@@ -697,7 +704,7 @@
     // 売り分けの帯（どこに何俵売るか）
     const split = [
       ['🤝', '契約', U.sum(S.contracts, (c) => c.delivered), '#5aa6e0'], ['🏪', '米屋・商店', U.sum(S.shops || [], (x) => x.sold), '#d0703a'], ['📦', '直販', S.direct.sold, '#e9a52a'], ['🏢', '農協', U.sum(S.ja, (j) => j.bales), '#58a650'],
-      ['⏳', '保管', S.stockEnd ? S.stockEnd.bales : 0, '#9b7ad0'], ['🍡', '加工', S.biz && S.biz.proc ? S.biz.proc.bales : 0, '#e57a9a'],
+      ['🍡', '加工', S.biz && S.biz.proc ? S.biz.proc.bales : 0, '#e57a9a'],
       ['🏷️', 'スポット', U.sum(S.spot, (j) => j.bales), '#a0a0a0'], ['🐄', '飼料用', S.feed.bales, '#b38b5a']].filter((x) => x[2] > 0.5);
     const tot = U.sum(split, (x) => x[2]) || 1;
     const splitCard = UI.card('🍚 お米の売り分け', '平年作の見込み・合計 ' + U.bales(tot),
@@ -705,7 +712,6 @@
       h('div', { class: 'split-legend' }, split.map((x) => h('span', null, h('i', { style: { background: x[3] } }), x[0] + ' ' + x[1] + ' ' + U.bales(x[2]) + '（' + U.pct(x[2] / tot, 0) + '）'))));
     return h('div', { class: 'stack' },
       splitCard,
-      RG.screens.storageCard(app, st, pv),
       shopsCard(app, st, pv),
       UI.card('販路ごとの見込み', '平年作・予想米価 ' + U.yen(w.forecast) + '/60kg',
         UI.table([{ label: '販路' }, { label: '数量', num: true }, { label: '売上', num: true }, { label: '1俵あたり手取り', num: true }], channel),

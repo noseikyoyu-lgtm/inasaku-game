@@ -37,7 +37,6 @@
   // ---------- 少しずつ開放される新しい要素 ----------
   // year：使えるようになる年。path：その道を選んでいれば早く使える年。「自分の経営」は最初から全部使える
   ERA.UNLOCKS = [
-    { id: 'store', year: 3, icon: '⏳', name: '米を保管して春に売る', tab: 'sales' },
     { id: 'drone', year: 4, icon: '🛸', name: '防除用ドローン', tab: 'machines', mtype: 'drone' },
     { id: 'harvest', year: 6, icon: '🌾', name: '稲刈りの作業受託', tab: 'biz' },
     { id: 'stand', year: 6, icon: '🏪', name: '農産物の直売所', tab: 'biz' },
@@ -146,9 +145,6 @@
       hint: '経営面積30ha以上か、正社員2人以上（規模拡大の道なら20ha以上）', check: (st) => area(st) >= (st.path === 'grow' ? 20 : 30) || st.staff.length >= 2,
       why: '大きな経営になり、スマート農業の実証事業に誘われた。自動操舵や水管理の機械が入れられる。' },
     // 事業・売り方
-    store: { icon: '⏳', name: '米を保管して春に売る', tab: 'sales', group: '事業と売り方',
-      hint: '米価が前の年より下がった年のあと（遅くとも4年目）', check: (st) => priceDrop(st) || st.year >= 4,
-      why: '秋の値下がりを見て、米を保管して春に売る方法を高橋さんが教えてくれた。' },
     harvest: { icon: '🌾', name: '稲刈りの作業受託', tab: 'biz', group: '事業と売り方',
       hint: '地域の信頼50以上で、コンバインを持っている（近所から稲刈りを頼まれる）', check: (st) => st.trust >= 50 && hasType(st, 'combine'),
       why: '近所の人から「うちの稲刈りもやってくれんか」と頼まれた。稲刈りの作業受託ができる。' },

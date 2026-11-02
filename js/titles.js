@@ -25,7 +25,6 @@
     { id: 'mochi', icon: '🍡', name: '餅屋さん', desc: '加工品を1年に50俵分以上売る', check: (st, res) => biz(res).proc && biz(res).proc.sold >= 50 },
     { id: 'harvest_pro', icon: '🌾', name: '地域の稲刈り屋', desc: '稲刈りの作業受託を10ha以上行う', check: (st, res) => biz(res).harvest && biz(res).harvest.area >= 10 },
     { id: 'drone_pilot', icon: '🛸', name: 'ドローン使い', desc: 'ドローン防除の請負を30ha以上行う', check: (st, res) => biz(res).drone && biz(res).drone.area >= 30 },
-    { id: 'stock_win', icon: '⏳', name: '待って勝つ', desc: '保管した米を、収穫時より5%以上高く売る', check: (st, res) => { const s = res.sales.stockSale; return !!s && s.revenue - s.fee > s.value * 1.05; } },
     { id: 'lucky', icon: '🎲', name: '幸運の持ち主', desc: '運だめしで6を3回出す', check: (st) => st.stats.sixes >= 3 },
     { id: 'omamori', icon: '🧧', name: 'お守りに救われた', desc: 'お守りで不運を防ぐ', check: (st) => st.stats.omamori >= 1 },
     { id: 'gambler', icon: '🃏', name: '勝負師', desc: 'サイコロ勝負を5回挑む', check: (st) => st.stats.gambles >= 5 },
