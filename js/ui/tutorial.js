@@ -9,7 +9,7 @@
   const byText = (sel, text) => () => Array.from(document.querySelectorAll(sel)).find((b) => b.textContent.indexOf(text) >= 0);
 
   // ---------- 説明の中身 ----------
-  // target：指す場所（セレクタか、要素を返す関数）。tab：計画画面でそのタブに切り替えてから指す
+  // target：指す場所（セレクタか、要素を返す関数）。text：文（画面の様子で変えるときは関数）。tab：計画画面でそのタブに切り替えてから指す
   TU.TOURS = {
     plan: [
       { text: 'JAで営農指導をしている高橋です。田んぼのことも、お金のことも、なんでも聞いてほしい。これから長いつきあいになるね、よろしく頼むよ。\n経営は、始める前の準備がいちばん大事。まずは1年目の計画を、一緒に順番に見ていこう。' },
@@ -25,8 +25,15 @@
     ],
     season: [
       { target: () => { const s = $('.month-strip'); return s && s.closest('.card'); }, text: 'さあ、シーズンの始まりだ。ここで、今が何月かと、その月の主な作業がわかるよ。' },
-      { target: '.month-cash', text: 'これがその月のお金の出入りと、月末の資金。\n秋まで売上は入らないから、春から夏は資金が減っていく。お金が足りなくなる月がないか、見ておこうね。' },
-      { target: byText('.btn', '月へ進む'), text: 'このボタンで1か月ずつ進む。台風や病気の知らせが来たら、そこで止まって、どう備えるかを選ぶ。\n12月まで進んだら、お待ちかねの決算だ。', last: 'わかった' },
+      // 月のできごと（作業の判断など）が先に出ている月は、お金の欄がまだないので、上の帯の「資金」を指す
+      { target: () => $('.month-cash') || $('.topbar .topstats'),
+        text: () => ($('.month-cash')
+          ? '囲んだところが、その月のお金の動き。「今月の入金」「今月の出金」と、月の終わりに手元に残る「月末の資金」だ。\n'
+          : '上の帯の「資金（' + ((RG.app && RG.app.st && RG.app.st.seasonMonth) || 1) + '月末）」が、その月の終わりに手元に残るお金。月のできごとを決めると、「◯月のできごと」の下に、その月の入金と出金も出るよ。\n')
+          + '秋まで売上は入らないから、春から夏は資金が減っていく。お金が足りなくなる月がないか、見ておこうね。' },
+      { target: byText('.btn', '月へ進む'),
+        text: () => (byText('.btn', '月へ進む')() ? 'このボタンで1か月ずつ進む。' : '今月のできごとを決めると、画面の下に「◯月へ進む」ボタンが出る。そのボタンで1か月ずつ進む。')
+          + '台風や病気の知らせが来たら、そこで止まって、どう備えるかを選ぶ。\n12月まで進んだら、お待ちかねの決算だ。', last: 'わかった' },
     ],
     crisis: [
       { target: () => { const c = $('.crisis-choices'); return c && c.closest('.card'); }, text: '来たね、「サイコロ勝負」だ。お金や人手をかけて備えれば、被害は小さくすむ。\n備えずにサイコロで勝負もできるけど、悪い目が出ると痛い。備えにもお金がかかるから、損と得を比べて決めよう。', last: 'わかった' },
@@ -144,15 +151,16 @@
     function show() {
       const s = steps[i];
       if (s.tab && app.st && app.st.phase === 'plan' && app.tab !== s.tab) { app.tab = s.tab; app.render(); }
+      const text = typeof s.text === 'function' ? s.text() : s.text;
       box.innerHTML = '';
       // 話しているあいだ口が動く（文の長さに合わせて止まる）
       const pic = RG.portrait.svg('takahashi', 58, { label: '高橋さん', talk: true });
       const face = h('div', { class: 'tut-face' }, pic);
       clearTimeout(TU.talkTimer);
-      TU.talkTimer = setTimeout(() => pic.classList.remove('talking'), Math.min(4500, 900 + s.text.length * 28));
+      TU.talkTimer = setTimeout(() => pic.classList.remove('talking'), Math.min(4500, 900 + text.length * 28));
       box.appendChild(h('div', { class: 'tut-head' }, face, h('div', null, h('b', null, '高橋さん'), h('div', { class: 'tut-role' }, 'JA営農指導員')),
         h('span', { class: 'tut-count' }, (i + 1) + ' / ' + steps.length)));
-      box.appendChild(h('div', { class: 'tut-text' }, s.text.split('\n').map((t) => h('p', null, t))));
+      box.appendChild(h('div', { class: 'tut-text' }, text.split('\n').map((t) => h('p', null, t))));
       const isLast = i === steps.length - 1;
       box.appendChild(h('div', { class: 'tut-actions' },
         h('button', { type: 'button', class: 'tut-skip', onclick: close }, isLast ? '' : '説明を閉じる'),

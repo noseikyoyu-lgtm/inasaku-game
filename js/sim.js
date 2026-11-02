@@ -175,11 +175,19 @@
 
   // 出荷契約金（前渡金）の単価：その年の予想米価の約半分（1,000円単位）
   SIM.advanceUnit = (st) => U.clamp(Math.round((st.world.forecast * D.SALES.advanceRate) / 1000) * 1000, D.SALES.advanceMin, D.SALES.advanceMax);
-  // 農協への出荷見込み（平年単収で計算。契約栽培と直販に回す分を除く）
+  // 農協への出荷見込み（平年単収で計算。契約栽培・直販・加工・米屋や商店に回す分を除く）
+  const unitBales = (u) => (D.CROPS[u.crop].by * u.yieldMult * D.CULTS[u.cult].yield * D.SOWS[u.sow].yield * u.area * 10) / 60;
   SIM.expectedJA = function (st) {
-    const units = SIM.planUnits(st).filter((u) => D.CROPS[u.crop].market);
-    const bales = U.sum(units, (u) => (D.CROPS[u.crop].by * u.yieldMult * D.CULTS[u.cult].yield * D.SOWS[u.sow].yield * u.area * 10) / 60);
-    return Math.max(0, bales - U.sum(st.contracts, (c) => c.volume) - SIM.directPlanned(st) - (RG.biz ? RG.biz.procPlanned(st) : 0));
+    const bales = U.sum(SIM.planUnits(st).filter((u) => D.CROPS[u.crop].market), unitBales);
+    return Math.max(0, bales - U.sum(st.contracts, (c) => c.volume) - SIM.directPlanned(st) - (RG.biz ? RG.biz.procPlanned(st) : 0) - SIM.shopsPlanned(st));
+  };
+  // 米屋・商店に出す予定の量（各店の上限まで。酒米・もち米・飼料用米は出せない）
+  SIM.shopsPlanned = function (st) {
+    const planned = U.sum(D.SHOPS, (sh) => Math.min(sh.max, Math.max(0, Math.round((st.shops || {})[sh.id] || 0))));
+    if (planned <= 0) return 0;
+    const ok = (c) => c.market && !c.sake && c.group !== 'mochi';
+    const eligible = U.sum(SIM.planUnits(st).filter((u) => u.crop !== 'feed' && ok(D.CROPS[u.crop])), unitBales);
+    return Math.min(planned, eligible);
   };
   // 直販に回す見込み量：入力値を、その商品の平年作での量で頭打ちにする（作付していなければ0）
   SIM.directPlanned = function (st) {
@@ -211,6 +219,8 @@
   // 田植機・コンバインは、大きな機械ほど平坦・大区画の田（条件良）で能力が上がり、中山間・小区画の田（条件不利）で落ちる。小さな機械はあまり変わらない
   const SIZE_FIELD = { good: [0, 0.05, 0.1, 0.2], poor: [0, -0.1, -0.2, -0.35] };
   SIM.FIELD_TYPES = ['planter', 'combine'];
+  // 人が乗って動かす機械：乗れる人（自分・正社員・常雇用パート）の数までしか同時に動かせない
+  SIM.DRIVEN_TYPES = ['tractor', 'planter', 'combine'];
   SIM.sizeTier = (md) => (md.eff >= 1 ? 0 : md.eff >= 0.85 ? 1 : md.eff >= 0.72 ? 2 : 3);
   SIM.soilShare = function (st) {
     const total = U.sum(st.fields, (f) => f.area);
@@ -232,9 +242,9 @@
       const md = D.MODELS[m.model];
       return { id: m.id, eff: md.eff, cap: SIM.fieldCap(st, m.model, share) * (broken[m.id] ? 0.6 : 1) * (capMult || 1) };
     });
-    // 田植機・コンバインは、乗れる人の数までしか同時に動かせない（能力の大きい順）
+    // トラクター・田植機・コンバインは、乗れる人の数までしか同時に動かせない（能力の大きい順）
     let idle = 0;
-    if (type === 'planter' || type === 'combine') {
+    if (SIM.DRIVEN_TYPES.indexOf(type) >= 0) {
       const ops = RG.state.operators(st);
       if (list.length > ops) { list.sort((a, b) => b.cap - a.cap); idle = list.length - ops; list = list.slice(0, ops); }
     }

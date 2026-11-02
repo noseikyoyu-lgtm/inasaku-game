@@ -227,10 +227,10 @@
     return { name: P.names[Math.floor(r.next() * P.names.length)] + 'さん', age: 20 + Math.floor(r.next() * 50), note: note[0], skill, wage };
   };
   S.seasonParts = (st, n) => Array.from({ length: Math.max(0, n) }, (_, i) => S.personOf(st, 'spart', i));
-  // 常雇用パートの応募者（毎年3人）。1年を通して働き、田植機やコンバインにも乗れる
+  // 常雇用パートの応募者（毎年3人）。1年を通して働き、トラクター・田植機・コンバインにも乗れる
   S.regularCandidates = (st) => [0, 1, 2].map((i) => Object.assign({ id: 'rc' + st.year + '_' + i }, S.personOf(st, 'rpart', i)))
     .filter((c) => !(st.regulars || []).some((x) => x.from === c.id));
-  // 機械（田植機・コンバイン）に乗れる人：自分（経営主）・正社員・常雇用パート
+  // 機械（トラクター・田植機・コンバイン）に乗れる人：自分（経営主）・正社員・常雇用パート
   S.operators = (st) => (S.operator(st) ? 1 : 0) + st.staff.length + (st.regulars || []).length;
 
   // パートを増やす（できごとなど）。季節ごとに決めているときは、どの季節も増やす

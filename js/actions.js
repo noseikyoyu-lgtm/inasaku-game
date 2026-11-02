@@ -75,10 +75,10 @@
   // ストーリーでまだ使えない買い方・機種
   const locked = (st, id) => (RG.era && RG.era.featLocked(st, id) ? '🔒 まだ使えません（きっかけ：' + RG.era.FEATURES[id].hint + '）' : null);
   A.largeModel = (modelId) => /_l$/.test(modelId);
-  // 田植機・コンバインは、乗れる人（自分・正社員・常雇用パート）の数までしか持てない
+  // トラクター・田植機・コンバインは、乗れる人（自分・正社員・常雇用パート）の数までしか持てない
   A.operatorLock = function (st, modelId) {
     const md = D.MODELS[modelId];
-    if (!md || (md.type !== 'planter' && md.type !== 'combine')) return null;
+    if (!md || SIM.DRIVEN_TYPES.indexOf(md.type) < 0) return null;
     const t = md.type;
     const n = SIM.machinesOf(st, t).length;
     return n >= S.operators(st) ? '🚜 乗れる人が足りません（' + D.MACHINE_TYPES[t].name + ' ' + n + '台・乗れる人 ' + S.operators(st) + '人）。正社員か常雇用パートを雇うと増やせます' : null;
