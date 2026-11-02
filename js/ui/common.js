@@ -91,14 +91,41 @@
       'aria-label': o.label || '', onchange: (e) => o.onChange(clamp(parseFloat(e.target.value))) });
     const minus = h('button', { type: 'button', class: 'step-btn', 'aria-label': (o.label || '') + 'を減らす', disabled: o.min !== undefined && o.value <= o.min }, '−');
     const plus = h('button', { type: 'button', class: 'step-btn', 'aria-label': (o.label || '') + 'を増やす', disabled: o.max !== undefined && o.value >= o.max }, '＋');
-    const bump = (d) => () => {
-      const cur = parseFloat(inp.value) || 0, v = clamp(cur + d * step);
-      if (v === cur) return;
+    // 表示だけ変える（押しっぱなしの間は、画面を描き直さない）
+    const show = (d, mult) => {
+      const cur = parseFloat(inp.value) || 0, v = clamp(Math.round((cur + d * step * mult) / step) * step);
+      if (v === cur) return false;
       inp.value = v; // 描き直さない入力欄でも、表示を新しい値にする
       minus.disabled = o.min !== undefined && v <= o.min; plus.disabled = o.max !== undefined && v >= o.max;
-      o.onChange(v);
+      return true;
     };
-    minus.addEventListener('click', bump(-1)); plus.addEventListener('click', bump(1));
+    // 1回押すと1目盛り。押しっぱなしにすると続けて動き、だんだん速く・大きく動く。指を離したときに決める
+    const hold = (btn, d) => {
+      let timer = 0, held = false, done = false, n = 0;
+      const stop = () => {
+        clearTimeout(timer); timer = 0;
+        if (held && !done) { done = true; o.onChange(parseFloat(inp.value)); }
+      };
+      const tick = () => {
+        held = true; n++;
+        if (!show(d, n > 25 ? 10 : n > 10 ? 5 : 1)) return;
+        timer = setTimeout(tick, n > 5 ? 70 : 140);
+      };
+      btn.addEventListener('pointerdown', (e) => {
+        if (e.button > 0 || btn.disabled) return;
+        held = false; done = false; n = 0;
+        timer = setTimeout(tick, 420);
+      });
+      btn.addEventListener('pointerup', stop);
+      btn.addEventListener('pointerleave', stop);
+      btn.addEventListener('pointercancel', stop);
+      btn.addEventListener('contextmenu', (e) => e.preventDefault());
+      btn.addEventListener('click', () => {
+        if (held) { held = false; return; } // 押しっぱなしで動かしたあとの click は数えない
+        if (show(d, 1)) o.onChange(parseFloat(inp.value));
+      });
+    };
+    hold(minus, -1); hold(plus, 1);
     return h('span', { class: 'inline-input stepper' }, minus, inp, plus,
       o.suffix ? h('span', { class: 'muted small' }, o.suffix) : null);
   };

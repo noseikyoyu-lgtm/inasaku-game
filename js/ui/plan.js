@@ -269,14 +269,14 @@
       const shifts = D.PLANT_SHIFTS.map((x) => ({ value: String(x.v), label: x.label + '（' + AG.fmt(AG.plantMid(v, x.v)) + '）' }));
       return [
         UI.select(crops, r.crop, set('crop'), { 'aria-label': '品種', class: 'sel-crop' }),
+        { v: h('span', { class: 'row', style: { flexWrap: 'nowrap', justifyContent: 'flex-start' } },
+          UI.numInput({ value: r.area, min: 0, max: maxArea, step: 0.1, width: 64, suffix: 'ha', label: v.name + 'の面積',
+            onChange: (x) => app.update((s) => A.setRowArea(s, r.id, x)) }),
+          fallow > 0.05 ? UI.btn('＋残り', () => app.update((s) => A.setRowArea(s, r.id, maxArea)), 'sm', { title: '休耕の ' + U.ha(fallow) + ' をこの作付に回す' }) : null), cls: 'area-cell' },
         h('div', { class: 'sel-stack' }, UI.select(cults, r.cult, set('cult'), { 'aria-label': v.name + 'の栽培方法' }),
           UI.select(sows, r.sow, set('sow'), { 'aria-label': v.name + 'の植え方' })),
         h('span', null, UI.select(shifts, String(r.plant || 0), (x) => app.update((s) => { s.plan.find((y) => y.id === r.id).plant = +x; }), { 'aria-label': v.name + 'の田植え時期' }),
           p && p.timingCls !== 'good' ? h('div', { class: 'small ' + (p.timingCls === 'bad' ? 'neg' : 'muted') }, p.timing) : null),
-        { v: h('span', { class: 'row', style: { flexWrap: 'nowrap', justifyContent: 'flex-end' } },
-          UI.numInput({ value: r.area, min: 0, max: maxArea, step: 0.1, width: 64, suffix: 'ha', label: v.name + 'の面積',
-            onChange: (x) => app.update((s) => A.setRowArea(s, r.id, x)) }),
-          fallow > 0.05 ? UI.btn('＋残り', () => app.update((s) => A.setRowArea(s, r.id, maxArea)), 'sm', { title: '休耕の ' + U.ha(fallow) + ' をこの作付に回す' }) : null), cls: 'num' },
         { v: p && p.area > 0 ? h('span', null, U.bales(p.bales), h('div', { class: 'small muted' }, '10a ' + U.num((p.bales * 60) / (p.area * 10)) + 'kg' + (v.market ? '・1等 ' + U.pct(p.r1w / Math.max(1e-9, p.bales)) : ''))) : '—', cls: 'num' },
         UI.btn('×', () => app.update((s) => A.removeRow(s, r.id)), 'sm danger', { 'aria-label': v.name + 'の作付を削除', title: '削除' }),
       ];
@@ -306,7 +306,8 @@
       emptyNote,
       UI.card('品種ごとの作付', '経営面積 ' + U.ha(total) + '（作付 ' + U.ha(total - fallow) + '・休耕 ' + U.ha(fallow) + '）',
         bar,
-        UI.table([{ label: '品種［早晩性］' }, { label: '栽培・植え方' }, { label: '田植え時期' }, { label: '面積', num: true }, { label: '見込み（平年作）', num: true }, { label: '' }], rows),
+        UI.table([{ label: '品種［早晩性］' }, { label: '面積' }, { label: '栽培・植え方' }, { label: '田植え時期' }, { label: '見込み（平年作）', num: true }, { label: '' }], rows, { cls: 'crop-tbl' }),
+        h('p', { class: 'small muted keep', style: { margin: '6px 0 0' } }, '面積の －＋ は、押しっぱなしにすると続けて動きます（だんだん速くなります）。'),
         h('div', { class: 'row', style: { marginTop: '10px' } },
           UI.btn('＋ 品種を追加', () => app.update((s) => A.addRow(s)), 'sm primary'),
           h('span', { class: 'small muted' }, '同じ品種でも、栽培方法・植え方・田植え時期を変えて別の行にできます。')),

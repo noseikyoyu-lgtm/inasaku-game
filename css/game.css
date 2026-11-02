@@ -191,6 +191,7 @@ h2, h3 { font-weight: 900; letter-spacing: .04em; }
   background: linear-gradient(180deg, #fff, #f1e6cf); color: var(--accent); box-shadow: 0 2px 0 var(--line), inset 0 0 0 1px var(--line); padding: 0; }
 .step-btn:active { transform: translateY(1px); box-shadow: 0 1px 0 var(--line), inset 0 0 0 1px var(--line); }
 .step-btn:disabled { opacity: .35; cursor: default; }
+.step-btn { touch-action: manipulation; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; } /* 押しっぱなしで文字選択やメニューが出ないように */
 
 /* タブの見出し */
 .tab-banner { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; align-items: center; padding: 14px 18px; border-radius: 22px; color: #fff;
@@ -478,3 +479,10 @@ h2, h3 { font-weight: 900; letter-spacing: .04em; }
 .cl-new { font-size: 11px; font-weight: 700; color: #2a1b08; background: var(--gold, #e0b44a); border-radius: 999px; padding: 1px 8px; }
 .cl-ver ul { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 3px; font-size: 14px; line-height: 1.6; }
 .title-screen .changelog { max-height: 55vh; }
+
+/* 作付の表：スマホでは品種の欄を細くして、面積の －＋ が画面に収まるように */
+@media (max-width: 640px) {
+  .crop-tbl .sel-crop { max-width: 8.5em; }
+  .crop-tbl td:first-child, .crop-tbl th:first-child { min-width: 0; }
+  .crop-tbl .area-cell .step-btn { width: 34px; height: 34px; }
+}

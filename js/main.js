@@ -22,9 +22,14 @@
       node = h('div', { class: 'title-wrap' }, UI.card('エラーが発生しました', null, h('p', null, String(e && e.message)),
         UI.btn('タイトルへ戻る', () => { app.st = null; app.render(); }, 'primary')));
     }
+    // 横にスクロールする表やタブの位置も覚えておく（スマホで＋－を押すたびに左端へ戻らないように）
+    const view = scr + '/' + (scr === 'plan' ? app.tab : '');
+    const sideKeys = app.keepScroll && app.lastView === view ? Array.from(root.querySelectorAll('.tbl-wrap, .nav')).map((e) => e.scrollLeft) : null;
     root.innerHTML = '';
     root.appendChild(node);
     window.scrollTo(0, app.keepScroll ? y : 0);
+    if (sideKeys) root.querySelectorAll('.tbl-wrap, .nav').forEach((e, i) => { if (sideKeys[i]) e.scrollLeft = sideKeys[i]; });
+    app.lastView = view;
     app.keepScroll = false;
     collapseLongNotes(root);
     if (RG.sound) RG.sound.sync(app); // 場面に合わせてBGMを切り替える
