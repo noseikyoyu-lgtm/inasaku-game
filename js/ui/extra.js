@@ -37,6 +37,13 @@
     const ERA = RG.era;
     const locked = (id, def) => UI.card(def.icon + ' ' + def.name, null, h('div', { class: 'locked-card' }, h('span', { class: 'lock-ic', 'aria-hidden': 'true' }, '🔒'),
       h('div', null, h('b', null, ERA.lockText(st, id).replace('🔒 ', '')), h('p', { class: 'small muted keep' }, def.desc))));
+    // 作業受託のリスクの見込みと、賠償保険
+    const riskNote = (kind, area, lines) => (area > 0 ? UI.note('warn', 'よその田で作業するリスク（1年に事故が起きる見込み 約' + U.pct(BZ.riskOdds(st, kind, area)) + '）', lines) : null);
+    const insRow = () => (BZ.planned(st) > 0 ? h('label', { class: 'row', style: { gap: '6px', marginTop: '6px' } },
+      h('input', { type: 'checkbox', checked: BZ.insured(st), onchange: (e) => app.update((s) => BZ.setInsured(s, e.target.checked)) }),
+      h('span', null, '🛡️ 作業の賠償保険に入る（年' + U.man(BZ.INSURANCE.premium * st.market.matInfl) + '）'),
+      h('span', { class: 'small muted' }, '相手の田や畑への補償を保険で払う。自分の機械の修理は自分持ち')) : null);
+
     // 稲刈りの作業受託
     const D1 = BZ.DEFS.harvest, spC = BZ.spare(M.combine);
     if (ERA && !ERA.isOpen(st, 'harvest')) out.push(locked('harvest', D1));
@@ -45,7 +52,9 @@
         ? [h('div', { class: 'row' }, '引き受ける面積', UI.numInput({ value: b.harvest, min: 0, max: 200, step: 0.5, suffix: 'ha', label: '作業受託の面積',
             onChange: (v) => app.update((s) => BZ.setArea(s, 'harvest', v)) }),
             h('span', { class: 'muted small' }, 'コンバインの空き能力 ' + U.ha(spC) + (b.harvest > spC ? '（空き能力を超えた分は引き受けられません）' : ''))),
-          money(sb.harvest)]
+          money(sb.harvest),
+          riskNote('harvest', b.harvest, '受託先の田で石や倒れた稲を巻き込むと、コンバインが壊れて修理費がかかります（条件の悪い田が多いほど起きやすい）。自分の稲刈りで手いっぱいになったり秋雨が続いたりすると、受託先の田が刈り遅れて補償が要ります。コンバインが故障して刈りきれないと、ほかの業者に頼む差額も負担します。引き受けた面積のぶん、自分のコンバインも故障しやすくなります。'),
+          insRow()]
         : UI.note('info', null, '自分のコンバインがあると始められます（「機械・設備」タブ）。')));
 
     // ドローン防除の請負
@@ -56,7 +65,9 @@
         ? (b.droneLicense
           ? [h('div', { class: 'row' }, '請け負う面積', UI.numInput({ value: b.drone, min: 0, max: 200, step: 1, suffix: 'ha', label: 'ドローン防除の面積',
               onChange: (v) => app.update((s) => BZ.setArea(s, 'drone', v)) }),
-              h('span', { class: 'muted small' }, 'ドローンの空き能力 ' + U.ha(spD))), money(sb.drone)]
+              h('span', { class: 'muted small' }, 'ドローンの空き能力 ' + U.ha(spD))), money(sb.drone),
+              riskNote('drone', b.drone, '風で農薬が隣の畑に飛ぶと、補償が要ります。ドローンが電線に触れて墜落すると、修理費がかかります。'),
+              b.harvest > 0 ? null : insRow()]
           : UI.btn('操縦の研修を受ける（' + U.man(D2.license) + '）', () => app.update((s) => BZ.takeLicense(s), { msg: '研修を受けた' }), 'primary'))
         : UI.note('info', null, '防除用ドローンがあると始められます（「機械・設備」タブ）。')));
 

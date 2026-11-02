@@ -35,6 +35,8 @@
     if (view === 'new') body = newGameWindow(app, go);
     else if (view === 'story') body = storyWindow(app, go);
     else if (view === 'howto') body = howtoWindow(go);
+    else if (view === 'changelog') body = h('div', { class: 'px-window' }, h('h2', null, '📰 更新履歴'), UI.changelogList(),
+      h('div', { class: 'px-actions' }, h('button', { class: 'px-btn plain', type: 'button', onclick: () => go('menu') }, 'もどる')));
     else if (view === 'load') body = loadWindow(app, go);
     else body = menuWindow(app, go);
 
@@ -61,7 +63,8 @@
         item('📖 ストーリーモード', '3つの物語から選ぶ（じいちゃんの田んぼ・棚田・法人の立て直し）', () => go('story')),
         item('🏡 自分の経営モード', '自分の経営を入れて、区切りなく続ける', () => go('new')),
         item('データをよみこむ', 'セーブスロット・ファイル', () => go('load')),
-        item('あそびかた', 'JAの営農指導員・高橋さんが説明します', () => go('howto'))));
+        item('あそびかた', 'JAの営農指導員・高橋さんが説明します', () => go('howto')),
+        item((RG.changelogUnseen() ? '🆕 ' : '') + '更新履歴', '最新：版 ' + RG.CHANGELOG[0].ver + '（' + RG.CHANGELOG[0].date + '）', () => { RG.changelogSeen(); go('changelog'); })));
   }
 
   // ---------- ストーリーモード：3つの物語から選ぶ ----------

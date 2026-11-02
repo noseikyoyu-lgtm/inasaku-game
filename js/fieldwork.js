@@ -21,7 +21,27 @@
   };
 
   // eff(st, w)：{ y：収量の倍率, q：品質の増減（点）, h：作業時間（10aあたり、季節ごと）, c：費用（10aあたり、円）, note：結果の文 }
+  const a10 = (st) => Math.max(0.1, planted(st) * 10);
+  const nMach = (st) => st.machines.filter((m) => !m.lease && D.MODELS[m.model].cap > 0).length;
   FW.WORKS = [
+    // ---- 冬の作業 ----
+    { id: 'winter_maint', month: 1, icon: '❄️', title: '機械の冬の整備', season: 'winter',
+      text: '雪に閉ざされた冬。春に向けて、機械の手入れをしておく時期だ。',
+      options: [
+        { key: 'std', label: '自分でひととおり（標準）', desc: 'いつもどおり', eff: () => ({}) },
+        { key: 'careful', label: '念入りに自分で整備する', desc: '冬の作業 10aあたり +0.4時間・今年の機械の故障 −20%', eff: () => ({ h: { winter: 0.4 }, bd: 0.8, note: '冬のあいだに、機械を念入りに手入れした。' }) },
+        { key: 'shop', label: '農機具屋に点検に出す', desc: '機械1台あたり2万5千円・今年の機械の故障 −40%', eff: (st) => ({ c: 25000 * nMach(st) / a10(st), bd: 0.6, note: '農機具屋で、すり減った部品を交換してもらった。' }) },
+        { key: 'skip', label: '何もしない', desc: '今年の機械の故障 +20%', eff: () => ({ bd: 1.2, note: '手入れをしないまま春を迎えた。' }) },
+      ] },
+    { id: 'winter_job', month: 2, icon: '⛄', title: '冬の仕事', season: 'winter',
+      text: '田んぼの仕事が少ない冬。休むのも大事だが、冬にしかできない稼ぎ方や仕込みもある。',
+      options: [
+        { key: 'std', label: '冬は休む（標準）', desc: 'いつもどおり', eff: () => ({}) },
+        { key: 'snow', label: 'トラクタで除雪を請け負う', desc: '冬の作業 +80時間・収入 約25万円・トラクタが少し傷む', need: (st) => st.machines.some((m) => D.MODELS[m.model].type === 'tractor'),
+          eff: (st) => ({ h: { winter: 80 / a10(st) }, inc: 250000, bd: 1.05, note: '町から頼まれ、トラクタで道の除雪をした。' }) },
+        { key: 'arbeit', label: '町でアルバイトをする', desc: '冬の作業 +150時間・収入 約30万円', eff: (st) => ({ h: { winter: 150 / a10(st) }, inc: 300000, note: '冬のあいだ、町の工場でアルバイトをした。' }) },
+        { key: 'sales', label: '直販のお客さんへ営業に回る', desc: '冬の作業 +40時間・2万円・直販のお客さん +10人', eff: (st) => ({ h: { winter: 40 / a10(st) }, c: 20000 / a10(st), cust: 10, note: 'お客さんの家や店を回って、新米の予約を取った。' }) },
+      ] },
     { id: 'weed', month: 6, icon: '🌿', title: '雑草（ヒエ）対策', season: 'summer',
       text: '田植えから1か月。田んぼのところどころにヒエが伸びてきた。放っておくと稲の養分を取られる。',
       options: [
@@ -74,6 +94,13 @@
         { key: 'std', label: '穂が出て30日後（標準）', desc: 'いつもどおり', eff: () => ({}) },
         { key: 'early', label: '早めに抜く', desc: '秋の作業 10aあたり −0.4時間（田が乾いて刈りやすい）・品質 −5・収量 −1%', eff: () => ({ q: -5, y: 0.99, h: { autumn: -0.4 }, note: '早めに水を抜いた。稲刈りは楽だったが、実の入りが悪い米が出た。' }) },
         { key: 'late', label: '遅めに抜く', desc: '秋の作業 10aあたり +0.3時間（ぬかるむ）・品質 +2（胴割れが減る）', eff: () => ({ q: 2, h: { autumn: 0.3 }, note: '遅めに水を抜き、実がしっかり入った。' }) },
+      ] },
+    { id: 'soil', month: 12, icon: '🍂', title: '秋起こし・土づくり', season: 'winter',
+      text: '稲刈りが終わった田んぼ。冬のうちに土を起こしたり堆肥を入れたりしておくと、来年の稲がよく育つ。',
+      options: [
+        { key: 'std', label: 'しない（標準）', desc: 'いつもどおり', eff: () => ({}) },
+        { key: 'plow', label: '秋起こし（田を耕しておく）', desc: '冬の作業 10aあたり +0.5時間・燃料300円・来年の収量 +1%', eff: () => ({ h: { winter: 0.5 }, c: 300, ny: 1.01, note: '稲わらをすき込んで、田を耕しておいた。' }) },
+        { key: 'compost', label: '堆肥を入れて秋起こし', desc: '10aあたり2,000円・冬の作業 +0.8時間・来年の収量 +2%・品質 +1', eff: () => ({ h: { winter: 0.8 }, c: 2000, ny: 1.02, nq: 1, note: '堆肥を入れて、来年に向けて土をつくった。' }) },
       ] },
   ];
   // ---------- 使う肥料・農薬 ----------
@@ -128,6 +155,9 @@
       if (!preview) dfx.logs.push({ month: kind === 'fert' ? 4 : 6, text: FW.INPUTS[kind].icon + ' ' + FW.INPUTS[kind].name + '：「' + o.label + '」を使った。', kind: '' });
     });
     const w = FW.weather(st, preview, yearType, events);
+    // 前の年の12月に土づくりをしていれば、今年の収量と品質が上がる
+    const sp = st.flags && st.flags.soilPrev;
+    if (sp) { dfx.y *= sp.y; dfx.q += sp.q; if (!preview) dfx.logs.push({ month: 5, text: '🍂 去年の秋の土づくりのおかげで、田んぼの土がふかふかだ。', kind: 'good' }); }
     FW.WORKS.forEach((wk) => {
       const o = FW.option(st, wk.id, preview);
       if (o.key === 'std') return;
@@ -136,6 +166,8 @@
       if (e.q) dfx.q += e.q;
       if (e.h) for (const s in e.h) dfx.labor[s] = (dfx.labor[s] || 0) + e.h[s] * a10;
       if (e.c) dfx.costs.push({ month: wk.month, amount: Math.round(e.c * a10), label: wk.title + '（' + o.label + '）' });
+      if (e.bd) dfx.bd = (dfx.bd || 1) * e.bd;
+      if (e.inc) { dfx.incomes = dfx.incomes || []; dfx.incomes.push({ month: wk.month, amount: e.inc, label: wk.title + '（' + o.label + '）' }); }
       if (!preview && e.note) dfx.logs.push({ month: wk.month, text: wk.icon + ' ' + wk.title + '：' + e.note, kind: (e.q || 0) < 0 || (e.y || 1) < 1 ? 'bad' : 'good' });
     });
     return dfx;
@@ -163,6 +195,15 @@
   FW.setAllAuto = function (st, on) { FW.WORKS.forEach((w) => { FW.state(st).auto[w.id] = !!on; }); return null; };
   // 自動で進めるとき（試算・検証）：まだ決めていない作業は、計画で決めたやり方にする
   FW.autoAll = function (st) { FW.WORKS.forEach((w) => { const yf = st.yearFlags || (st.yearFlags = {}); yf.work = yf.work || {}; if (!yf.work[w.id]) yf.work[w.id] = FW.keyOf(st, w.id, true); }); };
+  // 年をまたぐ効果：12月の土づくりは翌年の収量と品質、冬の営業はお客さん（決算のときに SIM.apply から呼ぶ）
+  FW.applyEnd = function (st) {
+    const w = FW.weather(st, false, st.world ? st.world.yearType : 'normal', st.world ? st.world.events : []);
+    const soil = FW.option(st, 'soil', false).eff(st, w) || {};
+    st.flags.soilNext = soil.ny && planted(st) > 0 ? { y: soil.ny, q: soil.nq || 0 } : null; // 作付がない年は、土づくりもしていない
+    const job = FW.option(st, 'winter_job', false).eff(st, w) || {};
+    if (job.cust && planted(st) > 0) st.direct.customers += job.cust;
+  };
+
   // 計画画面の見通し：やり方ごとの手間と費用（今の作付面積で）
   FW.cost = function (st, id, key) {
     const o = FW.def(id).options.find((x) => x.key === key);

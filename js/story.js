@@ -58,8 +58,9 @@
         ? '退院した佐藤さんが訪ねてきた。「わしももう歳だ。あんたになら、田んぼを安く譲りたい」'
         : '佐藤さんは、田んぼの今後を大山さんに相談することにしたそうだ。',
       choices: [
-        { label: '話を聞く', desc: '（縁が深ければ）条件の良い田を安く買える話が「農地」タブに出る', apply: (st) => {
+        { label: '話を聞く', desc: '（縁が深ければ）条件の良い田を安く買える話が「農地」タブに出る。境界の立ち会いや書類づくりで冬の作業 +8時間', apply: (st) => {
           const L = SY.state(st).landlord; L.stage = 3; L.at = st.year;
+          addLabor(st, 'winter', 8);
           if (L.bond < 2) return '佐藤さんの田は大山さんが引き受けることになった。日ごろの付き合いが大切だ。';
           const r = RG.rng.make(st.seed, st.year, 'sato');
           const a = U.round(2 + r.next(), 1), p10 = Math.round(D.LAND_PRICE.good[0] * 0.55) * 10000;
@@ -95,10 +96,9 @@
       title: '「農業を学ばせてください」',
       text: () => '会社を辞めて農業を始めたいという若者、健太さん（24歳）が訪ねてきた。「ここで研修させてもらえませんか」',
       choices: [
-        { label: '研修生として受け入れる', desc: '毎年 研修手当 30万円。年1,200時間ほど働いてくれる', apply: (st) => {
+        { label: '研修生として受け入れる', desc: '年1,200時間ほど働いてくれるが、賃金が毎年 約120万円かかる', apply: (st) => {
           const T = SY.state(st).trainee; T.stage = 1; T.at = st.year;
           st.family.push({ id: U.uid(st, 'p'), name: '研修生の健太さん', role: '研修生', hours: 1200, age: 24, tag: 'trainee' });
-          addCost(st, 300000, '研修生の手当', 'recruit');
           return '健太さんを研修生として受け入れた。'; } },
         { label: '今は余裕がない', desc: '', apply: (st) => { SY.state(st).trainee.stage = 9; return '今回は断った。健太さんは別の農家で研修することになった。'; } }] },
     { id: 'kenta_2', who: 'kenta', cond: (st) => { const T = SY.state(st).trainee; return T.stage === 1 && st.year >= T.at + 2 && !!trainee(st); }, weight: () => 100,
@@ -118,8 +118,9 @@
       title: '「この農場を継ぎたい」',
       text: () => '健太さんから真剣な顔で相談された。「いつか、この農場を継がせてもらえませんか」',
       choices: [
-        { label: '後継者として迎える', desc: '社員から後継者に。経営主が引退するとき、経営を引き継げる', apply: (st) => {
+        { label: '後継者として迎える', desc: '社員から後継者に。経営主が引退するとき、経営を引き継げる。家族として暮らしを支えるぶん、家計費（役員報酬） +60万円/年', apply: (st) => {
           const T = SY.state(st).trainee; T.stage = 3;
+          if (st.corp) st.execPay += 600000; else st.living += 600000;
           const s = kentaStaff(st); st.staff = st.staff.filter((x) => x !== s);
           st.family.push({ id: U.uid(st, 'p'), name: '健太さん', role: '後継者', hours: 1800, age: (s.age || 26) + (st.year - T.at), tag: 'successor' });
           return '健太さんを後継者として迎えた。家族以外への「第三者継承」の始まりだ。'; } },
@@ -130,7 +131,7 @@
 
   // 年の始まり：研修生の手当
   SY.beginYear = function (st) {
-    if (trainee(st) && SY.state(st).trainee.at < st.year) RG.state.addLedger(st, { amount: -300000, cat: 'recruit', label: '研修生の手当' });
+    // 研修生の賃金は、働いた時間に応じてシミュレーションで払う（js/sim.js）
   };
   // 決算のあと：契約を約束どおり届けた年が続いているか
   SY.afterYear = function (st, res) {

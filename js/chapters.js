@@ -33,7 +33,7 @@
       ending: '集落の田んぼの多くを預かる、地域いちばんの大規模経営になった。あなたの機械の音が、この土地の春と秋の合図だ。' },
     brand: { icon: '💎', name: 'ブランドの道', desc: '品質と売り方にこだわり、名前で選ばれる米を作る。', bonus: 'ブランド力が1.5倍の速さで育つ', goal: 'ブランド力 70 以上', check: (st) => st.brand >= 70,
       ending: 'あなたの米は、名前で指名して買われるようになった。袋に書かれた農場の名前が、そのまま信用の印だ。' },
-    local: { icon: '🤝', name: '地域の要の道', desc: '作業受託や共同作業で、地域の田んぼと人を支える。', bonus: '地域の信頼が毎年さらに +2 育ち、契約の受け皿も広がる', goal: '地域の信頼 90 以上', check: (st) => st.trust >= 90,
+    local: { icon: '🤝', name: '地域の要の道', desc: '作業受託や共同作業で、地域の田んぼと人を支える。', bonus: '地域の信頼が毎年さらに +1 育ち、契約の受け皿も広がる', goal: '地域の信頼 90 以上', check: (st) => st.trust >= 90,
       ending: '困ったときは、まずあなたに相談が来る。集落の田んぼを守る、なくてはならない存在になった。' },
     sixth: { icon: '🍡', name: '6次産業化の道', desc: '加工や直売所で、米の価値を自分の手で高めて売る。', bonus: '加工場と直売所を3割引きで建てられる', goal: '加工品と直売所の売上 年500万円以上', check: (st) => { const r = st.lastResult; return !!r && r.pl && (r.pl.get('procSales') + r.pl.get('standSales')) >= 5000000; },
       ending: '田んぼから食卓まで、あなたの手で届けている。米の値段に振り回されない、自分の商いができた。' },
@@ -144,12 +144,12 @@
   CH.MISSIONS.forEach((m) => {
     E.POOL.push({
       id: 'mission_' + m.id, who: m.who, once: true, sq: 1, mission: true,
-      cond: (st) => CH.on(st) && st.year >= m.from && st.year <= m.until && (!m.path || st.path === m.path) && (!m.cond || m.cond(st)) && !CH.state(st).missions.some((x) => x.id === m.id),
+      cond: (st) => CH.on(st) && st.year + m.years - 1 <= st.maxYear && st.year >= m.from && st.year <= m.until && (!m.path || st.path === m.path) && (!m.cond || m.cond(st)) && !CH.state(st).missions.some((x) => x.id === m.id),
       weight: () => 0, // 年初のできごとの抽選には入れず、CH.queueOffers で必ず届ける
       title: '依頼：' + m.title,
       text: (st) => m.text + '（期限：' + (st.year + m.years - 1) + '年目の決算まで）',
       choices: [
-        { label: '引き受ける', desc: 'ごほうび：' + CH.rewardText(m.reward), apply: (st) => { CH.accept(st, m.id); return '「' + m.title + '」を引き受けた。'; } },
+        { label: '引き受ける', desc: 'ごほうび：' + CH.rewardText(m.reward) + '。期限までに達成できないと地域の信頼 −2', apply: (st) => { CH.accept(st, m.id); return '「' + m.title + '」を引き受けた。'; } },
         { label: '今回は断る', desc: '地域の信頼 −1', apply: (st) => { CH.state(st).missions.push({ id: m.id, status: 'declined', year: st.year }); st.trust = Math.max(0, st.trust - 1); return '依頼を断った。'; } },
       ],
     });

@@ -13,7 +13,7 @@
   function seasonResult(app) {
     const st = app.st;
     if (!st.seasonPending) return st.lastResult;
-    const key = st.seed + '|' + st.year + '|' + JSON.stringify((st.yearFlags || {}).crisis || {}) + JSON.stringify((st.yearFlags || {}).work || {}) + JSON.stringify((st.yearFlags || {}).mev || {});
+    const key = st.seed + '|' + st.year + '|' + JSON.stringify((st.yearFlags || {}).crisis || {}) + JSON.stringify((st.yearFlags || {}).work || {}) + JSON.stringify((st.yearFlags || {}).mev || {}) + '|' + (st.events.season || []).filter((x) => x.done).length + '|' + st.ledger.length + '|' + st.trust;
     if (!app.seasonRes || app.seasonResKey !== key) { app.seasonRes = RG.sim.simulate(st); app.seasonResKey = key; }
     return app.seasonRes;
   }
@@ -75,9 +75,11 @@
     const workNow = workP && workP.month <= m && (!pending || workP.month <= pending.month) ? workP : null;
     const crisisNow = !workNow && pending && pending.month <= m ? pending : null;
     // 毎月のできごと（作業の判断・サイコロ勝負のあと）
-    const mevNow = !workNow && !crisisNow && RG.monthly && RG.monthly.pending(st, m) ? m : null;
+    const seNow = !workNow && !crisisNow && st.seasonPending ? RG.events.seasonPending(st, m) : null;
+    const seDone = st.seasonPending ? (st.events.season || []).filter((x) => x.month === m && x.done && x.choice != null) : [];
+    const mevNow = !workNow && !crisisNow && !seNow && RG.monthly && RG.monthly.pending(st, m) ? m : null;
     const mevDone = st.seasonPending && RG.monthly && RG.monthly.choiceOf(st, m);
-    const done = m >= 12 && !crisisNow && !workNow && !mevNow;
+    const done = m >= 12 && !crisisNow && !workNow && !mevNow && !seNow;
     const W = D.WEATHER[res.weather];
 
     const strip = h('div', { class: 'month-strip', 'aria-hidden': 'true' }, Array.from({ length: 12 }, (_, i) =>
@@ -87,6 +89,7 @@
     const go = (to) => {
       // まとめて進めた月のできごとは見送ったことにする
       if (RG.monthly) for (let k = m; k < to; k++) RG.monthly.pass(st, k);
+      if (st.seasonPending) for (let k = m; k < to; k++) { let x; while ((x = RG.events.seasonPending(st, k))) RG.events.chooseSeason(st, x, RG.events.statusQuoChoice(x.id)); }
       st.seasonMonth = to;
       if (RG.sound) RG.sound.play((res.log[to] || []).some((l) => l.kind === 'bad') ? 'warn' : to === 9 || to === 10 ? 'harvest' : 'step');
       app.autosave(); app.render();
@@ -94,19 +97,20 @@
     // 次に止まる月：勝負のある月か12月
     const stopAt = () => {
       const p = DI.pending(st), wp = FW ? FW.pending(st) : null;
-      const at = Math.min(p ? p.month : 13, wp ? wp.month : 13);
+      const seM = Math.min(13, ...(st.events.season || []).filter((x) => !x.done && x.month > m).map((x) => x.month));
+      const at = Math.min(p ? p.month : 13, wp ? wp.month : 13, seM);
       return at <= 12 ? Math.min(12, Math.max(m + 1, at)) : 12;
     };
     let nav;
-    if (crisisNow || workNow || mevNow) nav = null;
+    if (crisisNow || workNow || mevNow || seNow) nav = null;
     else if (done) nav = h('div', { class: 'row' }, h('span', { class: 'spacer' }), UI.btn('決算を見る ▶', () => app.toResult(), 'primary big'));
     else nav = h('div', { class: 'row' },
       UI.btn('残りをまとめて進める', () => go(stopAt()), 'ghost sm', { title: '途中の月のできごとは見送ります' }),
       h('span', { class: 'spacer' }),
       UI.btn((m + 1) + '月へ進む ▶', () => go(m + 1), 'primary big'));
 
-    const current = workNow ? RG.screens.workCard(app, workNow) : crisisNow ? UI.crisisCard(app, crisisNow) : mevNow ? UI.monthEventCard(app, m)
-      : [mevDone && mevDone.ci >= 0 ? UI.monthEventCard(app, m) : null, UI.card(m + '月のできごと', null, h('div', { class: 'season-now' }, monthLines(res, m)), monthCash(res, m))];
+    const current = workNow ? RG.screens.workCard(app, workNow) : crisisNow ? UI.crisisCard(app, crisisNow) : seNow ? UI.seasonEventCard(app, seNow) : mevNow ? UI.monthEventCard(app, m)
+      : [seDone.map((x) => UI.seasonEventDone(st, x)), mevDone && mevDone.ci >= 0 ? UI.monthEventCard(app, m) : null, UI.card(m + '月のできごと', null, h('div', { class: 'season-now' }, monthLines(res, m)), monthCash(res, m))];
 
     const past = [];
     for (let i = m - 1; i >= 1; i--) past.push(h('div', { class: 'month' }, h('div', { class: 'm' }, i + '月'), h('div', null, monthLines(res, i))));

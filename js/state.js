@@ -217,6 +217,22 @@
     st.partTimers = Math.max.apply(null, D.SEASONS.map((x) => st.partSeason[x])); // 募集する人数＝いちばん多い季節の人数
     return null;
   };
+  // ---------- パートの人物像 ----------
+  // 季節パート：その年に応募してきた人（シードで決まる）。人数ぶん、上から順に来てもらう。機械には乗れない
+  S.personOf = function (st, salt, i) {
+    const r = RG.rng.make(st.seed, st.year, salt + i);
+    const P = D.PART_PEOPLE, note = P.notes[Math.floor(r.next() * P.notes.length)];
+    const skill = U.round(U.clamp(note[1] * (0.92 + 0.16 * r.next()), 0.75, 1.3), 2);
+    const wage = Math.round(D.LABOR.partWage * (0.92 + 0.12 * r.next() + 0.18 * (skill - 1)) / 10) * 10;
+    return { name: P.names[Math.floor(r.next() * P.names.length)] + 'さん', age: 20 + Math.floor(r.next() * 50), note: note[0], skill, wage };
+  };
+  S.seasonParts = (st, n) => Array.from({ length: Math.max(0, n) }, (_, i) => S.personOf(st, 'spart', i));
+  // 常雇用パートの応募者（毎年3人）。1年を通して働き、田植機やコンバインにも乗れる
+  S.regularCandidates = (st) => [0, 1, 2].map((i) => Object.assign({ id: 'rc' + st.year + '_' + i }, S.personOf(st, 'rpart', i)))
+    .filter((c) => !(st.regulars || []).some((x) => x.from === c.id));
+  // 機械（田植機・コンバイン）に乗れる人：自分（経営主）・正社員・常雇用パート
+  S.operators = (st) => (S.operator(st) ? 1 : 0) + st.staff.length + (st.regulars || []).length;
+
   // パートを増やす（できごとなど）。季節ごとに決めているときは、どの季節も増やす
   S.addParts = function (st, n) {
     st.partTimers = Math.max(0, st.partTimers + n);
@@ -236,7 +252,7 @@
 
   // ---------- 「自分の経営で始める」の入力から農場を作る ----------
   const SIZE_MODEL = {
-    tractor: { s: 'tr_s', m: 'tr_m', l: 'tr_l' }, nursery: { s: 'ns_s', m: 'ns_l', l: 'ns_l' }, planter: { s: 'pl_s', m: 'pl_m', l: 'pl_l' },
+    tractor: { s: 'tr_s', m: 'tr_m', l: 'tr_l' }, nursery: { s: 'ns_s', m: 'ns_m', l: 'ns_l' }, planter: { s: 'pl_s', m: 'pl_m', l: 'pl_l' },
     combine: { s: 'cb_s', m: 'cb_m', l: 'cb_l' }, dryer: { s: 'dr_s', m: 'dr_m', l: 'dr_l' },
   };
   S.SIZE_MODEL = SIZE_MODEL;
@@ -357,6 +373,7 @@
     if (RG.chapters) RG.chapters.beginYear(st);
     if (RG.era) RG.era.beginYear(st);
     if (RG.scenes) RG.scenes.beginYear(st);
+    RG.events.splitSeason(st); // 計画に関わらないできごとは、シーズン中の月に回す
     st.phase = RG.chapters && RG.chapters.needsDoor(st) ? 'chapter' : RG.dice && RG.dice.active(st) ? 'dice' : st.events.queue.length ? 'event' : 'plan';
     // 章の節目には、じいちゃんとの会話の場面が先に入る
     const scene = RG.scenes && RG.scenes.due(st);
@@ -375,7 +392,7 @@
 
   // 計画フェーズ中の現金の動き（1〜2月に実行したものとして資金繰りに入る）
   S.addLedger = function (st, item) {
-    const it = Object.assign({ month: 2 }, item);
+    const it = Object.assign({ month: st.ledgerMonth || 2 }, item); // シーズン中のできごとは、その月のお金の動きにする
     st.ledger.push(it);
     st.cash += it.amount;
     return it;

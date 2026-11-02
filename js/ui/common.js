@@ -67,6 +67,15 @@
     return h('div', { class: 'tbl-wrap' }, h('table', { class: 'tbl ' + (opts.cls || '') }, thead, tbody));
   };
 
+  // 更新履歴の一覧
+  UI.changelogList = () => h('div', { class: 'changelog' }, RG.CHANGELOG.map((c, i) => h('section', { class: 'cl-ver' + (i === 0 ? ' latest' : '') },
+    h('div', { class: 'cl-head' }, h('b', null, '版 ' + c.ver), h('span', { class: 'cl-date' }, c.date), i === 0 ? h('span', { class: 'cl-new' }, '最新') : null),
+    h('ul', null, c.items.map((t) => h('li', null, t))))));
+  UI.showChangelog = function () {
+    RG.changelogSeen();
+    UI.modal({ title: '📰 更新履歴', body: UI.changelogList(), actions: [{ label: '閉じる', cls: 'primary' }] });
+  };
+
   UI.btn = (label, onClick, cls, opts) => h('button', Object.assign({ class: 'btn ' + (cls || ''), type: 'button', onclick: onClick }, opts || {}), label);
 
   // 数字の入力：－＋ボタンでも増やしたり減らしたりできる（操作盤のように）

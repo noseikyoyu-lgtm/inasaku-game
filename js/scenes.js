@@ -63,7 +63,8 @@
         { who: 'jiichan', text: 'じゃがな、お前がうちの田んぼをやってみてくれたこと。わしは、それが何よりうれしかったんじゃ。' },
         { who: 'narr', text: '経営は続けられなかった。それでも、この経験は次の一歩になるはずだ。（もう一度、同じ条件で挑戦できます）' }] };
       if (!p.kept) return { title: 'じいちゃんの田んぼを守った', kind: 'normal', lines: [
-        { who: 'jiichan', text: '20年、ようやってくれた。約束の広さには届かなんだが、うちの田んぼは今も青々としとる。' },
+        { who: 'jiichan', text: !p.conds[1].ok ? '20年、ようやってくれた。約束の広さには届かなんだが、うちの田んぼは今も青々としとる。'
+          : '20年、ようやってくれた。田んぼはこんなに広うなった。じゃが、ここ何年かは儲けが出とらんのが気がかりじゃ。' },
         { who: 'jiichan', text: 'それで十分じゃ。……いや、欲を言えば、もう少し見たかったかのう。' },
         { who: 'narr', text: '約束はあと一歩。次はどの道を選び、どこまで広げられるだろう。' }] };
       if (p.stars >= 3) return { title: '米道をきわめた', kind: 'true', lines: [
@@ -112,7 +113,7 @@
         { who: 'kucho', text: '体が動かんようになったら、田んぼはやめるしかない。このままだと10年もせんうちに、棚田は荒れ放題じゃ。' },
         { who: 'kucho', text: 'あんたの家の田んぼと、近所から預かった分で、まずは3ha。小さい田んぼばかりで手間はかかるが、景色は日本一じゃよ。' },
         { who: 'narr', text: '棚田には大きな機械が入らない。草刈りも水の管理も大変だ。それでも、この景色を残したいと思った。' },
-        { who: 'takahashi', text: 'JAの高橋です。棚田は手間がかかるぶん、売り方しだいで高く売れる。それに、条件の悪い田んぼを守る活動には「中山間地域等直接支払」という交付金が10aあたり1万円出ます。手間と稼ぎのつり合いを、数字で一緒に考えましょう。' },
+        { who: 'takahashi', text: 'JAの高橋です。棚田は手間がかかるぶん、売り方しだいで高く売れる。それに、条件の悪い田んぼを守る活動には「中山間地域等直接支払」という交付金が10aあたり1万5千円出ます。手間と稼ぎのつり合いを、数字で一緒に考えましょう。' },
         { who: 'kucho', text: 'ひとつ約束してくれんか。20年後も、この集落の田んぼの7割で米を作っていてほしい。全部とは言わん。あんたが倒れたら元も子もないからの。' },
         { who: 'goal' },
       ],
@@ -140,9 +141,9 @@
       const v = st.village;
       if (!v) return;
       v.pending = 0;
-      // 中山間地域等直接支払：条件の悪い集落の田を守る活動に、10aあたり1万円
+      // 中山間地域等直接支払：条件の悪い集落の田を守る活動に、10aあたり1万5千円
       const hill = U.sum(st.fields.filter((f) => f.village && f.soil === 'poor'), (f) => f.area);
-      if (hill > 0) RG.state.addLedger(st, { amount: Math.round(hill * 10 * 10000), cat: 'subsidy', label: '中山間地域等直接支払交付金（' + U.ha(hill) + '）', month: 11 });
+      if (hill > 0) RG.state.addLedger(st, { amount: Math.round(hill * 10 * 15000), cat: 'subsidy', label: '中山間地域等直接支払交付金（' + U.ha(hill) + '）', month: 11 });
       if (st.year < 2 || v.others <= 0) return;
       // 年がたつほど、離農する人が増える
       const r = RG.rng.make(st.seed, st.year, 'village');
@@ -157,9 +158,12 @@
         { who: 'kucho', text: '……そうか。経営を続けるのは、難しかったか。' },
         { who: 'kucho', text: 'あんたが帰ってきて、棚田に人の声が戻った。それだけで、わしらは救われたんじゃ。' },
         { who: 'narr', text: '経営は続けられなかった。手間と稼ぎのつり合いを、もう一度考えてみよう。（同じ条件で挑戦できます）' }] };
-      if (!p.kept) return { title: '守りきれなかった棚田', kind: 'normal', lines: [
+      if (!p.kept) return { title: '守りきれなかった棚田', kind: 'normal', lines: !p.conds[1].ok ? [
         { who: 'kucho', text: '20年、ようがんばってくれた。荒れた田もあるが、あんたのおかげで残った田のほうが、ずっと多い。' },
         { who: 'kucho', text: '全部を守るのは、誰にもできんことじゃ。それでも……もう少し残せたかもしれんな。' },
+        { who: 'narr', text: '約束はあと一歩。人と機械と売り方を、どう組み合わせれば守れたのだろう。' }] : [
+        { who: 'kucho', text: '20年、ようがんばってくれた。集落の田んぼは、ちゃんと守られとる。' },
+        { who: 'kucho', text: 'じゃが、ここ何年かは赤字続きじゃったな。田んぼを守っても、あんたが続けられんようでは元も子もない。' },
         { who: 'narr', text: '約束はあと一歩。人と機械と売り方を、どう組み合わせれば守れたのだろう。' }] };
       if (p.stars >= 3) return { title: '棚田の村の、次の100年へ', kind: 'true', lines: [
         { who: 'kucho', text: '棚田米は名前で売れるようになり、若いもんまで集落に来てくれた。こんな日が来るとは思わなんだ。' },
@@ -346,7 +350,7 @@
     title: 'じいちゃんの蓄え',
     text: () => '「帳面を見とったら、だいぶ苦しそうじゃな。……これは、わしが田んぼのためにと取っておいた金じゃ。使ってくれ。ただし、二度目はないぞ。なぜ苦しくなったか、高橋さんとよう考えるんじゃ」',
     choices: [
-      { label: 'ありがたく受け取る', desc: '資金 +400万円（返さなくてよい・一度だけ）', apply: (st) => { RG.state.addLedger(st, { amount: 4000000, cat: 'capital', label: 'じいちゃんからの援助', month: 2 }); return 'じいちゃんから400万円を受け取った。'; } },
+      { label: 'ありがたく受け取る', desc: '資金 +400万円（返さなくてよい・一度だけ）。頼ったぶん、自分で工夫する機会が減る（技術力が少し下がる）', apply: (st) => { RG.state.addLedger(st, { amount: 4000000, cat: 'capital', label: 'じいちゃんからの援助', month: 2 }); st.skill = Math.max(0.8, st.skill - 0.005); return 'じいちゃんから400万円を受け取った。'; } },
       { label: '気持ちだけ受け取る', desc: '自分の力でやってみる（地域の信頼 +3）', apply: (st) => { st.trust = Math.min(100, st.trust + 3); return '「そうか。たのもしいのう」じいちゃんは笑った。'; } },
     ],
   });
@@ -404,7 +408,7 @@
     text: () => '「町から、農業をやりたいという若い夫婦が下見に来とる。あんたのところで働かせてもらえんじゃろうか。いずれは、集落の田んぼを継いでくれるかもしれん」',
     choices: [
       { label: '社員として迎える', desc: '採用費と給料がかかるが、人手と次の担い手ができる', apply: (st) => { RG.actions.hireStaff(st, true); st.staff[st.staff.length - 1].name = '移住してきた若者'; st.trust = Math.min(100, st.trust + 3); return '移住してきた若者を社員に迎えた。'; } },
-      { label: '研修生として受け入れる', desc: 'しばらくは家族の手伝いのように働いてもらう（年600時間）', apply: (st) => { st.family.push({ id: 'p' + st.family.length, name: '研修生', role: '研修生', hours: 600, age: 27, tag: 'trainee' }); return '研修生として受け入れた。'; } },
+      { label: '研修生として受け入れる', desc: '年600時間働いてくれるが、賃金が毎年 約60万円かかる', apply: (st) => { st.family.push({ id: 'p' + st.family.length, name: '研修生', role: '研修生', hours: 600, age: 27, tag: 'trainee' }); return '研修生として受け入れた。'; } },
       { label: '今は難しい', desc: '', apply: () => '今回は断った。' },
     ],
   });
@@ -417,7 +421,7 @@
     title: '「前のやり方でいいんですよ」',
     text: () => '「社長、作付も段取りも、前のやり方で回ってきたんです。いきなり変えられても、現場は混乱するだけですよ」',
     choices: [
-      { label: '話を聞いて、一緒に決める', desc: '社員の士気 +10', apply: (st) => { morale(st, 10); return '山根さんと一緒に、今年の段取りを決めることにした。'; } },
+      { label: '話を聞いて、一緒に決める', desc: '社員の士気 +10。今年は前のやり方が多く残る（技術力の伸びがゆっくり）', apply: (st) => { morale(st, 10); st.skill = Math.max(0.8, st.skill - 0.005); return '山根さんと一緒に、今年の段取りを決めることにした。'; } },
       { label: '新しいやり方を通す', desc: '社員の士気 −15・技術力が少し上がる', apply: (st) => { morale(st, -15); st.skill = Math.min(1.04, st.skill + 0.02); return '新しいやり方を通した。現場には不満が残った。'; } },
     ],
   });

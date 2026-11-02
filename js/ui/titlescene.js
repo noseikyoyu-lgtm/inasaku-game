@@ -1,5 +1,6 @@
 // タイトル画面の風景：夕暮れの黄金色の田んぼ（画像は使わず canvas で描く）
-// 稲穂が風にそよぎ、光の粒が舞い、山並みは画面の動きに合わせてわずかに奥行きを見せる
+// 畦（あぜ）で区切られた田んぼが山のふもとまで続き、実った稲穂の上を風の波が渡っていく。
+// 手前には重く垂れた稲穂の株が並び、風になびく。山並みは画面の動きに合わせてわずかに奥行きを見せる
 (function (RG) {
   'use strict';
   const TS = RG.titleScene = {};
@@ -19,6 +20,14 @@
     const ctx = canvas.getContext('2d');
     const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let W = 0, H = 0, raf = 0, stalks = [], motes = [], clouds = [], birds = [], layers = [], trees = [];
+    let carpet = null, levees = null, nearY = 0, waveC = null, waveX = null, waveImg = null; // 田んぼ（稲の面）と畦は、大きさが変わったときに描いておく
+    const OVER = 60; // 左右の動き（視差）のぶん、少し広く描く
+    // 奥行き：z=1 が画面の下端、z が大きいほど遠い（地平線に近づく）
+    const zy = (z) => horizon() + (H - horizon()) / z;
+    const unit = () => Math.max(W * 0.5, (H - horizon()) * 1.4); // 横の広さの基準（縦長の画面でも区画がつぶれないように）
+    const ROWS = [1.45, 2.05, 2.9, 4.1, 5.9, 8.6, 12.5, 19, 30]; // 横の畦の位置（手前から）
+    // 風の波：田んぼの上を、右から左へ明るい帯が渡っていく（0〜1）
+    const waveAt = (X, z, t) => 0.5 + 0.5 * Math.sin(X * 2.4 + z * 0.9 + t * 0.0016) * Math.cos(X * 0.7 - z * 0.35 + t * 0.0007);
     let px = 0, py = 0, tx = 0, ty = 0;
     const start = performance.now();
 
@@ -37,16 +46,24 @@
       // 地平線の木立と家
       trees = [];
       for (let i = 0; i < 9; i++) trees.push({ x: r() * W, w: 18 + r() * 46, h: 10 + r() * 22, house: r() < 0.25 });
-      // 稲（奥ほど小さく、手前ほど大きい）。高さをばらつかせ、穂の列ができないようにする
+      // 手前の田んぼの稲：株（4〜7本）が列になって植わっている。手前ほど大きい
       stalks = [];
-      const n = Math.round(Math.min(700, Math.max(220, W * 0.5)));
-      for (let i = 0; i < n; i++) {
-        const d = Math.pow(r(), 1.9); // 0 奥 … 1 手前
-        const len = (10 + d * d * 175) * (0.65 + r() * 0.7);
-        stalks.push({ x: r() * (W + 120) - 60, d, y: hz + (H - hz) * (0.04 + 1.02 * d) + r() * 12 * d, len,
-          ph: r() * Math.PI * 2, sp: 0.75 + r() * 0.5, lean: (r() - 0.5) * 0.3, dir: r() < 0.72 ? 1 : -1, hue: r(), grains: 7 + Math.floor(r() * 4) });
+      nearY = zy(ROWS[0]);
+      const rowGap = Math.max(12, (H - nearY) / 9);
+      for (let y = nearY + rowGap * 0.35, ri = 0; y < H + (26 + 90) * 0.7; y += rowGap * (0.85 + 0.3 * r()), ri++) {
+        const d = Math.min(1.15, (y - nearY) / (H - nearY));
+        const colGap = 24 + d * 40;
+        for (let x = -OVER + (ri % 2) * colGap * 0.5; x < W + OVER; x += colGap * (0.8 + 0.4 * r())) {
+          const n = 3 + Math.floor(r() * 3);
+          for (let k = 0; k < n; k++) {
+            const len = (26 + d * 90) * (0.8 + r() * 0.35);
+            stalks.push({ x: x + (r() - 0.5) * colGap * 0.35, d, y: y + r() * rowGap * 0.3, len, ph: r() * Math.PI * 2, sp: 0.75 + r() * 0.5,
+              lean: (r() - 0.5) * 0.35, dir: r() < 0.7 ? 1 : -1, hue: r(), grains: 7 + Math.floor(r() * 4) });
+          }
+        }
       }
       stalks.sort((a, b) => a.y - b.y);
+      buildField(r);
       // 光の粒
       motes = [];
       for (let i = 0; i < 46; i++) motes.push({ x: r() * W, y: hz - H * 0.15 + r() * H * 0.55, r: 0.6 + r() * 2.2, vx: -0.05 - r() * 0.12, vy: -0.03 - r() * 0.08, ph: r() * 6.28 });
@@ -56,6 +73,116 @@
       // 鳥の群れ
       birds = [];
       for (let i = 0; i < 7; i++) birds.push({ ox: (i % 2 ? 1 : -1) * Math.ceil(i / 2) * 18, oy: Math.ceil(i / 2) * 9, ph: r() * 6.28 });
+    }
+
+    // 田んぼ（稲の面）と畦を、別の canvas に描いておく
+    function buildField(r) {
+      const hz = horizon(), FH = H - hz, dpr = Math.min(2, window.devicePixelRatio || 1), CW = W + OVER * 2;
+      const mk = () => { const c = document.createElement('canvas'); c.width = Math.round(CW * dpr); c.height = Math.round(FH * dpr); const x = c.getContext('2d'); x.setTransform(dpr, 0, 0, dpr, 0, 0); return [c, x]; };
+      const [cc, c] = mk(), [lc, l] = mk();
+      const vx = CW / 2;
+      const Y = (z) => FH / z; // この canvas の中での y
+      const X = (Xw, z) => vx + Xw * unit() / z;
+      // 稲の面の下地：遠くは夕もやで明るく、手前ほど濃い黄金色
+      const base = c.createLinearGradient(0, 0, 0, FH);
+      base.addColorStop(0, '#f0c47c'); base.addColorStop(0.18, '#e2a957'); base.addColorStop(0.55, '#c98b34'); base.addColorStop(1, '#8a5a1e');
+      c.fillStyle = base; c.fillRect(0, 0, CW, FH);
+      const zs = ROWS.concat([60]); // 区画の奥行きの区切り（手前の区画は z=1〜1.45）
+      const zEdges = [1].concat(zs);
+      for (let i = zEdges.length - 2; i >= 0; i--) {
+        const zN = zEdges[i], zF = zEdges[i + 1];
+        const yN = Math.min(FH, Y(zN)), yF = Y(zF);
+        const sp = 2.2 + (i % 3) * 0.35, off = (i * 0.83) % sp; // 縦の畦の間隔（区画ごとにずらす）
+        for (let Xw = -40 + off; Xw < 40; Xw += sp) {
+          const x1N = X(Xw, zN), x2N = X(Xw + sp, zN), x1F = X(Xw, zF), x2F = X(Xw + sp, zF);
+          if (Math.max(x2N, x2F) < -20 || Math.min(x1N, x1F) > CW + 20) continue;
+          c.save();
+          c.beginPath(); c.moveTo(x1F, yF); c.lineTo(x2F, yF); c.lineTo(x2N, yN); c.lineTo(x1N, yN); c.closePath(); c.clip();
+          // 稲の面：区画の奥（畦ぎわ）は夕日を受けて明るく、手前ほど陰になる。区画ごとに実り方で色が少し違う
+          const tone = r();
+          const pg = c.createLinearGradient(0, yF, 0, yN);
+          pg.addColorStop(0, tone < 0.5 ? '#f7d277' : '#f0c260'); pg.addColorStop(0.5, tone < 0.5 ? '#dda443' : '#d29638'); pg.addColorStop(1, tone < 0.5 ? '#b0731f' : '#a0651a');
+          c.fillStyle = pg; c.fillRect(0, yF, CW, yN - yF);
+          // 稲の列（縦の畦と同じ向きに、遠くへ向かって集まる）
+          if (zN < 9) {
+            c.strokeStyle = 'rgba(110,60,10,.16)'; c.lineWidth = Math.max(0.5, 1.6 / zN);
+            for (let q = Xw; q < Xw + sp; q += 0.3) { c.beginPath(); c.moveTo(X(q, zF), yF); c.lineTo(X(q, zN), yN); c.stroke(); }
+          }
+          // 垂れた穂（遠いほど小さく密に）。手前の区画では一本一本の穂が見える
+          const sz = Math.max(0.8, 9 / zF);
+          const area = Math.abs((x2N - x1N + x2F - x1F) / 2 * (yN - yF));
+          const n = Math.min(5000, area / (sz * sz * 0.9));
+          c.lineCap = 'round';
+          for (let k = 0; k < n; k++) {
+            const yy = yF + (yN - yF) * Math.pow(r(), 0.85);
+            const zz = FH / Math.max(1, yy);
+            const sz2 = Math.max(0.7, 9 / zz);
+            const xx = X(Xw + r() * sp, zz);
+            const lit = r(), shade = (yy - yF) / Math.max(1, yN - yF); // 区画の手前ほど暗い穂が多い
+            c.strokeStyle = lit < 0.45 - shade * 0.25 ? 'rgba(255,226,130,.75)' : lit < 0.82 ? 'rgba(226,160,58,.7)' : 'rgba(120,70,18,.55)';
+            c.lineWidth = Math.max(0.5, sz2 * 0.32);
+            const dir = r() < 0.75 ? 1 : -1;
+            c.beginPath(); c.moveTo(xx, yy + sz2 * 0.5); c.quadraticCurveTo(xx + dir * sz2 * 0.4, yy - sz2 * 0.7, xx + dir * sz2 * 1.2, yy + sz2 * 0.2); c.stroke();
+          }
+          c.restore();
+        }
+        // 縦の畦（区画と区画のあいだ）。いちばん手前は稲に隠れるので描かない
+        if (i > 0) for (let Xw = -40 + off; Xw < 40; Xw += sp) {
+          const w = 0.085; // 畦の幅
+          const aN = X(Xw - w, zN), bN = X(Xw + w, zN), aF = X(Xw - w, zF), bF = X(Xw + w, zF);
+          if (Math.max(bN, bF) < -20 || Math.min(aN, aF) > CW + 20) continue;
+          l.fillStyle = '#6f7038';
+          l.beginPath(); l.moveTo(aF, yF); l.lineTo(bF, yF); l.lineTo(bN, yN); l.lineTo(aN, yN); l.closePath(); l.fill();
+          l.fillStyle = 'rgba(200,200,120,.45)'; // 夕日の当たる側（草の色）
+          l.beginPath(); l.moveTo((aF + bF) / 2, yF); l.lineTo(bF, yF); l.lineTo(bN, yN); l.lineTo((aN + bN) / 2, yN); l.closePath(); l.fill();
+        }
+      }
+      // 横の畦（奥から手前へ。手前ほど太く、草が見える）
+      for (let i = ROWS.length - 1; i >= 0; i--) {
+        const z = ROWS[i], yTop = Y(z + 0.06 * z), yMid = Y(z), yBot = Y(z - 0.035 * z);
+        // 上の面は草で明るく、手前の面（土の壁）は暗い
+        const g = l.createLinearGradient(0, yTop, 0, yBot);
+        g.addColorStop(0, '#9d9a52'); g.addColorStop(0.5, '#7b7a3c'); g.addColorStop(0.62, '#4f4322'); g.addColorStop(1, '#33280f');
+        l.fillStyle = g; l.fillRect(0, yTop, CW, yBot - yTop);
+        // 畦の草
+        const th = Math.max(1, (yBot - yTop));
+        if (th > 3) {
+          l.strokeStyle = 'rgba(150,150,80,.7)'; l.lineWidth = Math.max(0.6, th * 0.06);
+          for (let x = 0; x < CW; x += Math.max(2, th * 0.35)) {
+            const hgt = th * (0.25 + r() * 0.45);
+            l.beginPath(); l.moveTo(x, yMid); l.lineTo(x + (r() - 0.5) * hgt * 0.6, yMid - hgt); l.stroke();
+          }
+        }
+        // 手前の区画のいちばん奥の列の穂が、畦に少しかぶさる
+        if (th > 2) {
+          for (let x = 0; x < CW; x += Math.max(1.5, th * 0.22)) {
+            const e = th * (0.7 + r() * 0.6), dir = r() < 0.75 ? 1 : -1;
+            l.strokeStyle = r() < 0.5 ? 'rgba(244,198,96,.95)' : 'rgba(205,140,48,.95)'; l.lineWidth = Math.max(0.6, e * 0.14);
+            l.beginPath(); l.moveTo(x, yBot + e * 0.4); l.quadraticCurveTo(x + dir * e * 0.3, yBot - e * 0.75, x + dir * e * 0.9, yBot - e * 0.1); l.stroke();
+          }
+        }
+        // 手前の畦には彼岸花
+        if (i <= 2) {
+          const nF = 3 + Math.floor(r() * 4);
+          for (let k = 0; k < nF; k++) {
+            const fx = r() * CW, fs = Math.min(th, 9) * (0.9 + r() * 0.8);
+            l.strokeStyle = '#3e6a2a'; l.lineWidth = Math.max(0.6, fs * 0.05);
+            l.beginPath(); l.moveTo(fx, yMid); l.lineTo(fx, yMid - fs * 1.2); l.stroke();
+            l.strokeStyle = '#d8342a'; l.lineWidth = Math.max(0.5, fs * 0.05);
+            for (let a = 0; a < 10; a++) {
+              const ang = -Math.PI / 2 + (a / 10 - 0.5) * Math.PI * 1.6;
+              l.beginPath(); l.moveTo(fx, yMid - fs * 1.2);
+              l.quadraticCurveTo(fx + Math.cos(ang) * fs * 0.5, yMid - fs * 1.2 + Math.sin(ang) * fs * 0.5, fx + Math.cos(ang) * fs * 0.75, yMid - fs * 1.2 + Math.sin(ang) * fs * 0.2);
+              l.stroke();
+            }
+          }
+        }
+      }
+      // 遠くは夕もやでかすむ
+      const haze = l.createLinearGradient(0, 0, 0, FH * 0.35);
+      haze.addColorStop(0, 'rgba(255,214,160,.55)'); haze.addColorStop(1, 'rgba(255,214,160,0)');
+      l.fillStyle = haze; l.fillRect(0, 0, CW, FH * 0.35);
+      carpet = cc; levees = lc;
     }
 
     function resize() {
@@ -133,20 +260,34 @@
       const mist = ctx.createLinearGradient(0, hz - H * 0.06, 0, hz + H * 0.05);
       mist.addColorStop(0, 'rgba(255,224,180,0)'); mist.addColorStop(0.5, 'rgba(255,220,175,' + (0.38 + 0.06 * Math.sin(t * 0.0005)) + ')'); mist.addColorStop(1, 'rgba(255,214,160,0)');
       ctx.fillStyle = mist; ctx.fillRect(0, hz - H * 0.06, W, H * 0.11);
-      // 田んぼの面
-      const fg = ctx.createLinearGradient(0, hz, 0, H);
-      fg.addColorStop(0, '#e6b468'); fg.addColorStop(0.25, '#c48a3a'); fg.addColorStop(1, '#5a3a17');
-      ctx.fillStyle = fg; ctx.fillRect(0, hz, W, H - hz);
-      // 畝の線（消失点に向かう）
-      const vx = W * 0.5 - px * 30;
-      ctx.strokeStyle = 'rgba(80,50,20,.18)'; ctx.lineWidth = 1;
-      for (let i = -24; i <= 24; i++) { ctx.beginPath(); ctx.moveTo(vx + i * 6, hz); ctx.lineTo(vx + i * W * 0.09, H); ctx.stroke(); }
+      // 田んぼ：稲の面 → 風の波 → 畦
+      const FH = H - hz, ox = -OVER - px * 10;
+      if (carpet) ctx.drawImage(carpet, ox, hz, W + OVER * 2, FH);
+      // 風の波：明るい帯が田んぼを渡っていく（手前ほど大きく、遠いほど細かい）
+      const vx = W * 0.5 - px * 10;
+      // （毎フレーム軽く済むよう、小さな画像に描いて引き伸ばす）
+      const WW = 96, WH = 48;
+      if (!waveC) { waveC = document.createElement('canvas'); waveC.width = WW; waveC.height = WH; waveX = waveC.getContext('2d'); waveImg = waveX.createImageData(WW, WH); }
+      const wd = waveImg.data;
+      for (let j = 0; j < WH; j++) {
+        const z = WH / (j + 0.5), fade = Math.min(1, 6 / z);
+        for (let i = 0; i < WW; i++) {
+          const v = waveAt(((i + 0.5) / WW * W - vx) * z / unit(), z, t), o = (j * WW + i) * 4;
+          if (v > 0.55) { wd[o] = 255; wd[o + 1] = 236; wd[o + 2] = 160; wd[o + 3] = (v - 0.55) * 1.0 * fade * 255; }
+          else { wd[o] = 70; wd[o + 1] = 36; wd[o + 2] = 6; wd[o + 3] = (0.55 - v) * 0.55 * fade * 255; }
+        }
+      }
+      waveX.putImageData(waveImg, 0, 0);
+      ctx.drawImage(waveC, 0, hz, W, FH);
+      if (levees) ctx.drawImage(levees, ox, hz, W + OVER * 2, FH);
       // 稲穂：茎がしなり、実った穂が重さで垂れ下がる
-      const wind = Math.sin(t * 0.00045) * 0.6 + Math.sin(t * 0.0011) * 0.25;
       ctx.lineCap = 'round';
       for (const s of stalks) {
-        const x = s.x - px * 30 * s.d, y = s.y;
-        const sway = (Math.sin(t * 0.0016 * s.sp + s.ph + s.x * 0.01) * 0.3 + wind * 0.8) * (0.3 + 0.7 * s.d) + s.lean;
+        const x = s.x - px * (12 + 24 * s.d), y = s.y;
+        if (x < -s.len || x > W + s.len) continue;
+        // 風の波が来ると、株ごと大きくなびく
+        const zS = FH / Math.max(1, y - hz), wv = waveAt((x - vx) * zS / unit(), zS, t);
+        const sway = (Math.sin(t * 0.0016 * s.sp + s.ph) * 0.18 + (wv - 0.35) * 1.1) * (0.4 + 0.6 * s.d) + s.lean;
         const tipX = x + sway * s.len * 0.35, tipY = y - s.len;
         const k = 0.5 + 0.5 * s.d; // 手前ほど明るくはっきり
         ctx.strokeStyle = 'rgba(' + Math.round(120 + 70 * k) + ',' + Math.round(100 + 55 * k) + ',' + Math.round(40 + 20 * k) + ',' + (0.45 + 0.5 * s.d) + ')';
@@ -175,7 +316,7 @@
           pts.push([gx, gy, ang]); ctx.lineTo(gx, gy);
         }
         ctx.stroke();
-        ctx.fillStyle = col;
+        ctx.fillStyle = col; ctx.beginPath();
         // もみ：枝分かれした小穂に、細長い粒がふぞろいにつく（根元が太く、先へ細く）
         const gw = 0.7 + s.d * 1.9;
         pts.forEach((q, j) => {
@@ -186,14 +327,17 @@
             const jit = Math.sin(s.ph * 7 + j * 3.1 + m * 1.7);
             const off = m * w * (1.0 + 0.4 * jit) * taper;
             const ga = q[2] + m * 0.5 + jit * 0.2;
-            ctx.beginPath();
-            ctx.ellipse(q[0] + Math.cos(per) * off + Math.cos(ga) * w * 0.6, q[1] + Math.sin(per) * off + Math.sin(ga) * w * 0.6, w * 1.9, w * 0.85, ga, 0, Math.PI * 2);
-            ctx.fill();
+            const ex = q[0] + Math.cos(per) * off + Math.cos(ga) * w * 0.6, ey = q[1] + Math.sin(per) * off + Math.sin(ga) * w * 0.6;
+            ctx.moveTo(ex + Math.cos(ga) * w * 1.9, ey + Math.sin(ga) * w * 1.9);
+            ctx.ellipse(ex, ey, w * 1.9, w * 0.85, ga, 0, Math.PI * 2);
           }
         });
+        ctx.fill();
         if (s.d > 0.6) { // 夕日の当たる側のつや
           ctx.fillStyle = 'rgba(255,240,190,' + (0.35 * s.d) + ')';
-          pts.forEach((q, j) => { if (j % 2) return; ctx.beginPath(); ctx.ellipse(q[0] + Math.cos(q[2]) * gw, q[1] - gw * 0.5, gw * 1.1, gw * 0.4, q[2], 0, Math.PI * 2); ctx.fill(); });
+          ctx.beginPath();
+          pts.forEach((q, j) => { if (j % 2) return; const ex = q[0] + Math.cos(q[2]) * gw, ey = q[1] - gw * 0.5; ctx.moveTo(ex + Math.cos(q[2]) * gw * 1.1, ey + Math.sin(q[2]) * gw * 1.1); ctx.ellipse(ex, ey, gw * 1.1, gw * 0.4, q[2], 0, Math.PI * 2); });
+          ctx.fill();
         }
       }
       // 光の粒

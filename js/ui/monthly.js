@@ -50,4 +50,24 @@
     return UI.card(ev.icon + ' ' + ev.title, month + '月のできごと',
       h('div', { class: 'small muted', style: { marginBottom: '6px' } }, UI.itemsLine(st)), body, actions.length ? h('div', { class: 'row dice-actions' }, actions) : null);
   };
+
+  // 年のできごとのうち、シーズン中の月に起きるもの（引き受けるかどうかを選ぶ）
+  UI.seasonEventCard = function (app, x) {
+    const st = app.st, E = RG.events, ev = E.get(x.id);
+    return UI.card('📨 ' + ev.title, x.month + '月のできごと',
+      ev.who ? UI.speaker(ev.who) : null,
+      h('p', null, ev.text(st)),
+      ev.choices.map((c, i) => h('button', { class: 'btn choice', type: 'button',
+        onclick: () => {
+          const msg = E.chooseSeason(st, x, i);
+          UI.toast(msg, null, true);
+          if (RG.sound) RG.sound.play(/🔓/.test(msg) ? 'unlock' : 'stamp');
+          app.autosave(); app.keepScroll = true; app.render();
+        } }, c.label, c.desc ? h('span', { class: 'd' }, c.desc) : null)));
+  };
+  // 選んだあとの結果
+  UI.seasonEventDone = function (st, x) {
+    const ev = RG.events.get(x.id);
+    return UI.note('info', '📨 ' + ev.title + '：「' + ev.choices[x.choice].label + '」', x.msg);
+  };
 })(window.RG = window.RG || {});

@@ -19,7 +19,8 @@
     }
     st.fields.push(S.makePlot(st, { area: o.area, soil: o.soil, owned: o.buy, rent: o.rent, landValue: o.price, place: o.place }));
     S.addPlanArea(st, o.area);
-    st.trust = Math.min(100, st.trust + (o.soil === 'poor' ? 4 : 2));
+    // 地域の信頼が上がるのは、だれも作りたがらない条件不利の田を引き受けたときだけ
+    if (o.soil === 'poor') st.trust = Math.min(100, st.trust + 3);
     st.offers.land = st.offers.land.filter((x) => x.id !== offerId);
     return null;
   };
@@ -74,7 +75,15 @@
   // ストーリーでまだ使えない買い方・機種
   const locked = (st, id) => (RG.era && RG.era.featLocked(st, id) ? '🔒 まだ使えません（きっかけ：' + RG.era.FEATURES[id].hint + '）' : null);
   A.largeModel = (modelId) => /_l$/.test(modelId);
-  A.machineLock = (st, modelId, mode) => (mode === 'lease' && locked(st, 'lease')) || (A.largeModel(modelId) && locked(st, 'large')) || null;
+  // 田植機・コンバインは、乗れる人（自分・正社員・常雇用パート）の数までしか持てない
+  A.operatorLock = function (st, modelId) {
+    const md = D.MODELS[modelId];
+    if (!md || (md.type !== 'planter' && md.type !== 'combine')) return null;
+    const t = md.type;
+    const n = SIM.machinesOf(st, t).length;
+    return n >= S.operators(st) ? '🚜 乗れる人が足りません（' + D.MACHINE_TYPES[t].name + ' ' + n + '台・乗れる人 ' + S.operators(st) + '人）。正社員か常雇用パートを雇うと増やせます' : null;
+  };
+  A.machineLock = (st, modelId, mode) => (mode === 'lease' && locked(st, 'lease')) || (A.largeModel(modelId) && locked(st, 'large')) || A.operatorLock(st, modelId) || null;
   A.buyMachine = function (st, modelId, mode) {
     const md = D.MODELS[modelId];
     const lk = A.machineLock(st, modelId, mode);
@@ -102,6 +111,7 @@
 
   A.buyUsed = function (st, offerId, mode) {
     if (locked(st, 'used')) return locked(st, 'used');
+    { const ou = st.offers.used.find((x) => x.id === offerId); if (ou && A.operatorLock(st, ou.model)) return A.operatorLock(st, ou.model); }
     const o = st.offers.used.find((x) => x.id === offerId);
     if (!o) return 'この中古機械はもうありません';
     if (mode === 'loan') {
@@ -126,6 +136,7 @@
       ledger(st, v, 'assetSale', D.MODELS[m.model].name + ' を売却', { gain: v - m.book });
     }
     st.machines = st.machines.filter((x) => x.id !== machineId);
+    if (RG.biz) { const b = RG.biz.state(st); if (!RG.biz.has(st, 'combine')) b.harvest = 0; if (!RG.biz.has(st, 'drone')) b.drone = 0; } // 受託の計画も止める
     return null;
   };
 
@@ -134,6 +145,18 @@
     if (!force && locked(st, 'staff')) return locked(st, 'staff');
     ledger(st, -D.LABOR.staffRecruit * st.market.wageInfl, 'recruit', '正社員の採用費');
     S.addStaff(st);
+    return null;
+  };
+  A.hireRegular = function (st, candId) {
+    const c = S.regularCandidates(st).find((x) => x.id === candId) || (candId == null ? Object.assign({ id: 'rx' + st.year + '_' + (st.regulars || []).length }, S.personOf(st, 'rauto', (st.regulars || []).length)) : null);
+    if (!c) return 'この人はもう採用しました';
+    st.regulars = st.regulars || [];
+    st.regulars.push({ id: U.uid(st, 'rp'), from: c.id, name: c.name, age: c.age, note: c.note, skill: c.skill, wage: c.wage, years: 0 });
+    ledger(st, -D.LABOR.regularRecruit * st.market.wageInfl, 'recruit', '常雇用パートの募集費');
+    return null;
+  };
+  A.fireRegular = function (st, id) {
+    st.regulars = (st.regulars || []).filter((x) => x.id !== id);
     return null;
   };
   A.fireStaff = function (st, staffId) {
@@ -162,9 +185,9 @@
       long20: { name: '長期資金（20年）', rate: low ? D.MACHINE.lowRate : D.MACHINE.loanRate20, term: 20, kind: 'long' },
     };
     // 認定農業者向けの制度資金（ストーリーで認定を受けたあと）
-    if (st.featOpen && st.featOpen.nintei) k.superL = { name: 'スーパーL資金（認定農業者向け・20年）', rate: 0.005, term: 20, kind: 'long' };
+    if (st.featOpen && st.featOpen.nintei) k.superL = { name: 'スーパーL資金（認定農業者向け・20年・当初' + D.MACHINE.superLYears + '年は利子助成）', rate: D.MACHINE.superLFirst, rateLater: D.MACHINE.loanRate20, rateYears: D.MACHINE.superLYears, term: 20, kind: 'long' };
     if (SIM.noInterestAvailable(st) > 0) {
-      k.nointerest = { name: '新規就農者向け無利子資金（12年・据置2年）', rate: 0, term: D.FIN.noInterestTerm, grace: D.FIN.noInterestGrace, kind: 'nointerest' };
+      k.nointerest = { name: '青年等就農資金（無利子・' + D.FIN.noInterestTerm + '年・据置' + D.FIN.noInterestGrace + '年）', rate: 0, term: D.FIN.noInterestTerm, grace: D.FIN.noInterestGrace, kind: 'nointerest' };
     }
     return k;
   };
@@ -196,7 +219,8 @@
     }
     const grace = k.grace || 0;
     st.loans.push({ id: U.uid(st, 'l'), kind: k.kind, name: k.name.replace(/（.*）/, ''), original: amount, balance: amount,
-      rate: k.rate, term: k.term, repayYears: k.term - Math.max(1, grace), yearsLeft: k.term - Math.max(1, grace), grace, newThisYear: true });
+      rate: k.rate, term: k.term, repayYears: k.term - Math.max(1, grace), yearsLeft: k.term - Math.max(1, grace), grace, newThisYear: true,
+      rateLater: k.rateLater || null, rateYears: k.rateYears || 0 });
     ledger(st, amount, 'loanIn', k.name + ' を借入');
     if (!forPurchase) st.yearFlags.newLoans = ((st.yearFlags || {}).newLoans || 0) + 1; // 使い道を決めない借入（運転資金）だけ数える
     return null;

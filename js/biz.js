@@ -54,7 +54,8 @@
   BZ.procIsMochi = (st) => RG.sim.planUnits(st).some((u) => D.CROPS[u.crop].group === 'mochi');
 
   // 空き能力（ha）。M：シミュレーションの機械の割り当て
-  BZ.spare = (M) => (M && M.cap > 0 ? Math.max(0, M.cap - M.need) : 0);
+  // 空き能力：自分の機械のぶんだけ（共同利用の能力は受託に回さない）
+  BZ.spare = (M) => { const c = M ? (M.ownCap != null ? M.ownCap : M.cap) : 0; return c > 0 ? Math.max(0, c - M.need) : 0; };
 
   // 計画した事業の作業時間（季節ごと）。spare：{ combine, drone } の空き能力
   BZ.labor = function (st, spare) {
@@ -66,6 +67,56 @@
     if (BZ.has(st, 'stand')) for (const s in BZ.DEFS.stand.hours) out[s] += BZ.DEFS.stand.hours[s];
     return { hours: out, harvest: hv, drone: dr };
   };
+
+  // ---------- 作業受託のリスク ----------
+  // よその田で作業すると、機械を傷めたり、相手の田に迷惑をかけたりすることがある。
+  // 賠償保険（年3万円）に入っていれば、相手への補償は保険で払われる（自分の機械の修理は自分持ち）
+  BZ.INSURANCE = { premium: 30000 };
+  BZ.RISK = {
+    harvest: { per10: 0.0025, cap: 0.45, repair: [150000, 350000], comp: 3000 }, // 10aあたりの事故の起きやすさ・修理費・刈り遅れの補償（10aあたり）
+    drone: { per10: 0.0006, cap: 0.3, repair: [200000, 400000], drift: [50000, 200000] },
+  };
+  BZ.planned = (st) => { const b = BZ.state(st); return (BZ.has(st, 'combine') ? b.harvest || 0 : 0) + (b.droneLicense && BZ.has(st, 'drone') ? b.drone || 0 : 0); };
+  BZ.insured = (st) => !!BZ.state(st).insured;
+  // 今年の事故（シードで決まる）。ctx：{ poorShare, autumnShort, akisa, combineShort }
+  BZ.risks = function (st, bizL, ctx, preview) {
+    const out = [];
+    if (preview) return out;
+    const r = RG.rng.make(st.seed, st.year, 'bizrisk');
+    const ins = BZ.insured(st);
+    const pick = (a) => Math.round((a[0] + r.next() * (a[1] - a[0])) / 10000) * 10000;
+    if (bizL.harvest > 0) {
+      const R = BZ.RISK.harvest;
+      // 石や倒れた稲で、刈り取り部を壊す（条件不利の田が多い地域ほど起きやすい）
+      const p = Math.min(R.cap, bizL.harvest * 10 * R.per10 * (1 + ctx.poorShare) * (1 + 0.5 * (ctx.akisa || 0)));
+      if (r.next() < p) out.push({ month: 10, kind: 'repair', amount: pick(R.repair), label: '受託先の田で、石を巻き込んでコンバインの刈り取り部を壊した', trust: 0 });
+      // 自分の稲刈りで手いっぱいになり、受託先の田が刈り遅れた
+      if (ctx.autumnShort > 0.03 || (ctx.akisa && r.next() < 0.5)) {
+        const amt = Math.round(bizL.harvest * 10 * R.comp);
+        out.push({ month: 11, kind: 'comp', amount: ins ? 0 : amt, insured: ins, label: '受託先の田が刈り遅れ、米の質が落ちた（補償 ' + U.man(amt) + (ins ? '・保険で支払い' : '') + '）', trust: -3 });
+      }
+    }
+    if (bizL.drone > 0) {
+      const R = BZ.RISK.drone;
+      const p = Math.min(R.cap, bizL.drone * 10 * R.per10);
+      if (r.next() < p) {
+        const amt = pick(R.drift);
+        out.push({ month: 8, kind: 'comp', amount: ins ? 0 : amt, insured: ins, label: '散布した農薬が風で隣の畑に飛んだ（補償 ' + U.man(amt) + (ins ? '・保険で支払い' : '') + '）', trust: -2 });
+      }
+      if (r.next() < p * 0.6) out.push({ month: 8, kind: 'repair', amount: pick(R.repair), label: 'ドローンが電線に触れて墜落した', trust: 0 });
+    }
+    // 機械が壊れて、引き受けた分を刈りきれなかった：ほかの業者に頼んで差額を払う
+    if (ctx.combineShort > 0.05) out.push({ month: 10, kind: 'comp', amount: Math.round(ctx.combineShort * 10 * 8000), label: 'コンバインの能力が足りず、引き受けた田 ' + U.ha(ctx.combineShort) + ' をほかの業者に頼んだ（差額の負担）', trust: -2 });
+    return out;
+  };
+  // 計画画面に出す見込み（1年に事故が起きる確率）
+  BZ.riskOdds = function (st, kind, area) {
+    const R = BZ.RISK[kind];
+    if (!R || !(area > 0)) return 0;
+    const poor = RG.sim.soilShare(st).poor;
+    return Math.min(R.cap, area * 10 * R.per10 * (kind === 'harvest' ? 1 + poor : 1));
+  };
+  BZ.setInsured = function (st, on) { BZ.state(st).insured = !!on; return null; };
 
   // ---------- 操作 ----------
   BZ.setArea = function (st, kind, v) {

@@ -434,5 +434,47 @@ h2, h3 { font-weight: 900; letter-spacing: .04em; }
 .mev-range .good { color: var(--accent); font-weight: 600; }
 .mev-range .bad { color: #c0503c; font-weight: 600; }
 
+/* 期限つきの危機 */
+.deadline-box { display: grid; gap: 8px; }
+.deadline-box .dl { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 12px; background: #fde4df; border: 2px solid #d9573f; color: #5a1a10; animation: dl-pulse 2s ease-in-out infinite; }
+.deadline-box .dl-ic { font-size: 24px; }
+@keyframes dl-pulse { 50% { box-shadow: 0 0 0 4px rgba(217, 87, 63, .25); } }
+@media (prefers-reduced-motion: reduce) { .deadline-box .dl { animation: none; } }
+
+/* パートの人物像 */
+.part-list { display: grid; gap: 6px; margin: 8px 0; }
+.part-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); }
+.part-row .pr-who { display: grid; flex: 1 1 200px; }
+.part-row .pr-num { flex: 1 1 200px; }
+.sub-h { margin: 10px 0 0; font-size: 14px; }
+
 /* 機械の故障しやすさの理由 */
 .bd-why { display: flex; flex-wrap: wrap; gap: 2px 8px; margin-top: 2px; font-size: 11.5px; color: var(--gold); font-weight: 600; }
+
+/* ---------- スマホ：表は横にスクロールし、文字が縦に並ぶほど細くしない ---------- */
+@media (max-width: 640px) {
+  table.tbl { width: max-content; min-width: 100%; }
+  .tbl th, .tbl td { white-space: nowrap; }
+  .tbl td:first-child { white-space: normal; min-width: 7.5em; max-width: 14em; }
+  .tbl td .small, .tbl td .bd-why, .tbl td .muted { white-space: normal; }
+  .tbl td .bd-why, .tbl td > span > .small { min-width: 9em; }
+  .tbl-wrap { -webkit-overflow-scrolling: touch; }
+  .tbl-wrap::after { content: ''; }
+  .rv-name { min-width: 8.5em; }
+  .ln-ic { flex: none; }
+  .tbl .lock { white-space: nowrap; }
+}
+@media (max-width: 640px) {
+  .card > h3 { flex-wrap: wrap; row-gap: 2px; }
+  .card > h3 .sub { flex-basis: 100%; }
+}
+
+/* 更新履歴 */
+.changelog { display: grid; gap: 12px; max-height: 70vh; overflow-y: auto; }
+.cl-ver { border-left: 3px solid var(--line); padding: 2px 0 2px 12px; }
+.cl-ver.latest { border-left-color: var(--gold); }
+.cl-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.cl-date { font-size: 12px; opacity: .75; }
+.cl-new { font-size: 11px; font-weight: 700; color: #2a1b08; background: var(--gold, #e0b44a); border-radius: 999px; padding: 1px 8px; }
+.cl-ver ul { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 3px; font-size: 14px; line-height: 1.6; }
+.title-screen .changelog { max-height: 55vh; }

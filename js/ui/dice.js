@@ -112,11 +112,16 @@
     const table = h('div', { class: 'dice-outcomes' }, c.outcomes.map((o) =>
       h('div', { class: 'r ' + o.kind }, h('b', null, o.faces.map((f) => DI.FACES[f - 1]).join('')), o.desc)));
     const body = [h('p', null, c.text)];
+    // 病害虫の勝負は、使っている農薬で被害の大きさが変わる（表の数字に掛かる）
+    const pm = (c.id === 'blast' || c.id === 'stinkbug') && RG.fieldwork ? (RG.fieldwork.input(st, 'pest').pest || 1) : 1;
+    const pmNote = pm !== 1 ? UI.note(pm < 1 ? 'good' : 'warn', '使っている農薬：' + RG.fieldwork.input(st, 'pest').label,
+      '被害の大きさは、下の表の約' + U.pct(pm) + 'になります（' + (pm < 1 ? '長く効く農薬で、被害が小さい' : '安い農薬が効きにくく、被害が大きい') + '）。') : null;
     let actions;
     if (!ch) {
       body.push(h('div', { class: 'crisis-choices' },
         h('div', { class: 'opt' }, h('div', { class: 't' }, '🛡️ 対策する'), h('div', null, g.label), h('div', { class: 'small muted' }, g.desc)),
         h('div', { class: 'opt' }, h('div', { class: 't' }, '🎲 対策せず、サイコロで勝負'), h('div', { class: 'small muted' }, '出た目で結果が決まる'), table)));
+      body.push(pmNote);
       body.push(h('p', { class: 'small muted' }, '収量が落ちた分は、収量共済に入っていれば一部が戻ります。品質（1等米の割合）の低下は戻りません。'));
       body.push(h('div', { class: 'dice-stage' }, UI.die(0)));
       actions = [UI.btn('🛡️ ' + g.label, () => { DI.chooseGuard(st, c.id); app.autosave(); app.keepScroll = true; app.render(); }, 'primary'),
@@ -124,7 +129,7 @@
     } else {
       const face = ch.rolls[ch.rolls.length - 1];
       const o = DI.outcomeOf(c, face);
-      body.push(table);
+      body.push(table, pmNote);
       body.push(h('div', { class: 'dice-stage' }, UI.die(face, 'big')));
       body.push(UI.note(o.kind === 'good' ? 'good' : o.kind === 'warn' ? 'warn' : 'bad', face + ' が出た', o.text + '（' + o.desc + '）'));
       actions = [];

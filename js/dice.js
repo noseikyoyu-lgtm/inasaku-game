@@ -90,7 +90,7 @@
     { id: 'festival', icon: '🏮', title: '秋祭りの実行委員を務めた',
       apply: (st) => { st.trust = clampTrust(st.trust + 6); return '地域の人たちとの縁が深まった（地域の信頼 +6）。'; } },
     { id: 'trainee', icon: '🧑‍🌾', title: '研修生が手伝いに来てくれる',
-      apply: (st) => { addLabor(st, 'spring', -100); return '春の作業が楽になる（春の作業 −100時間）。'; } },
+      apply: (st) => { addLabor(st, 'spring', -100); RG.state.addLedger(st, { amount: -100000, cat: 'wagePart', label: '手伝いに来た研修生の賃金', month: 5 }); return '春の作業が楽になる（春の作業 −100時間・研修生の賃金 10万円）。'; } },
     { id: 'used_machine', icon: '🚜', title: '引退する人から農機を安く譲ってもらえる',
       apply: (st) => { const r = RG.rng.make(st.seed, st.year, 'card_used'); const model = r.pick(['tr_m', 'pl_m', 'cb_m', 'dr_m']); const md = D.MODELS[model];
         st.offers.used.push({ id: 'U' + st.year + '_lucky', model, age: 6, price: Math.round(md.price * 0.25 / 10000) * 10000 });
@@ -104,7 +104,7 @@
     { id: 'referral', icon: '🤝', title: '常連さんが友人を紹介してくれた', cond: (st) => st.direct.customers > 0,
       apply: (st) => { st.direct.customers += 15; return '直販の顧客が 15人 増えた。'; } },
     { id: 'low_rate', icon: '🏦', title: '金融機関から低金利の案内',
-      apply: (st) => { flags(st).lowRate = true; return '今年の長期資金は年0.8%で借りられる。'; } },
+      apply: (st) => { flags(st).lowRate = true; return '今年の長期資金は年' + U.pct(D.MACHINE.lowRate, 1) + 'で借りられる。'; } },
     { id: 'neighbors', icon: '🙌', title: '近所の人が稲刈りを手伝ってくれる', cond: (st) => st.trust >= 40,
       apply: (st) => { addLabor(st, 'autumn', -80); return '秋の作業が楽になる（秋の作業 −80時間）。'; } },
     { id: 'refund', icon: '💴', title: '水利費の一部が戻ってきた',

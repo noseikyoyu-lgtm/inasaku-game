@@ -266,6 +266,9 @@
       body.appendChild(h('div', { class: 'row' }, UI.btn('🏁 ここまでの経営をふり返る', () => { close(); app.closeGame(); }, 'sm'),
         h('span', { class: 'muted small' }, '最終評価と高橋さんの見立てを出します。あとで続きから再開もできます')));
     }
+    body.appendChild(h('h3', null, '更新履歴'));
+    body.appendChild(h('div', { class: 'row' }, UI.btn((RG.changelogUnseen() ? '🆕 ' : '') + '更新履歴を見る', () => { close(); UI.showChangelog(); }, 'sm'),
+      h('span', { class: 'muted small' }, '最新：版 ' + RG.CHANGELOG[0].ver + '（' + RG.CHANGELOG[0].date + '）')));
     body.appendChild(h('h3', null, '称号'));
     body.appendChild(h('div', { class: 'row' }, UI.btn('称号を見る', () => RG.screens.showTitles(app.st), 'sm'),
       app.st && app.st.featOpen ? UI.btn('🔓 解放の一覧', () => RG.screens.showUnlocks(app.st), 'sm') : null));

@@ -164,7 +164,12 @@
     const bs = ACC.bs(st);
     const area = U.sum(st.fields, (f) => f.area), owned = U.sum(st.fields.filter((f) => f.owned), (f) => f.area);
     const w = st.world;
-    const out = [homeHero(st), RG.scenes.isStory(st) ? RG.screens.promiseCard(st, { progress: true }) : null, questCard(app, st, pv), RG.chapters.on(st) ? RG.screens.missionsCard(app, st) : null, RG.screens.unlocksCard(app, st), meterCard(st, pv)];
+    const dl = RG.pressure ? RG.pressure.active(st) : [];
+    const deadlineBox = dl.length ? h('div', { class: 'deadline-box' }, dl.map((x) => { const d = RG.pressure.def(x.id);
+      return h('div', { class: 'dl' }, h('span', { class: 'dl-ic', 'aria-hidden': 'true' }, '⏳'), h('div', null, h('b', null, d.icon + ' ' + d.title + '　' + (x.until === st.year ? '今年が期限！' : '期限まであと' + (x.until - st.year + 1) + '年（' + x.until + '年目の決算まで）')),
+        h('div', { class: 'small' }, '目標：' + d.goalText + '。達成できなければ経営終了')));
+    })) : null;
+    const out = [homeHero(st), deadlineBox, RG.scenes.isStory(st) ? RG.screens.promiseCard(st, { progress: true }) : null, questCard(app, st, pv), RG.chapters.on(st) ? RG.screens.missionsCard(app, st) : null, RG.screens.unlocksCard(app, st), meterCard(st, pv)];
     out.push(UI.card('今年のニュース', null, h('div', { class: 'notes' }, st.news.map((n) => UI.note(n.kind === 'event' ? 'info' : n.kind, null, n.text)))));
     if (st.lastResult) {
       let adv = st.lastResult.nextAdvice;
@@ -440,6 +445,12 @@
       UI.card('農地の状況', null, h('div', { class: 'kpis' },
         UI.kpi('経営面積', U.ha(area)), UI.kpi('所有地', U.ha(owned)), UI.kpi('借地', U.ha(area - owned)),
         UI.kpi('地代の合計', U.man(rent) + '/年'), UI.kpi(h('span', null, T('地域の信頼')), U.num(st.trust)))),
+      UI.card('🤝 地域とのつきあい', '地域の信頼を育てるには、お金と時間がかかる',
+        h('div', { class: 'radio-cards' }, D.COMMUNITY.map((c) => h('button', { type: 'button', class: 'radio-card' + ((st.community == null ? 1 : st.community) === c.key ? ' on' : ''),
+          'aria-pressed': (st.community == null ? 1 : st.community) === c.key ? 'true' : 'false', onclick: () => app.update((s) => { s.community = c.key; }) },
+          h('div', { class: 't' }, c.name), h('div', { class: 'small' }, '年' + U.man(c.cost * st.market.matInfl) + (Object.keys(c.h).length ? '・' + Object.keys(c.h).map((k) => D.SEASON_SHORT[k] + c.h[k] + 'h').join(' ') : '')),
+          h('div', { class: 'small muted' }, c.desc + '（地域の信頼 ' + (c.trust > 0 ? '+' : '') + c.trust + '/年）')))),
+        h('p', { class: 'small muted keep' }, '地域の信頼は、条件不利の田を引き受けたとき・共同作業や行事に出たときに上がり、耕作放棄・約束を守れなかったときに下がります。60を超えると毎年少しずつ、80を超えるともっと下がりやすくなります。')),
       UI.card('農地の話', st.offers.land.length ? '今年だけの話です' : null,
         offers.length ? h('div', { class: 'offers' }, offers) : h('p', { class: 'muted' }, '今年は新しい農地の話はありません。地域の信頼が高まると話が増えます。'),
         h('p', { class: 'small muted' }, '借りた田は、いちばん面積の大きい作付に自動で加わります。配分は「作付計画」で変えられます。',
@@ -483,6 +494,18 @@
         }, 'sm danger')];
     });
     const sub = !!st.yearFlags.machineSubsidy;
+    // 田植機・コンバインの能力：あなたの田んぼでの見込み（大きな機械ほど、田の条件で上下する）
+    const share = SIM.soilShare(st);
+    const capCell = (k) => {
+      const md = D.MODELS[k];
+      if (!md.cap) return '—';
+      const mult = SIM.fieldCapMult(st, k, share);
+      if (Math.abs(mult - 1) < 0.005) return U.ha(md.cap);
+      return h('span', null, U.ha(md.cap), h('div', { class: 'small ' + (mult > 1 ? 'pos' : 'neg') }, (mult > 1 ? '↑' : '↓') + ' あなたの田で ' + U.ha(md.cap * mult)));
+    };
+    const fieldNote = (t) => (SIM.FIELD_TYPES.indexOf(t) < 0 ? null : h('p', { class: 'small muted keep' },
+      '大きな機械ほど、平坦・大区画の田（条件良）では能力が上がり、中山間・小区画の田（条件不利）では落ちます。小さな機械は、どんな田でもあまり変わりません。' +
+      'あなたの田は、条件良 ' + U.pct(share.good) + '・条件不利 ' + U.pct(share.poor) + '。'));
     const shop = D.MACHINE_TYPE_ORDER.map((t) => {
       const models = Object.keys(D.MODELS).filter((k) => D.MODELS[k].type === t);
       if (RG.era && RG.era.mtypeLocked(st, t)) {
@@ -495,18 +518,18 @@
           models.map((k) => {
             const md = D.MODELS[k];
             const price = A.newPrice(st, k);
-            return [md.name, { v: md.cap ? U.ha(md.cap) : '—', cls: 'num' }, { v: md.cap && md.eff < 1 ? '−' + U.pct(1 - md.eff) : '—', cls: 'num' },
+            return [md.name, { v: capCell(k), cls: 'num' }, { v: md.cap && md.eff < 1 ? '−' + U.pct(1 - md.eff) : '—', cls: 'num' },
               { v: h('span', null, U.man(price), sub ? h('span', { class: 'badge good', style: { marginLeft: '4px' } }, '補助1/2') : null), cls: 'num' },
               { v: U.man(price / md.life), cls: 'num' }, { v: U.man(md.price * mInf * D.MACHINE.leaseRate), cls: 'num' },
-              A.machineLock(st, k, 'cash') ? h('span', { class: 'lock small' }, '🔒 経営面積15ha以上で') : h('div', { class: 'row', style: { flexWrap: 'nowrap' } },
+              A.operatorLock(st, k) ? h('span', { class: 'lock small' }, '🧑‍🌾 乗れる人が足りない') : A.machineLock(st, k, 'cash') ? h('span', { class: 'lock small' }, '🔒 経営面積15ha以上で') : h('div', { class: 'row', style: { flexWrap: 'nowrap' } },
                 UI.btn('現金', () => app.update((s) => A.buyMachine(s, k, 'cash'), { undo: true, msg: md.name + 'を購入しました' }), 'sm', { disabled: st.cash < price }),
                 UI.btn('借入', () => app.update((s) => A.buyMachine(s, k, 'loan'), { undo: true, msg: md.name + 'を借入で購入しました' }), 'sm'),
                 A.machineLock(st, k, 'lease') ? null : UI.btn('リース', () => app.update((s) => A.buyMachine(s, k, 'lease'), { undo: true, msg: md.name + 'をリースしました' }), 'sm'))];
-          })));
+          })), fieldNote(t));
     });
     const used = st.offers.used.map((o) => {
       const md = D.MODELS[o.model];
-      return h('div', { class: 'offer' }, h('div', { class: 't' }, '中古 ' + md.name), h('div', { class: 'small' }, o.age + '年使用・能力 ' + U.ha(md.cap) + '・新品価格 ' + U.man(md.price * mInf)),
+      return h('div', { class: 'offer' }, h('div', { class: 't' }, '中古 ' + md.name), h('div', { class: 'small' }, o.age + '年使用・能力 ' + U.ha(SIM.fieldCap(st, o.model, share)) + '（あなたの田で）・新品価格 ' + U.man(md.price * mInf)),
         h('div', null, '価格 ', h('b', null, U.man(o.price))),
         h('div', { class: 'row' }, UI.btn('現金で購入', () => app.update((s) => A.buyUsed(s, o.id, 'cash'), { undo: true, msg: '中古機械を購入しました' }), 'sm primary', { disabled: st.cash < o.price }),
           UI.btn('借入で購入', () => app.update((s) => A.buyUsed(s, o.id, 'loan'), { undo: true, msg: '中古機械を購入しました' }), 'sm')));
@@ -515,6 +538,10 @@
       UI.card('作業能力と委託', '今年の作付面積に対して',
         UI.table([{ label: '機械' }, { label: '必要面積', num: true }, { label: '自分の能力', num: true }, { label: T('機械稼働率', '稼働率') }, { label: '委託する面積', num: true }, { label: '委託料', num: true }, { label: '全部委託なら', num: true }], capRows),
         h('p', { class: 'small muted' }, '能力を超えた分は自動的に', T('作業委託'), 'になります（委託先が引き受けられるのは作業ごとに約' + U.ha(SIM.contractCap(st)) + 'まで。', T('地域の信頼'), 'が高いほど増えます）。「全部委託なら」と、機械を買った場合の年間の', T('減価償却', '償却費'), '＋修理費を比べてみましょう。')),
+      UI.card('🧑‍🌾 機械に乗れる人', '田植機・コンバインは、乗れる人の数まで',
+        h('div', { class: 'kpis' }, UI.kpi('乗れる人', S.operators(st) + '人', '自分・正社員・常雇用パート（季節パートは乗れない）'),
+          UI.kpi('田植機', SIM.machinesOf(st, 'planter').length + '台', pv.machines.planter.idle ? '乗る人がいなくて ' + pv.machines.planter.idle + '台が動かせない' : null, pv.machines.planter.idle ? 'bad' : ''),
+          UI.kpi('コンバイン', SIM.machinesOf(st, 'combine').length + '台', pv.machines.combine.idle ? '乗る人がいなくて ' + pv.machines.combine.idle + '台が動かせない' : null, pv.machines.combine.idle ? 'bad' : ''))),
       UI.card('持っている機械', st.machines.length + '台',
         st.machines.length ? UI.table([{ label: '機械' }, { label: '使用年数', num: true }, { label: T('簿価'), num: true }, { label: '売却額（時価）', num: true }, { label: '修理費見込み', num: true }, { label: '故障率', num: true }, { label: '' }], owned)
           : h('p', { class: 'muted' }, '機械を持っていません。作業はすべて委託しています。'),
@@ -560,8 +587,18 @@
         }), 'sm')),
       h('p', { class: 'small muted' }, '家族と社員の1年の働ける時間を、どの季節にまわすかを決めます（1つの季節は年間の1割〜4割）。田植えの春と稲刈りの秋に寄せると、冬は休みが増えます。パートは、いちばん多い季節の人数を募集します（募集費は人数分）。'));
   }
+  // パート1人の行（名前・年齢・ひとこと・時給・手際）
+  let wageNow = 1; // 今の賃金の上がり具合（賃金の上昇 × パートの時給の引き上げ）。tabLabor で決める
+  function partRow(p, extra, btn) {
+    const sk = p.skill >= 1.12 ? '手際◎' : p.skill >= 1.0 ? '手際○' : p.skill >= 0.88 ? '手際△' : '手際✕';
+    return h('div', { class: 'part-row' },
+      h('div', { class: 'pr-who' }, h('b', null, p.name), h('span', { class: 'small muted' }, p.age + '歳・' + p.note)),
+      h('div', { class: 'pr-num small' }, '時給 ' + U.yen(p.wage * wageNow) + '・' + sk + '（' + U.pct(p.skill) + '）' + (extra ? '・' + extra : '')),
+      btn || null);
+  }
   function tabLabor(app, st, pv) {
     const L = pv.labor;
+    wageNow = st.market.wageInfl * (st.market.partWageBoost || 1);
     const seasonRows = D.SEASONS.map((s) => {
       const x = L.seasons[s];
       return [D.SEASON_ICON[s] + ' ' + D.SEASON_NAMES[s], { v: U.num(x.need) + 'h', cls: 'num' }, { v: U.num(x.family) + 'h', cls: 'num' }, { v: U.num(x.staff) + 'h', cls: 'num' },
@@ -594,11 +631,19 @@
         UI.card('家族', null, UI.table(null, st.family.map((f) => [f.name, h('span', { class: 'muted' }, f.role + (f.age != null ? '・' + f.age + '歳' : '')),
           { v: S.effHours(f) < f.hours - 0.5 ? h('span', null, U.num(S.effHours(f)) + 'h/年', h('div', { class: 'small muted' }, '年齢で減少（本来 ' + U.num(f.hours) + 'h）')) : U.num(f.hours) + 'h/年', cls: 'num' }])),
           h('p', { class: 'small muted' }, '家族の労働には給料を払いませんが、', T('機会費用'), 'があります。決算で「', T('時間当たり所得'), '」を確認しましょう。')),
-        UI.card('パート', '忙しい季節だけ来てもらう',
+        UI.card('季節パート', '忙しい季節だけ来てもらう・機械には乗れない',
           st.partSeason ? h('p', { class: 'small' }, '季節ごとに決めています：' + D.SEASONS.map((x) => D.SEASON_SHORT[x] + ' ' + st.partSeason[x] + '人').join('・') + '（上の「季節ごとの配分」で変えられます）')
             : h('div', { class: 'row' }, h('span', null, '人数'), UI.numInput({ value: st.partTimers, min: 0, max: 30, width: 70, suffix: '人', label: 'パートの人数',
               onChange: (v) => app.update((s) => { s.partTimers = Math.round(v); }) })),
-          h('p', { class: 'small muted' }, '1人あたり 春160h・夏100h・秋160h・冬60h まで。使った時間分の賃金と、募集費 ' + U.yen(D.LABOR.partRecruit) + '/人 がかかります。'))),
+          st.partTimers > 0 ? h('div', { class: 'part-list' }, S.seasonParts(st, st.partTimers).map((p) => partRow(p))) : null,
+          h('p', { class: 'small muted' }, '今年応募してきた人から、人数ぶん上から順に来てもらいます。時給と手際（働ける量）は人によって違います。1人あたり 春160h・夏100h・秋160h・冬60h まで（手際で増減）。使った時間分の賃金と、募集費 ' + U.yen(D.LABOR.partRecruit) + '/人 がかかります。'))),
+      UI.card('常雇用パート', '1年を通して働く・田植機やコンバインにも乗れる',
+        (st.regulars || []).length ? h('div', { class: 'part-list' }, st.regulars.map((p) => partRow(p, '勤続' + (p.years || 0) + '年・年' + U.man(p.wage * D.LABOR.regularHours * wageNow),
+          UI.btn('やめてもらう', () => app.update((s) => A.fireRegular(s, p.id), { undo: true }), 'sm danger')))) : h('p', { class: 'muted' }, '常雇用パートはいません。'),
+        h('h4', { class: 'sub-h' }, '今年の応募者'),
+        h('div', { class: 'part-list' }, S.regularCandidates(st).map((c) => partRow(c, '年' + U.man(c.wage * D.LABOR.regularHours * wageNow) + '（' + U.num(D.LABOR.regularHours) + '時間）',
+          UI.btn('採用する', () => app.update((s) => A.hireRegular(s, c.id), { undo: true, msg: c.name + 'を常雇用パートとして採用しました' }), 'sm primary')))),
+        h('p', { class: 'small muted' }, '年' + U.num(D.LABOR.regularHours) + '時間、季節に分けて働きます（手際が良い人ほど多くこなせる）。給与は毎月かかる固定費です。採用のときに募集費 ' + U.man(D.LABOR.regularRecruit * st.market.wageInfl) + ' がかかります。')),
       UI.card('正社員', '年 ' + U.num(D.LABOR.staffHours) + '時間働ける。給与は毎月かかる固定費',
         st.staff.length ? UI.table([{ label: '名前' }, { label: '勤続', num: true }, { label: '年間の人件費', num: true }, { label: '' }], st.staff.map((s) => [s.name, { v: s.years + '年', cls: 'num' },
           { v: U.man(s.salary * (1 + D.LABOR.staffSocial)), cls: 'num' },
@@ -769,7 +814,8 @@
           UI.select(kindKeys.map((k) => ({ value: k, label: kinds[k].name + '・年利' + U.pct(kinds[k].rate, 1) })), app.loanKind, (v) => { app.loanKind = v; app.keepScroll = true; app.render(); }, { 'aria-label': '借入の種類' }),
           UI.numInput({ value: loanAmt, min: 100000, max: 200000000, step: 100000, width: 130, suffix: '円', label: '借入額', onChange: (v) => { app.loanAmt = v; loanAmt = v; } }),
           UI.btn('借りる', () => app.update((s) => A.takeLoan(s, app.loanKind, app.loanAmt || loanAmt), { undo: true, msg: '借入しました' }), 'sm primary')),
-        h('p', { class: 'small muted' }, '長期資金は', T('元金均等返済'), '。借りた年は利息だけで、翌年から毎年12月に元金を返します。返済の原資は「利益＋減価償却費」（', T('償還財源'), '）です。')),
+        h('p', { class: 'small muted' }, '長期資金は', T('元金均等返済'), '。借りた年は利息だけで、翌年から毎年12月に元金を返します。返済の原資は「利益＋減価償却費」（', T('償還財源'), '）です。'),
+        h('p', { class: 'small muted keep' }, '金利は、日本政策金融公庫と県の農業制度資金の利率（令和8年9〜10月）をもとにした目安です。実際の金利は、借りる時期・期間・条件で変わります。')),
       UI.card('保険', '不作や値下がりへの備え', h('div', { class: 'radio-cards' }, ins)),
       SIM.livingVaries(st) ? UI.card(h('span', null, '🏠 ', T('家計費'), '（生活費）'), '年 約' + U.man(st.living) + '（月平均 約' + U.man(st.living / 12) + '）',
         h('p', { class: 'small' }, '物語では、生活費は自分では決められません。毎月の出費は、季節（正月・お盆・年末は多め）や、暮らしのできごと（冠婚葬祭・車の車検や修理・家電の買い替えなど）で上下します。1年の平均は上の額くらいです。'),
@@ -791,7 +837,7 @@
     const opt = (label, desc, on, auto) => h('button', { class: 'radio-card' + (a.on === on && (!on || !!a.auto === auto) ? ' on' : ''), type: 'button',
       'aria-pressed': a.on === on && (!on || !!a.auto === auto) ? 'true' : 'false', onclick: () => pick(on, auto) },
       h('div', { class: 't' }, label), h('div', { class: 'small muted' }, desc));
-    return UI.card(h('span', null, '農協の', T('出荷契約金'), '（前渡金）'), '出荷契約を結ぶと6月に受け取れる・利息なし',
+    return UI.card(h('span', null, '農協の', T('出荷契約金'), '（前渡金）'), '出荷契約を結ぶと6月に受け取れる・年' + U.pct(D.SALES.advanceInterest, 1) + 'の利息がかかる',
       h('div', { class: 'radio-cards' },
         opt('申し込まない', '前渡金は受け取らない。', false, true),
         opt('申し込む（数量は自動）', '農協への出荷見込みの9割を契約数量にする。', true, true),
@@ -801,8 +847,9 @@
       h('div', { class: 'kpis', style: { marginTop: '10px' } },
         UI.kpi('1俵あたり', U.yen(unit), '今年の予想米価の約半分'),
         UI.kpi('契約数量', U.bales(qty), '農協への出荷見込み ' + U.bales(exp)),
-        UI.kpi('6月の入金', U.man(qty * unit), '10月の概算金と相殺', a.on ? 'good' : '')),
-      h('p', { class: 'small muted' }, '出荷した分は10月の概算金から差し引かれます。農協への出荷が契約数量より少ないと、届かなかった分の契約金を11月に現金で返します。',
+        UI.kpi('6月の入金', U.man(qty * unit), '10月の概算金と相殺', a.on ? 'good' : ''),
+        UI.kpi('利息の見込み', U.man(qty * unit * 4 / 12 * D.SALES.advanceInterest), '6〜10月の4か月分', qty > 0 ? 'warn' : '')),
+      h('p', { class: 'small muted' }, '出荷した分は10月の概算金から差し引かれます。それまでの利息（年' + U.pct(D.SALES.advanceInterest, 1) + '）が10月にかかります。農協への出荷が契約数量より少ないと、届かなかった分の契約金を11月に現金で返します。',
         '金額はJA・年によって異なります（例：JA黒部（富山）令和8年産は出荷契約米1俵10,000円・6月25日払い、令和2・3年産は6,000円）。'));
   }
 

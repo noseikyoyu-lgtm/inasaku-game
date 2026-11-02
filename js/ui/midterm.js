@@ -11,14 +11,16 @@
   MT.due = (st) => !st.gameOver && !st.retired && (st.mode === 'endless' || st.year < st.maxYear) && st.year % MT.EVERY === 0 && st.history.length === st.year;
 
   // 今の実績と、これまでのペースが20年続いたときの見込み
+  // 見込みの区切り：ストーリーは最後の年、エンドレスは「この先10年」
+  MT.horizon = (st) => (st.mode === 'endless' ? st.history.length + 10 : st.maxYear);
   MT.evaluate = function (st) {
-    const hs = st.history, done = hs.length, last = hs[hs.length - 1];
+    const hs = st.history, done = hs.length, last = hs[hs.length - 1], H = MT.horizon(st);
     const now = { eqGain: last.equity - st.initialEquity, avgInc: U.avg(hs.map((x) => x.income)),
       ratio: last.assets > 0 ? last.equity / last.assets : 0, area: last.area, trust: st.trust, brand: st.brand };
-    const end = Object.assign({}, now, { eqGain: now.eqGain / done * st.maxYear });
+    const end = Object.assign({}, now, { eqGain: now.eqGain / done * H });
     const sNow = RG.scoreFrom(now), sEnd = RG.scoreFrom(end);
     const up = RG.RANKS.slice().reverse().find((r) => r[1] > sEnd.total);
-    return { done, left: st.maxYear - done, now: sNow, end: sEnd, up };
+    return { done, left: H - done, now: sNow, end: sEnd, up, H };
   };
 
   const HINTS = {
@@ -65,21 +67,21 @@
       h('div', { class: 'goal-head' },
         h('div', { class: 'goal-rank rank-' + p.rank }, p.rank),
         h('div', null,
-          h('div', { class: 'muted small' }, 'このペースで' + st.maxYear + '年続けたときの見込み'),
+          h('div', { class: 'muted small' }, 'このペースで' + ev.H + '年続けたときの見込み'),
           h('div', { class: 'goal-title' }, p.title + '（' + U.num(p.total, 1) + '点 / 100点）'),
           h('div', { class: 'small' }, ev.up ? ev.up[0] + 'ランクまで あと ' + U.num(ev.up[1] - p.total, 1) + '点' : '最高ランクの見込みです'))),
       prev.length ? h('div', { class: 'goal-trend' }, h('span', { class: 'muted small' }, 'これまでの中間評価'),
         prev.concat([{ year: st.year, rank: p.rank, total: p.total }]).map((m, i) => [i ? h('span', { class: 'muted', 'aria-hidden': 'true' }, '→') : null,
           h('span', { class: 'chip goal-chip' }, m.year + '年目 ' + m.rank + '（' + U.num(m.total, 1) + '点）')])) : null,
-      h('div', { class: 'goal-years' }, h('div', { class: 'small muted' }, '経営の年数：' + ev.done + '年 / ' + st.maxYear + '年（あと' + ev.left + '年）'), UI.bar(ev.done, st.maxYear)));
+      h('div', { class: 'goal-years' }, h('div', { class: 'small muted' }, (st.mode === 'endless' ? '経営の年数：' + ev.done + '年（この先' + ev.left + '年の見込み）' : '経営の年数：' + ev.done + '年 / ' + st.maxYear + '年（あと' + ev.left + '年）')), UI.bar(ev.done, ev.H)));
 
-    const items = UI.card('評価の内訳', '得点は' + st.maxYear + '年後の見込み',
+    const items = UI.card('評価の内訳', '得点は' + ev.H + '年後の見込み',
       h('div', { class: 'goal-items' }, p.items.map((x) => h('div', { class: 'goal-item' },
         h('span', { class: 'nm' }, x.key === 'trust' || x.key === 'brand' ? T(x.label) : x.label),
         h('span', { class: 'pt' }, U.num(x.pts, 1) + ' / ' + x.max + '点'),
         UI.bar(x.pts, x.max),
         h('div', { class: 'sub' },
-          h('span', null, x.key === 'equity' ? '今：' + nowByKey[x.key].value + ' → ' + st.maxYear + '年後：' + x.value : '今：' + x.value),
+          h('span', null, x.key === 'equity' ? '今：' + nowByKey[x.key].value + ' → ' + ev.H + '年後：' + x.value : '今：' + x.value),
           h('span', null, '満点：' + x.goal))))),
       h('p', { class: 'small muted' }, '純資産の増加は、ここまでの増え方が続くとして見込んでいます。ほかの項目は今の値のままとしています。'));
 

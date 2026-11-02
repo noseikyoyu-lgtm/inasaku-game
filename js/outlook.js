@@ -83,6 +83,7 @@
     if (RG.chapters) RG.chapters.skip(st);
     if (RG.dice) RG.dice.auto(st);
     while (st.events.queue.length) RG.events.choose(st, st.events.queue[0], RG.events.statusQuoChoice(st.events.queue[0]));
+    RG.events.autoSeason(st, (id) => RG.events.statusQuoChoice(id));
     (st.scrapped || []).forEach((model) => {
       const price = A.newPrice(st, model);
       if (SIM.loanCapacity(st) >= price) A.buyMachine(st, model, 'loan');
@@ -146,6 +147,7 @@
       equityMed: med(runs.map((r) => r.equity)), equityLow: sorted(runs.map((r) => r.equity))[Math.floor(runs.length * 0.1)] || 0,
       incomeMed: med(runs.map((r) => r.avgIncome)),
       failCash: fails.filter((r) => r.reason === 'cash').length, failInsolvent: fails.filter((r) => r.reason === 'insolvent').length,
+      failDeadline: fails.filter((r) => r.reason === 'deadline').length, failBank: fails.filter((r) => r.reason === 'bank').length,
       failYearMed: fails.length ? med(fails.map((r) => r.endYear)) : null,
       crisisYearMed: runs.some((r) => r.crisisYear) ? med(runs.filter((r) => r.crisisYear).map((r) => r.crisisYear)) : null,
       retiredYear: runs.find((r) => r.retired) ? med(runs.filter((r) => r.retired).map((r) => r.retired)) : null,
@@ -166,10 +168,12 @@
     if (base) {
       const r = base.rate;
       say(r >= 0.9 ? 'good' : r >= 0.6 ? 'warn' : 'bad', '今のやり方のまま続けた場合',
-        '始めたときのやり方（規模・品種・販路はそのまま、寿命の来た機械だけ同じ機種に買い替え）で、天候の違う' + base.n + '通りの20年を試算しました。そのうち ' + base.survived + '通りで' + (base.retiredYear ? '引退まで' : '最後まで') + '続けられました。' +
+        '始めたときのやり方（規模・品種・販路はそのまま、寿命の来た機械だけ同じ機種に買い替え）で、天候の違う' + base.n + '通りの' + Math.min(st.maxYear, D.MAX_YEAR) + '年を試算しました。そのうち ' + base.survived + '通りで' + (base.retiredYear ? '引退まで' : '最後まで') + '続けられました。' +
         (r >= 0.9 ? '悪い年が重なっても持ちこたえられる、足腰の強い経営です。' : r >= 0.6 ? '多くの場合は続けられますが、悪い年が重なると資金が苦しくなります。' : '今のやり方のままでは、続けていくのは難しい可能性が高いと言えます。'));
-      if (base.failCash + base.failInsolvent > 0) {
-        say('bad', 'つまずきやすい時期', '続けられなかった場合の多くは' + (base.failCash >= base.failInsolvent ? '資金繰り（つなぎ資金が融資枠を超える）' : '赤字が続いての債務超過') + 'で、' +
+      const fk = [['資金繰り（つなぎ資金が融資枠を超える）', base.failCash || 0], ['赤字が続いての債務超過', base.failInsolvent || 0],
+        ['期限つきの危機を乗り越えられなかったこと', base.failDeadline || 0], ['融資の審査に通らなかったこと', base.failBank || 0]].sort((a, b) => b[1] - a[1]);
+      if (fk[0][1] > 0) {
+        say('bad', 'つまずきやすい時期', '続けられなかった場合の多くは' + fk[0][0] + 'で、' +
           'だいたい' + base.failYearMed + '年目ごろでした。' + (base.crisisYearMed ? '最初に資金が足りなくなるのは、だいたい' + base.crisisYearMed + '年目です。' : ''));
       }
       if (base.retiredYear) say('warn', '引退の時期', '今のままだと、だいたい' + base.retiredYear + '年目の決算で経営主が80歳を迎え、引き継げる後継者がいないため経営を終えることになります。農地や機械をどうするか、早めに考えておく必要があります。');

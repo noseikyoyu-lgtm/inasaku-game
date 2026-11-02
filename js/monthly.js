@@ -171,6 +171,7 @@
   // まだ選んでいない、今月のできごと
   ME.pending = function (st, month) {
     if (!st.seasonPending) return null;
+    if (RG.events.seasonAt(st, month)) return null; // その月は、年のできごとのほう
     if (ME.choiceOf(st, month)) return null;
     return ME.eventFor(st, month);
   };
@@ -197,7 +198,7 @@
   // 自動で進めるとき（試算・検証）：ci が数字ならその行動、null なら見送る
   ME.autoAll = function (st, ci) {
     for (let m = 1; m <= 12; m++) {
-      if (ME.choiceOf(st, m) || !ME.eventFor(st, m)) continue;
+      if (ME.choiceOf(st, m) || !ME.eventFor(st, m) || RG.events.seasonAt(st, m)) continue;
       if (ci == null) ME.pass(st, m); else ME.choose(st, m, ci);
     }
   };
@@ -265,7 +266,7 @@
       if (e.trust) st.trust = U.clamp(st.trust + e.trust, 0, 100);
       if (e.brand) st.brand = U.clamp(st.brand + e.brand, 0, 100);
       if (e.cust) st.direct.customers += e.cust;
-      if (e.skill) st.skill = Math.min(1.04, st.skill + e.skill);
+      if (e.skill) st.skill = Math.min(1.1, st.skill + e.skill);
       if (e.omamori) st.items.omamori += e.omamori;
     });
   };

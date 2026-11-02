@@ -59,7 +59,7 @@
   function genUsed(st) {
     const r = RG.rng.make(st.seed, st.year, 'used');
     const n = r.int(1, 2);
-    const candidates = ['tr_s', 'tr_40', 'tr_m', 'pl_s', 'pl_5', 'pl_m', 'cb_s', 'cb_4', 'cb_m', 'dr_s', 'dr_50', 'dr_m'];
+    const candidates = ['ns_s', 'ns_m', 'tr_s', 'tr_40', 'tr_m', 'pl_s', 'pl_5', 'pl_m', 'cb_s', 'cb_4', 'cb_m', 'dr_s', 'dr_50', 'dr_m'];
     const out = [];
     for (let i = 0; i < n; i++) {
       const model = r.pick(candidates);
@@ -90,6 +90,7 @@
 
   // ---------- 年初イベント ----------
   const addCost = (st, amount, label, cat) => RG.state.addLedger(st, { amount: -amount, cat: cat || 'eventCost', label });
+  const addLabor = (st, season, hours) => { const f = st.yearFlags; f.cardLabor = f.cardLabor || {}; f.cardLabor[season] = (f.cardLabor[season] || 0) + hours; };
   const family = (st, tag) => st.family.find((f) => f.tag === tag);
   const poorArea = (st) => U.sum(st.fields.filter((f) => f.soil === 'poor'), (f) => f.area);
   const lastSales = (st) => (st.history.length ? st.history[st.history.length - 1].sales : 0);
@@ -122,7 +123,7 @@
       title: '配偶者の働き方',
       text: () => '配偶者から「外でパートに出るか、農業に専念するか、そろそろ決めたい」と相談された。',
       choices: [
-        { label: '農業に専念してもらう', desc: '配偶者の労働時間 600→1,500時間', apply: (st) => { st.family[1].hours = 1500; st.family[1].role = '家族（専従）'; return '配偶者が農業に専念することになった。'; } },
+        { label: '農業に専念してもらう', desc: '配偶者の労働時間 600→1,500時間。外のパート収入がなくなるぶん、家計費 +30万円/年', apply: (st) => { st.family[1].hours = 1500; st.living += 300000; st.family[1].role = '家族（専従）'; return '配偶者が農業に専念することになった。'; } },
         { label: '外で働いてもらう', desc: '家計費の負担が年120万円減る。配偶者の労働時間は300時間に', apply: (st) => { st.family[1].hours = 300; st.living = Math.max(600000, st.living - 1200000); return '配偶者は外で働くことになった。家計にゆとりが出る。'; } },
       ],
     },
@@ -193,6 +194,59 @@
         { label: '断る', desc: '地域の信頼 -4', apply: (st) => { st.trust = Math.max(0, st.trust - 4); return '共同作業を断った。少し気まずい。'; } },
       ],
     },
+    // ---- 借りている田を返してほしい（強制返還） ----
+    {
+      id: 'land_return_dev', who: 'sato', sq: 0,
+      cond: (st) => st.year >= 3 && !!E.returnTarget(st), weight: () => 0.3,
+      title: '借りている田を返してほしい（開発）',
+      text: (st) => { const f = E.returnTarget(st); return '「' + f.name + '（' + U.ha(f.area) + '）のあたりに、' + E.devWhat(st) + 'ができることになってね。土地を売るから、田んぼを返してもらえんか」と地主さんから頼まれた。契約上、断ることはできない。'; },
+      choices: [
+        { label: '田を返す（離作補償をもらう）', desc: '田が減る。離作補償として10aあたり5万円が入る', apply: (st) => { const f = E.returnTarget(st); const comp = Math.round(f.area * 10 * 50000);
+          st.fields = st.fields.filter((x) => x !== f); RG.state.fitPlan(st);
+          RG.state.addLedger(st, { amount: comp, cat: 'otherIncome', label: f.name + 'の離作補償' }); return f.name + '（' + U.ha(f.area) + '）を返した。離作補償 ' + U.man(comp) + ' を受け取った。'; } },
+      ],
+    },
+    {
+      id: 'land_return_tenant', who: 'oyama', sq: 0,
+      cond: (st) => st.year >= 3 && !!E.returnTarget(st), weight: () => 0.3,
+      title: '借りている田を返してほしい（貸し替え）',
+      text: (st) => { const f = E.returnTarget(st); return '地主さんから「' + f.name + '（' + U.ha(f.area) + '）は、来年から親戚の若いもんに貸すことになった。返してもらえんか」と言われた。'; },
+      choices: [
+        { label: '田を返す', desc: '田が減る。地域の信頼 +1（すんなり返した）', apply: (st) => { const f = E.returnTarget(st); st.fields = st.fields.filter((x) => x !== f); RG.state.fitPlan(st); st.trust = Math.min(100, st.trust + 1); return f.name + '（' + U.ha(f.area) + '）を返した。'; } },
+        { label: '地代を上げて、続けて借りられるよう頼む', desc: 'この田の地代が1.6倍になる。地域の信頼 −2（無理を通した）', apply: (st) => { const f = E.returnTarget(st); f.rent = Math.round(f.rent * 1.6); st.trust = Math.max(0, st.trust - 2); return '地代を上げて、' + f.name + 'を続けて借りられることになった（10aあたり ' + U.yen(f.rent) + '）。'; } },
+      ],
+    },
+    // ---- 地域の信頼が上がったり下がったりするできごと ----
+    {
+      id: 'water_dispute', who: 'sato', sq: 1,
+      cond: (st) => st.year >= 2, weight: () => 0.5,
+      title: '水争い',
+      text: () => '日照り続きで、上の田の人と水の取り合いになった。「うちが先に引かせてもらう」と言われている。',
+      choices: [
+        { label: '水を譲る', desc: '地域の信頼 +3。自分の田は水が足りず、収量 −1%', apply: (st) => { st.trust = Math.min(100, st.trust + 3); st.yearFlags.cardY = (st.yearFlags.cardY || 1) * 0.99; return '水を譲った。「助かった」と感謝された。'; } },
+        { label: '順番どおりを主張する', desc: '自分の田は守れる。地域の信頼 −3', apply: (st) => { st.trust = Math.max(0, st.trust - 3); return '順番を守ってもらったが、気まずい空気が残った。'; } },
+      ],
+    },
+    {
+      id: 'rumor', who: 'tamura', sq: 1,
+      cond: (st) => st.year >= 2, weight: () => 0.5,
+      title: '「あそこの田は草だらけ」',
+      text: () => '「あんたのところのあぜ、草が伸び放題じゃと噂になっとるよ」と耳打ちされた。',
+      choices: [
+        { label: '人を頼んで草を刈る', desc: '3万円。地域の信頼 +1', apply: (st) => { addCost(st, 30000, 'あぜの草刈りの依頼'); st.trust = Math.min(100, st.trust + 1); return 'あぜをきれいにした。噂はすぐに消えた。'; } },
+        { label: '気にしない', desc: '地域の信頼 −3', apply: (st) => { st.trust = Math.max(0, st.trust - 3); return '噂はしばらく消えなかった。'; } },
+      ],
+    },
+    {
+      id: 'funeral', who: 'tamura', sq: 1,
+      cond: (st) => st.year >= 2, weight: () => 0.5,
+      title: '集落のお葬式',
+      text: () => '集落の長老が亡くなった。葬儀の手伝いを頼まれている。',
+      choices: [
+        { label: '受付と送迎を手伝う', desc: '冬の作業 +12時間・地域の信頼 +3', apply: (st) => { addLabor(st, 'winter', 12); st.trust = Math.min(100, st.trust + 3); return '一日、葬儀を手伝った。'; } },
+        { label: '香典だけ出す', desc: '1万円。地域の信頼 −1', apply: (st) => { addCost(st, 10000, '香典'); st.trust = Math.max(0, st.trust - 1); return '香典を出した。'; } },
+      ],
+    },
     {
       id: 'waterway',
       cond: (st) => st.year >= 3,
@@ -208,8 +262,8 @@
       title: '集落営農組織の解散',
       text: () => '隣の集落の営農組織がメンバーの高齢化で解散する。「12haをまとめて引き受けてもらえないか」と相談された（地代 10aあたり8,000円、条件は普通〜不利が混在）。',
       choices: [
-        { label: '12haすべて引き受ける', desc: '地域の信頼 +10', apply: (st) => { E.addBlock(st, 12); st.trust = Math.min(100, st.trust + 10); return '12haを引き受けた。機械と人手の手当てが必要だ。'; } },
-        { label: '条件の良い6haだけ', desc: '地域の信頼 +3', apply: (st) => { E.addBlock(st, 6); st.trust = Math.min(100, st.trust + 3); return '6haを引き受けた。'; } },
+        { label: '12haすべて引き受ける', desc: '地域の信頼 +10。ただし地代（10aあたり8,000円）がかかり、半分ほどは条件不利の田。人手と機械が足りなくなるおそれ', apply: (st) => { E.addBlock(st, 12); st.trust = Math.min(100, st.trust + 10); return '12haを引き受けた。機械と人手の手当てが必要だ。'; } },
+        { label: '条件の良い6haだけ', desc: '地域の信頼 +3。地代（10aあたり8,000円）がかかり、人手と機械の手当ても要る', apply: (st) => { E.addBlock(st, 6); st.trust = Math.min(100, st.trust + 3); return '6haを引き受けた。'; } },
         { label: '断る', desc: '地域の信頼 -5', apply: (st) => { st.trust = Math.max(0, st.trust - 5); return '話を断った。'; } },
       ],
     },
@@ -305,8 +359,8 @@
       cond: (st) => st.year >= 3 && RG.accounting.bs(st).equityRatio >= 0.3,
       weight: () => 0.2,
       title: '金融機関からの融資案内',
-      text: () => '地域の金融機関から「経営内容が良いので、今年に限り設備資金を年0.8%で融資できる」と案内があった。',
-      choices: [{ label: '覚えておく', desc: '今年の長期資金の金利が0.8%に', apply: (st) => { st.yearFlags.lowRate = true; return '今年は低金利で借りられる。'; } }],
+      text: () => '地域の金融機関から「経営内容が良いので、今年に限り設備資金を年' + U.pct(D.MACHINE.lowRate, 1) + 'で融資できる」と案内があった。',
+      choices: [{ label: '覚えておく', desc: '今年の長期資金の金利が' + U.pct(D.MACHINE.lowRate, 1) + 'に', apply: (st) => { st.yearFlags.lowRate = true; return '今年は低金利で借りられる。'; } }],
     },
     {
       id: 'share_combine',
@@ -344,7 +398,7 @@
     const out = elig.filter((e) => e.weight(st) >= 100).map((e) => e.id);
     const rest = elig.filter((e) => e.weight(st) < 100);
     for (let i = rest.length - 1; i > 0; i--) { const j = Math.floor(r.next() * (i + 1)); [rest[i], rest[j]] = [rest[j], rest[i]]; }
-    const maxN = st.year === 1 ? 0 : 2;
+    const maxN = st.year === 1 ? 0 : st.year >= 6 ? 3 : 2; // 1〜5年目はチュートリアルの期間。6年目からは厳しく
     let n = 0;
     for (const e of rest) {
       if (n >= maxN) break;
@@ -354,6 +408,49 @@
   };
 
   E.get = (id) => E.POOL.find((e) => e.id === id);
+  // 返してほしいと言われる借地（その年にシードで決まる）
+  E.returnTarget = function (st) {
+    const rented = st.fields.filter((f) => !f.owned && !f.village);
+    if (!rented.length) return null;
+    return rented[RG.rng.hash(st.seed, st.year, 'landret') % rented.length];
+  };
+  E.devWhat = (st) => ['新しいバイパス道路', '工場の用地', '太陽光発電所', '物流倉庫', '住宅団地'][RG.rng.hash(st.seed, st.year, 'devwhat') % 5];
+
+  // ---------- シーズン中の月に起きるできごと ----------
+  // 年初の計画に関わらないできごとは、季節に合った月に起きる（計画に関わるもの：農地・人・契約・制度・資金は年初のまま）
+  E.SEASON_MONTH = { training: 1, funeral: 2, waterway: 3, water_dispute: 8, rumor: 6, sato_1: 6, community: 7, sato_2: 7, boar: 7, tanada_boar: 7, influencer: 8,
+    feed_policy: 9, aoki_2: 10, tanada_brand: 10, contest: 11, saiken_bonus: 12 };
+  // 年初に決まったできごとのうち、月に回すものを分ける
+  E.splitSeason = function (st) {
+    st.events.season = st.events.queue.filter((id) => E.SEASON_MONTH[id]).map((id) => ({ id, month: E.SEASON_MONTH[id], done: false }));
+    st.events.queue = st.events.queue.filter((id) => !E.SEASON_MONTH[id]);
+  };
+  E.seasonAt = (st, month) => (st.events.season || []).find((x) => x.month === month) || null;
+  // まだ選んでいない、その月までのできごと（条件を満たさなくなったものは取り消す）
+  E.seasonPending = function (st, month) {
+    for (const x of st.events.season || []) {
+      if (x.done || x.month > month) continue;
+      const ev = E.get(x.id);
+      if (!ev || !ev.cond(st)) { x.done = true; x.skipped = true; continue; }
+      return x;
+    }
+    return null;
+  };
+  // シーズン中に選ぶ。お金の出入りは、その月のこととして記録する
+  E.chooseSeason = function (st, x, idx) {
+    const ev = E.get(x.id);
+    st.ledgerMonth = x.month;
+    const msg = ev.choices[idx].apply(st);
+    st.ledgerMonth = null;
+    st.events.seen[x.id] = st.year;
+    x.done = true; x.choice = idx; x.msg = msg;
+    st.news.push({ kind: 'event', text: '【' + x.month + '月・' + ev.title + '】' + msg });
+    return msg;
+  };
+  // 自動で進めるとき（試算・検証）：pick(id) で選ぶ番号を決める
+  E.autoSeason = function (st, pick) {
+    for (let m = 1; m <= 12; m++) { let x; while ((x = E.seasonPending(st, m))) E.chooseSeason(st, x, pick(x.id)); }
+  };
   E.statusQuoChoice = (id) => { const e = E.get(id); return e.sq !== undefined ? e.sq : e.choices.length - 1; };
 
   // 前のできごとで状況が変わり、起きる条件を満たさなくなったできごとを取り除く

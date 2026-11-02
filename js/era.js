@@ -205,7 +205,8 @@
     text: () => '「市役所の農林課から、認定農業者にならないかと話が来ているよ。5年後の経営の目標（面積・所得・労働時間）を書いた『経営改善計画』を出して認めてもらうんだ。' +
       '認定されると、低い金利の制度資金（スーパーL資金）が借りられるし、機械の補助事業にも申し込めるようになる。計画を書くこと自体が、経営を見直すいい機会になるよ」',
     choices: [
-      { label: '経営改善計画を出す', desc: '認定農業者になる：低利の制度資金・機械の補助事業の話が来るように。地域の信頼 +2', apply: (st) => { st.featOpen.nintei = true; st.trust = Math.min(100, st.trust + 2); return '🔓 認定農業者になった。「資金・保険」でスーパーL資金が借りられ、機械の補助事業の話も来るようになる。'; } },
+      { label: '経営改善計画を出す', desc: '認定農業者になる：低利の制度資金・機械の補助事業の話が来るように。地域の信頼 +2。計画づくりに冬の作業 +20時間、5年後の目標に向けた報告も必要', apply: (st) => { st.featOpen.nintei = true; st.trust = Math.min(100, st.trust + 2);
+        const yf = st.yearFlags; yf.cardLabor = yf.cardLabor || {}; yf.cardLabor.winter = (yf.cardLabor.winter || 0) + 20; return '🔓 認定農業者になった。「資金・保険」でスーパーL資金が借りられ、機械の補助事業の話も来るようになる。'; } },
       { label: '今は見送る', desc: '2年後に、また話が来る', apply: (st) => { st.flags.ninteiAsked = st.year; return '今回は見送った。'; } },
     ],
   });
@@ -221,7 +222,9 @@
     text: (st) => '「近くで肉牛を育てている大川さんが、輸入のトウモロコシが値上がりして困っていてね。エサになる米（飼料用米）を作ってくれる人を探しているんだ。' +
       '飼料用米は売り値こそ安いが、国の交付金が出るから、10aあたりの手取りはそこそこになる。' + (priceDrop(st) ? '去年のように主食用の米が値下がりしたときの、逃げ道にもなるよ。' : '主食用の米が値下がりしたときの、逃げ道にもなるよ。') + '多収の「新潟次郎」なら手間も少ない」',
     choices: [
-      { label: '作ってみる', desc: '飼料用米「新潟次郎」が作れるようになる・地域の信頼 +2', apply: (st) => { st.cropsOpen.feed = true; st.trust = Math.min(100, st.trust + 2); return '🔓 飼料用米「新潟次郎」が作れるようになった。「作付計画」で選べる。'; } },
+      { label: '作ってみる', desc: '飼料用米「新潟次郎」が作れるようになる・地域の信頼 +2。専用の種もみと、まざらないための機械の掃除で3万円・春の作業 +10時間', apply: (st) => { st.cropsOpen.feed = true; st.trust = Math.min(100, st.trust + 2);
+        RG.state.addLedger(st, { amount: -30000, cat: 'eventCost', label: '飼料用米の種もみと機械の掃除' });
+        const yf = st.yearFlags; yf.cardLabor = yf.cardLabor || {}; yf.cardLabor.spring = (yf.cardLabor.spring || 0) + 10; return '🔓 飼料用米「新潟次郎」が作れるようになった。「作付計画」で選べる。'; } },
       { label: '今はやめておく', desc: '2年後に、また話が来る', apply: (st) => { st.flags.feedAsked = st.year; return '今回は見送った。'; } },
     ],
   });

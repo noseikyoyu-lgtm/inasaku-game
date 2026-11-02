@@ -110,9 +110,11 @@
     const total = U.sum(st.fields, (f) => f.area);
     const sev = (id) => { const e = (events || []).find((x) => x.id === id && x.hit !== false); return e ? (D.SEV[e.sev] || D.SEV.mid).mult : 0; };
     const cap = {};
-    st.machines.forEach((m) => { const md = D.MODELS[m.model]; cap[md.type] = (cap[md.type] || 0) + (md.cap || 0); });
+    const share = SIM.soilShare(st);
+    st.machines.forEach((m) => { const md = D.MODELS[m.model]; cap[md.type] = (cap[md.type] || 0) + (md.cap ? SIM.fieldCap(st, m.model, share) : 0); });
     return {
-      need: { tractor: planted, nursery: transplant, planter: transplant, combine: planted, dryer: planted },
+      // 作業受託で引き受けた面積も、コンバインの仕事に入る
+      need: { tractor: planted, nursery: transplant, planter: transplant, combine: planted + (RG.biz ? RG.biz.state(st).harvest || 0 : 0), dryer: planted },
       cap,
       poorShare: total > 0 ? U.sum(st.fields.filter((f) => f.soil === 'poor'), (f) => f.area) / total : 0,
       // 倒れやすさ（耐倒伏の弱い品種ほど大きい）と、直播の割合
@@ -205,11 +207,38 @@
     return { eligible: true, per10a, base: per10a * marketArea10a };
   };
 
+  // ---------- 田んぼの条件と機械の能力 ----------
+  // 田植機・コンバインは、大きな機械ほど平坦・大区画の田（条件良）で能力が上がり、中山間・小区画の田（条件不利）で落ちる。小さな機械はあまり変わらない
+  const SIZE_FIELD = { good: [0, 0.05, 0.1, 0.2], poor: [0, -0.1, -0.2, -0.35] };
+  SIM.FIELD_TYPES = ['planter', 'combine'];
+  SIM.sizeTier = (md) => (md.eff >= 1 ? 0 : md.eff >= 0.85 ? 1 : md.eff >= 0.72 ? 2 : 3);
+  SIM.soilShare = function (st) {
+    const total = U.sum(st.fields, (f) => f.area);
+    const sh = (soil) => (total > 0 ? U.sum(st.fields.filter((f) => f.soil === soil), (f) => f.area) / total : 0);
+    return { good: sh('good'), poor: sh('poor') };
+  };
+  // その機種の、今の田んぼでの能力の倍率
+  SIM.fieldCapMult = function (st, modelId, share) {
+    const md = D.MODELS[modelId];
+    if (SIM.FIELD_TYPES.indexOf(md.type) < 0) return 1;
+    const s = share || SIM.soilShare(st), t = SIM.sizeTier(md);
+    return 1 + s.good * SIZE_FIELD.good[t] + s.poor * SIZE_FIELD.poor[t];
+  };
+  SIM.fieldCap = (st, modelId, share) => D.MODELS[modelId].cap * SIM.fieldCapMult(st, modelId, share);
+
   function allocType(st, type, need, broken, extraCap, capMult) {
-    const list = SIM.machinesOf(st, type).map((m) => {
+    const share = SIM.soilShare(st);
+    let list = SIM.machinesOf(st, type).map((m) => {
       const md = D.MODELS[m.model];
-      return { id: m.id, eff: md.eff, cap: md.cap * (broken[m.id] ? 0.6 : 1) * (capMult || 1) };
+      return { id: m.id, eff: md.eff, cap: SIM.fieldCap(st, m.model, share) * (broken[m.id] ? 0.6 : 1) * (capMult || 1) };
     });
+    // 田植機・コンバインは、乗れる人の数までしか同時に動かせない（能力の大きい順）
+    let idle = 0;
+    if (type === 'planter' || type === 'combine') {
+      const ops = RG.state.operators(st);
+      if (list.length > ops) { list.sort((a, b) => b.cap - a.cap); idle = list.length - ops; list = list.slice(0, ops); }
+    }
+    const ownCount = list.length, ownCap = U.sum(list, (x) => x.cap); // 自分の機械だけ（共同利用は除く）
     if (extraCap) list.push({ id: 'share', eff: 0.75, cap: extraCap });
     list.sort((a, b) => a.eff - b.eff);
     let rem = need, own = 0, effArea = 0, cap = 0;
@@ -218,7 +247,7 @@
       const use = Math.min(rem, x.cap);
       own += use; effArea += use * x.eff; rem -= use;
     }
-    return { need, cap, own, contract: Math.max(0, rem), eff: own > 0 ? effArea / own : 1, util: cap > 0 ? need / cap : 0, count: list.length };
+    return { need, cap, own, contract: Math.max(0, rem), eff: own > 0 ? effArea / own : 1, util: cap > 0 ? need / cap : 0, count: ownCount, ownCap, idle };
   }
 
   SIM.simulate = function (st, opts) {
@@ -331,17 +360,23 @@
     for (const s of D.SEASONS) need[s] += directLabor * D.DIRECT_LABOR_SPLIT[s];
     if (flags.extraLabor) for (const s in flags.extraLabor) need[s] += flags.extraLabor[s];
     for (const s in dfx.labor) need[s] = Math.max(0, need[s] + dfx.labor[s]);
+    { const ch = D.COMMUNITY[st.community == null ? 1 : st.community].h; for (const s in ch) need[s] += ch[s]; } // 地域のつきあいの時間
     // 新しい事業の作業時間（空き能力の範囲で）
     const bizL = RG.biz.labor(st, { combine: RG.biz.spare(mach.combine), drone: RG.biz.spare(mach.drone) });
     for (const s in bizL.hours) need[s] += bizL.hours[s];
 
     const famHours = U.sum(st.family, (x) => RG.state.effHours(x));
-    const staffHours = U.sum(st.staff, (s) => D.LABOR.staffHours * (1 + 0.04 * Math.min(s.years, 5)));
+    // 常雇用パートは社員と同じく季節に分けて働く（手際の良さで働ける量が変わる）
+    const regs = st.regulars || [];
+    const regHours = U.sum(regs, (p) => D.LABOR.regularHours * p.skill * (1 + 0.03 * Math.min(p.years || 0, 5)) * RG.state.ageFactor(p.age));
+    const staffHours = U.sum(st.staff, (s) => D.LABOR.staffHours * (1 + 0.04 * Math.min(s.years, 5))) + regHours;
+    // 季節パート：今年来てくれる人の手際と時給
+    const sparts = RG.state.seasonParts(st, Math.max(0, ...D.SEASONS.map((s) => RG.state.partsIn(st, s))));
     const seasons = {};
     let partHours = 0, famUsed = 0;
     for (const s of D.SEASONS) {
       const share = RG.state.laborShare(st, s); // 家族・社員の時間の季節配分（計画で変えられる）
-      const fam = famHours * share, stf = staffHours * share, pc = RG.state.partsIn(st, s) * D.PART_CAP[s];
+      const fam = famHours * share, stf = staffHours * share, pc = U.sum(sparts.slice(0, RG.state.partsIn(st, s)), (p) => p.skill) * D.PART_CAP[s];
       const n = need[s];
       const useStaff = Math.min(n, stf);
       const useFam = Math.min(n - useStaff, fam);
@@ -350,9 +385,13 @@
       seasons[s] = { need: n, family: fam, staff: stf, part: pc, useFam, useStaff, usePart, short, ratio: n > 0 ? short / n : 0 };
       partHours += usePart; famUsed += useFam;
     }
-    const partWage = D.LABOR.partWage * wInf * (st.market.partWageBoost || 1);
+    // 季節パートの時給：来てくれた人たちの時給の平均
+    const nMax = Math.max(1, ...D.SEASONS.map((s) => RG.state.partsIn(st, s)));
+    const avgWage = sparts.length ? U.sum(sparts.slice(0, nMax), (p) => p.wage) / Math.min(nMax, sparts.length) : D.LABOR.partWage;
+    const partWage = avgWage * wInf * (st.market.partWageBoost || 1);
+    const regularCost = U.sum(regs, (p) => p.wage * D.LABOR.regularHours) * wInf * (st.market.partWageBoost || 1);
     const sh = (s) => seasons[s].ratio;
-    res.labor = { ops, seasons, need, famHours, staffHours, partHours, partWage, partCost: partHours * partWage,
+    res.labor = { ops, seasons, need, famHours, staffHours, regHours, regularCost, partHours, partWage, partCost: partHours * partWage, operators: RG.state.operators(st),
       familyHoursUsed: famUsed, totalHours: U.sum(D.SEASONS, (s) => need[s]), directLabor,
       hoursPer10a: area.planted > 0 ? U.sum(D.SEASONS, (s) => need[s]) / (area.planted * 10) : 0 };
 
@@ -486,6 +525,16 @@
     if (bizL.drone > 0) biz.drone = { area: bizL.drone, revenue: bizL.drone * 10 * BD.drone.fee, cost: bizL.drone * 10 * BD.drone.cost * mInf };
     if (biz.harvest) biz.trust += Math.min(4, biz.harvest.area / 3);
     if (biz.drone) biz.trust += Math.min(2, biz.drone.area / 15);
+    // 作業受託のリスク：受託先での事故・刈り遅れの補償・刈りきれなかった分の外注
+    const bplan = BZ.state(st);
+    biz.risks = BZ.risks(st, bizL, {
+      poorShare: SIM.soilShare(st).poor, autumnShort: res.labor.seasons.autumn.ratio,
+      akisa: (events.find((e) => e.id === 'akisa' && e.hit !== false) ? 1 : 0),
+      // 故障がなければ受けられた面積と、実際に受けた面積の差（空き能力を超えた分は、はじめから引き受けない）
+      combineShort: !BZ.has(st, 'combine') ? 0 : Math.max(0, Math.min(bplan.harvest || 0, BZ.spare(allocType(st, 'combine', area.planted, {}))) - bizL.harvest),
+    }, preview);
+    biz.risks.forEach((x) => { biz.trust += x.trust || 0; log(x.month, '⚠️ 作業受託：' + x.label + (x.kind === 'repair' ? '（修理費 ' + U.man(x.amount) + '）' : ''), 'bad'); });
+    biz.insurance = BZ.planned(st) > 0 && BZ.insured(st) ? BZ.INSURANCE.premium * mInf : 0;
     const procPlan = BZ.procPlanned(st);
     if (procPlan > 0) {
       // もち米があればもち米から、なければうるち米（農協に出す予定の米）から使う
@@ -574,6 +623,9 @@
       cashAt(6, adv.amount, 'advanceIn', '農協の出荷契約金（前渡金）');
       cashAt(10, -adv.offset, 'advanceOut', '出荷契約金の相殺（概算金から差し引き）');
       cashAt(11, -adv.ret, 'advanceOut', '出荷契約金の返還（出荷が契約数量に届かなかった分）');
+      // 利息：相殺した分は6〜10月の4か月、返した分は6〜11月の5か月
+      adv.interest = Math.round((adv.offset * 4 + adv.ret * 5) / 12 * D.SALES.advanceInterest);
+      spend('interest', adv.interest, { 10: 1 }, '出荷契約金の利息');
     }
     sales.spot.forEach((x) => { x.revenue = x.bales * x.unit; });
     const spotRev = U.sum(sales.spot, (x) => x.revenue);
@@ -672,6 +724,10 @@
     spend('rent', U.sum(st.fields.filter((f) => !f.owned), (f) => f.area * 10 * f.rent), { 12: 1 }, '地代の支払い');
     spend('lease', U.sum(st.machines.filter((m) => m.lease), (m) => m.leaseFee), MONTHLY, 'リース料');
     spend('wageStaff', U.sum(st.staff, (s) => s.salary * (1 + D.LABOR.staffSocial)), MONTHLY, '社員給与');
+    spend('wagePart', res.labor.regularCost, MONTHLY, '常雇用パートの給与');
+    spend('eventCost', D.COMMUNITY[st.community == null ? 1 : st.community].cost * mInf, { 4: 0.5, 11: 0.5 }, '地域のつきあい（会費・寄付）');
+    // 研修生の賃金（働いてもらう時間 × 時給）
+    spend('wagePart', U.sum(st.family.filter((f) => f.tag === 'trainee'), (f) => f.hours * D.LABOR.traineeWage * wInf), MONTHLY, '研修生の賃金');
     const partMonths = { spring: { 4: 0.5, 5: 0.5 }, summer: { 7: 1 }, autumn: { 9: 0.5, 10: 0.5 }, winter: { 1: 0.33, 2: 0.33, 12: 0.34 } };
     for (const s of D.SEASONS) spend('wagePart', seasons[s].usePart * partWage, partMonths[s], 'パート賃金');
     spend('recruit', st.partTimers * D.LABOR.partRecruit, { 3: 1 }, 'パート募集費');
@@ -683,6 +739,8 @@
     spend('procure', procure, { 11: 0.5, 12: 0.5 });
     if (stockSale) spend('salesCost', stockSale.fee, { [BZ.STORE.month]: 1 }, '保管米の保管料（低温倉庫）');
     spend('bizCost', (biz.harvest ? biz.harvest.cost : 0) + (biz.drone ? biz.drone.cost : 0), { 8: 0.4, 10: 0.6 }, '作業受託の燃料・消耗品');
+    if (biz.insurance) spend('insurance', biz.insurance, { 4: 1 }, '作業受託の賠償保険');
+    (biz.risks || []).forEach((x) => { if (x.amount > 0) spend(x.kind === 'repair' ? 'repair' : 'eventCost', x.amount, { [x.month]: 1 }, x.kind === 'repair' ? '受託作業での機械の修理' : '受託作業の補償'); });
     if (biz.proc) spend('bizCost', biz.proc.cost, { 12: 1 }, '加工の原材料・包装');
     if (biz.stand) spend('bizCost', biz.stand.cost, MONTHLY, '直売所の光熱費・消耗品');
     spend('marketing', st.direct.marketing, { 4: 0.5, 10: 0.5 });
@@ -782,8 +840,12 @@
     // 有機質肥料・環境にやさしい資材で直販していると、ブランド力が育つ
     if (direct.sold > 0 && RG.fieldwork) ['fert', 'pest'].forEach((k) => { brandBonus += RG.fieldwork.input(st, k).brand || 0; });
     const brandEnd = U.clamp(st.brand * (1 - D.BRAND.decay) + brandGain + brandBonus, 0, 100);
-    trustDelta += area.total > 0 && area.fallow / area.total > 0.2 ? -2 : 1;
-    if (st.path === 'local') trustDelta += 2; // 地域の要の道
+    // 地域の信頼：つきあいの度合い（お金と時間をかける）・耕作放棄・高い信頼は保つのに手間がかかる
+    const com = D.COMMUNITY[st.community == null ? 1 : st.community];
+    trustDelta += com.trust;
+    if (area.total > 0 && area.fallow / area.total > 0.2) trustDelta -= 3;
+    trustDelta -= st.trust > 80 ? 4 : st.trust > 60 ? 2 : 0; // 高い信頼は、保つのに手間がかかる（ほうっておくと下がる）
+    if (st.path === 'local') trustDelta += 1; // 地域の要の道
 
     Object.assign(res, {
       rec, pl, tax, special, items,
@@ -866,6 +928,8 @@
       if (!l) continue;
       l.balance = u.newBalance; l.grace = u.grace; l.newThisYear = false;
       if (u.principal > 0) l.yearsLeft = Math.max(0, l.yearsLeft - 1);
+      // 利子助成の期間が終わったら、ふつうの金利に戻る（スーパーL資金）
+      if (l.rateYears > 0) { l.rateYears -= 1; if (l.rateYears === 0 && l.rateLater) { l.rate = l.rateLater; l.rateLater = null; (res.rateNotes = res.rateNotes || []).push(l.name + 'の利子助成の期間が終わり、金利が' + U.pct(l.rate, 1) + 'になった。'); } }
     }
     st.loans = st.loans.filter((l) => l.balance > 1);
     st.receivables = res.newReceivables;
@@ -875,7 +939,7 @@
     st.taxLabel = st.corp ? '法人税等' : '所得税・住民税等';
     if (st.corp) st.lossCarry = res.tax.newLoss;
 
-    const notes = [];
+    const notes = (res.rateNotes || []).slice();
     for (const m of st.machines) {
       if (!m.lease) m.book = Math.max(0, m.book - (res.dep[m.id] || 0));
       m.age += 1;
@@ -898,8 +962,13 @@
     st.brand = res.brandEnd;
     st.trust = U.clamp(st.trust + res.trustDelta, 0, 100);
     if (RG.monthly) RG.monthly.applyEnd(st); // 毎月のできごとで変わった信頼・ブランド・お客さん・技術
-    st.skill = Math.min(1.04, st.skill + 0.008);
+    if (RG.fieldwork) { RG.fieldwork.applyEnd(st); st.flags.soilPrev = st.flags.soilNext; } // 冬の営業・12月の土づくり（来年の収量に効く）
+    st.skill = Math.max(st.skill, Math.min(1.04, st.skill + 0.008)); // 経験で伸びるのは1.04まで（ごほうびで超えた分は下げない）
     st.staff.forEach((s) => { s.years += 1; s.salary *= 1.02; });
+    (st.regulars || []).forEach((p) => { p.years = (p.years || 0) + 1; p.age += 1; });
+    // 引退の年齢になった常雇用パートは、やめていく
+    (st.regulars || []).filter((p) => p.age >= D.AGING.retire).forEach((p) => notes.push('常雇用パートの' + p.name + 'が、' + p.age + '歳で引退した。'));
+    st.regulars = (st.regulars || []).filter((p) => p.age < D.AGING.retire);
     // 1年たつと家族も1歳年をとる。経営主が働けなくなったら、後継者に引き継ぐか引退する
     st.family.forEach((f) => { if (f.age != null) f.age = Number(f.age) + 1; });
     const op = RG.state.operator(st);
@@ -913,7 +982,7 @@
       if (sc && Number(sc.age) >= 20) {
         op.tag = 'retired'; op.role = '引退'; sc.tag = 'operator'; sc.role = st.corp ? '代表' : '経営主';
         notes.push(op.name + 'が' + op.age + '歳で引退し、経営を' + sc.name + 'に引き継いだ。');
-      } else if (st.year < st.maxYear) {
+      } else if (st.mode === 'endless' || st.year < st.maxYear) {
         st.retired = { year: st.year, age: op.age };
       }
     }
@@ -958,6 +1027,8 @@
     }
     // ストーリーごとの決算のあとの出来事（融資の審査・社員の士気など）
     if (RG.scenes && !st.gameOver) RG.scenes.afterYear(st, res).forEach((t) => { res.notes.push(t); (res.missionNotes = res.missionNotes || []).push(t); });
+    // 期限つきの危機（6年目から）：達成できなければ経営終了
+    if (RG.pressure && !st.gameOver) RG.pressure.afterYear(st, res).forEach((t) => { res.notes.push(t); (res.missionNotes = res.missionNotes || []).push(t); });
     st.phase = 'season';
   };
 })(window.RG = window.RG || {});

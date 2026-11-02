@@ -22,8 +22,26 @@
   D.AGING = { full: 65, perYear: 0.05, retire: 80 };
   D.WORK_STYLES = { full: { name: '専従', hours: 1800 }, half: { name: '半分くらい', hours: 900 }, help: { name: '手伝い程度', hours: 300 } };
 
+  // 地域とのつきあい（地域の信頼を育てるには、お金と時間がかかる）
+  D.COMMUNITY = [
+    { key: 0, name: '最低限', desc: '会費だけ払う。信頼は少しずつ下がっていく', cost: 10000, h: {}, trust: -2 },
+    { key: 1, name: 'ふつう', desc: '集落の行事や清掃に顔を出す', cost: 50000, h: { summer: 10, winter: 10 }, trust: 0 },
+    { key: 2, name: '積極的に', desc: '役員を引き受け、行事を手伝い、寄付もする', cost: 150000, h: { spring: 10, summer: 20, autumn: 10, winter: 20 }, trust: 3 },
+  ];
+  // パートの人物像（名前・ひとこと）。時給と手際（能力）はランダム
+  D.PART_PEOPLE = {
+    names: ['佐々木', '鈴木', '高橋', '田中', '渡辺', '伊藤', '山本', '中村', '小林', '加藤', '吉田', '山田', '佐藤', '松本', '井上', '木下', '林', '斎藤', '清水', '山口', '森', '池田', '橋本', '阿部', '石川', '前田', '藤田', '小川', '岡田', '後藤'],
+    notes: [
+      ['元会社員。機械の扱いがうまい', 1.15], ['子育て中で、午前中が中心', 0.9], ['近所の兼業農家。田んぼの仕事に慣れている', 1.2], ['定年退職した元教員。几帳面', 1.05],
+      ['学生アルバイト。体力はあるが、まだ不慣れ', 0.85], ['元JA職員。段取りがいい', 1.1], ['料理が得意。直販の袋詰めも手伝える', 0.95], ['のんびり屋だが、ていねい', 0.9],
+      ['大型特殊の免許を持っている', 1.15], ['物覚えが早い', 1.05], ['腰に持病があり、無理はきかない', 0.8], ['近所で評判の働き者', 1.2],
+    ],
+  };
   D.LABOR = {
     partWage: 1150,
+    regularHours: 1400,   // 常雇用パート：1年に働く時間（季節に分けて働く・機械に乗れる）
+    regularRecruit: 50000,
+    traineeWage: 1000, // 研修生に払う賃金（1時間あたり）
     partRecruit: 30000,
     staffSalary: 3600000,
     staffSocial: 0.15,
@@ -231,6 +249,7 @@
     tr_m: { type: 'tractor', name: 'トラクタ 60馬力', price: 6500000, cap: 12, eff: 0.72, life: 7, maxAge: 20 },
     tr_l: { type: 'tractor', name: 'トラクタ 100馬力', price: 11000000, cap: 20, eff: 0.52, life: 7, maxAge: 20 },
     ns_s: { type: 'nursery', name: '育苗ハウス 小', price: 1200000, cap: 8, eff: 1.0, life: 14, maxAge: 25 },
+    ns_m: { type: 'nursery', name: '育苗ハウス 中', price: 2300000, cap: 16, eff: 0.82, life: 14, maxAge: 25 },
     ns_l: { type: 'nursery', name: '育苗ハウス 大（自動播種機付）', price: 3800000, cap: 30, eff: 0.65, life: 14, maxAge: 25 },
     pl_s: { type: 'planter', name: '田植機 4条', price: 1600000, cap: 6, eff: 1.0, life: 7, maxAge: 15 },
     pl_5: { type: 'planter', name: '田植機 5条', price: 2400000, cap: 10, eff: 0.85, life: 7, maxAge: 15 },
@@ -253,9 +272,14 @@
   D.MACHINE = {
     leaseRate: 0.165,     // 年間リース料 = 価格 × この率（修理費込み・7年契約）
     leaseYears: 7,
-    loanRate10: 0.015,
-    loanRate20: 0.02,
-    lowRate: 0.01,
+    // 金利は、日本政策金融公庫と県の農業制度資金の利率（令和8年9〜10月）をもとにした目安
+    //   スーパーL資金（一般）：2.35〜3.40%（10年 約2.7〜2.9%、20年 約3.3〜3.5%）・特例（当初5年の利子助成）：0.35〜1.40%
+    //   農業近代化資金・経営体育成強化資金：3.3〜3.4%・青年等就農資金：無利子（17年以内・据置5年以内）
+    loanRate10: 0.028,
+    loanRate20: 0.034,
+    lowRate: 0.015,       // 金融機関からの特別な案内・依頼のごほうびの年
+    superLFirst: 0.009,   // スーパーL資金（認定農業者）：当初5年は利子助成あり
+    superLYears: 5,
   };
 
   // ---------- 費用（円/10a、物価上昇で毎年少しずつ上がる） ----------
@@ -279,7 +303,7 @@
     // 農協の出荷契約金（前渡金）：出荷契約の数量に応じて6月に支払われ、秋の概算金と相殺する。
     // 例：JA黒部（富山）令和8年産 出荷契約米1俵10,000円・6月25日払い（R2・R3年産は6,000円）、JA長生（千葉）R3年産 5,000円。
     // ゲームでは「その年の予想米価の約半分」を1,000円単位に丸め、5,000〜12,000円の範囲にする
-    advanceRate: 0.5, advanceMin: 5000, advanceMax: 12000, advanceAutoShare: 0.9,
+    advanceRate: 0.5, advanceMin: 5000, advanceMax: 12000, advanceAutoShare: 0.9, advanceInterest: 0.02, // 出荷契約金の利息（年利。6月に受け取り10月の概算金で相殺するまで）
   };
   D.DIRECT = {
     bagsPerBale: 10.8,        // 玄米60kg → 精米5kg袋の数
@@ -297,9 +321,9 @@
 
   // ---------- 資金 ----------
   D.FIN = {
-    shortRate: 0.02,
+    shortRate: 0.025,
     emergencyRate: 0.08,
-    noInterestTerm: 12, noInterestGrace: 2,
+    noInterestTerm: 17, noInterestGrace: 5, // 青年等就農資金：17年以内（うち据置5年以内）
     noInterestYears: 5,   // 無利子資金を借りられるのは就農して5年以内（機械・施設を買うときだけ）
     loansPerYear: 1,      // 使い道を決めない長期の借入（運転資金）は1年に1件まで。機械・施設・農地を買うための借入は数えない
     maxRepayYears: 20,    // 前年の債務償還年数がこれを超えると、新しい借入の審査に通らない
@@ -523,7 +547,7 @@
   D.SCENARIOS.saiken = {
     name: '農業法人を立て直せ', sub: '借金だらけの40haの法人を再建', difficulty: 'むずかしい', story: true, maxYear: 15,
     desc: '40haを作る農業法人の社長が急に引退し、新しい経営者として呼ばれた。借入は5,000万円を超え、機械は寿命間近、赤字の契約も残る。金融機関からは「5年で立て直せなければ、これ以上は貸せない」と言われている。',
-    corp: true, cash: 10000000, execPay: 4000000, trust: 30, skill: 0.95, customers: 0, brand: 5,
+    corp: true, cash: 15000000, execPay: 4000000, trust: 30, skill: 0.95, customers: 0, brand: 5,
     fields: [
       { area: 4.0, soil: 'normal', owned: true, landValue: 24000000 }, { area: 3.0, soil: 'good', owned: true, landValue: 21000000 }, { area: 3.0, soil: 'poor', owned: true, landValue: 7500000 },
       { area: 4.0, soil: 'good', rent: 15000 }, { area: 5.0, soil: 'normal', rent: 14000 }, { area: 5.0, soil: 'normal', rent: 14000 },
@@ -531,7 +555,7 @@
     ],
     machines: [
       { model: 'tr_l', age: 13 }, { model: 'tr_m', age: 15 }, { model: 'pl_m', age: 12 }, { model: 'pl_m', age: 10 },
-      { model: 'cb_l', age: 6 }, { model: 'cb_l', age: 4 }, { model: 'cb_m', age: 11 }, { model: 'dr_l', age: 15 }, { model: 'ns_l', age: 12 }, { model: 'tr_m', age: 6 }, { model: 'dr_m', age: 9 },
+      { model: 'cb_l', age: 6 }, { model: 'cb_l', age: 4 }, { model: 'cb_l', age: 9 }, { model: 'dr_l', age: 15 }, { model: 'ns_l', age: 12 }, { model: 'tr_m', age: 6 }, { model: 'dr_m', age: 9 },
     ],
     loans: [
       { kind: 'long', name: '設備資金（前の経営から）', balance: 40000000, rate: 0.02, yearsLeft: 15 },

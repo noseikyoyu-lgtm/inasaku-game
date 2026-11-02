@@ -30,7 +30,7 @@
           c.n === 1 && st.cropsOpen ? h('li', { class: 'cd-unlock' }, '🌱 最初に使えるものは少しだけ。品種だけでなく、栽培方法・機械・制度・事業も、面積・品質・お客さん・地域の信頼などをきっかけに増えていく（ホームの「これから使えるようになるもの」で確かめられる）') : null,
           RG.era ? RG.era.TRIALS.filter((t) => t.range[0] >= c.from && t.range[1] <= c.to).map((t) => h('li', { class: 'cd-trial' }, '⚠️ ' + t.range[0] + '〜' + t.range[1] + '年目のどこかで、試練「' + t.icon + ' ' + t.name + '」がやってくる（1年前に予告がある）')) : null,
           RG.era && RG.era.on(st) && !st.featOpen ? RG.era.UNLOCKS.filter((u) => { const y = RG.era.openYear(st, u); return y >= c.from && y <= c.to; }).map((u) => h('li', { class: 'cd-unlock' }, '🔓 ' + RG.era.openYear(st, u) + '年目から：' + u.icon + ' ' + u.name)) : null)),
-        c.n === 2 ? UI.card('🧭 経営の道を選ぶ', '20年目のエンディングも、この道で変わります', pathCards) : null,
+        c.n === 2 ? UI.card('🧭 経営の道を選ぶ', st.maxYear + '年目のエンディングも、この道で変わります', pathCards) : null,
         c.n > 1 ? RG.screens.chapterRecap(st, c.n - 1) : null,
         h('div', { class: 'row' }, h('span', { class: 'spacer' }),
           UI.btn(needPath ? '道を選んでください' : '第' + c.n + '章を始める ▶', go, needPath ? '' : 'gold big', { disabled: needPath }))));
@@ -71,9 +71,10 @@
   RG.screens.pathEnding = function (st) {
     if (!st.path) return null;
     const p = CH.PATHS[st.path];
-    const ok = p.check(st);
-    return UI.card(p.icon + ' ' + p.name + 'のエンディング', '目標：' + p.goal + (ok ? '　達成！' : '　あと一歩'),
+    const over = !!st.gameOver, ok = !over && p.check(st), yrs = st.history.length;
+    return UI.card(p.icon + ' ' + p.name + 'のエンディング', '目標：' + p.goal + (ok ? '　達成！' : over ? '　道なかば' : '　あと一歩'),
       h('div', { class: 'path-ending ' + (ok ? 'ok' : '') },
-        h('p', null, ok ? p.ending : 'あなたが選んだ道の目標には、あと一歩届かなかった。それでも、この20年で積み上げたものは確かにある。次は、どの道を選ぶだろう。')));
+        h('p', null, ok ? p.ending : over ? '選んだ道を歩きはじめたが、' + yrs + '年目で経営を続けられなくなった。広げ方・お金の使い方のどこで無理をしたのか、決算書でふり返ってみよう。'
+          : 'あなたが選んだ道の目標には、あと一歩届かなかった。それでも、この' + yrs + '年で積み上げたものは確かにある。次は、どの道を選ぶだろう。')));
   };
 })(window.RG = window.RG || {});

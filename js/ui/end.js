@@ -40,7 +40,9 @@
     if (over) {
       const lessons = [];
       const worst = hs[hs.length - 1];
-      if (st.gameOver.reason === 'cash') lessons.push('資金繰りが続かなくなりました。秋に売上が入るまでの資金を確保し、借入の返済額が「利益＋減価償却費」を超えないようにしましょう。');
+      if (st.gameOver.reason === 'deadline') lessons.push('期限つきの危機を乗り越えられませんでした。危機の知らせが来たら、計画のホームの「期限」を見ながら、借入・品質・地域とのつきあいを最優先で立て直しましょう。');
+      else if (st.gameOver.reason === 'bank') lessons.push('融資の審査に通らず、金融機関からの融資が止まりました。審査は決算の黒字・赤字を見ます。赤字の契約・使っていない機械・高い地代の田など、出血の元を早めに止めましょう。');
+      else if (st.gameOver.reason === 'cash') lessons.push('資金繰りが続かなくなりました。秋に売上が入るまでの資金を確保し、借入の返済額が「利益＋減価償却費」を超えないようにしましょう。');
       else lessons.push('赤字が続いて純資産がマイナスになりました。固定費（機械・人件費・地代）が売上に見合っているか、損益分岐面積と比べてみましょう。');
       if (worst.area < 8) lessons.push('経営面積が小さいと、機械や生活費をまかなうだけの所得が得られません。農地を集め、委託から自前の機械へ切り替える時期を考えましょう。');
       if (hs.some((x) => x.laborShort > 0.05)) lessons.push('人手不足で収量・品質が落ちた年がありました。季節ごとの労働バランスを確認しましょう。');
@@ -94,7 +96,7 @@
     return UI.card(UI.whoTitle('takahashi', RG.advisor.NAME + 'の見立て'), 'あなたの経営は、これからやっていけるか',
       h('div', { class: 'kpis' },
         UI.kpi('今のままで続けられた割合', U.pct(b.rate), b.n + '通りの天候のうち ' + b.survived + '通り', b.rate >= 0.9 ? 'good' : b.rate >= 0.6 ? 'warn' : 'bad'),
-        UI.kpi(b.retiredYear ? '今のままの引退時の純資産' : '今のままの20年後の純資産', U.man(b.equityMed), '中央値（悪いほうから1割：' + U.man(b.equityLow) + '）'),
+        UI.kpi(b.retiredYear ? '今のままの引退時の純資産' : '今のままの' + Math.min(st.maxYear, D.MAX_YEAR) + '年後の純資産', U.man(b.equityMed), '中央値（悪いほうから1割：' + U.man(b.equityLow) + '）'),
         UI.kpi('今のままの平均所得', U.man(b.incomeMed), '1年あたり・中央値'),
         UI.kpi('あなたの結果', U.man(st.history[st.history.length - 1].equity), st.gameOver ? st.gameOver.year + '年目で終了' : st.retired ? st.retired.year + '年目で引退' : st.history.length + '年続けた')),
       h('div', { class: 'notes', style: { marginTop: '10px' } }, items.map((x) => UI.note(x.level, x.title, x.text))),
@@ -131,7 +133,7 @@
       input +
       '<h2>結果</h2><p>' + (st.gameOver ? st.gameOver.year + '年目で経営を続けられなくなりました。' : st.retired ? st.retired.year + '年目に経営主が引退しました。' : hs.length + '年の経営を終えました。') +
       ' 最後の純資産 ' + U.man(last.equity) + '、借入残高 ' + U.man(last.debt) + '、年平均の所得 ' + U.man(U.avg(hs.map((x) => x.income))) + '。</p>' +
-      (b ? '<p>今のやり方のまま続けた場合：' + b.n + '通りの天候のうち ' + b.survived + '通りで続けられた（20年後の純資産の中央値 ' + U.man(b.equityMed) + '）。</p>' : '') +
+      (b ? '<p>今のやり方のまま続けた場合：' + b.n + '通りの天候のうち ' + b.survived + '通りで続けられた（' + Math.min(st.maxYear, D.MAX_YEAR) + '年後の純資産の中央値 ' + U.man(b.equityMed) + '）。</p>' : '') +
       '<h2>' + esc(RG.advisor.NAME) + 'の見立て</h2>' + items.map((x) => '<div class="n ' + x.level + '"><b>' + esc(x.title) + '</b><br>' + esc(x.text) + '</div>').join('') +
       '<h2>年ごとの記録</h2><table><tr><th>年</th><th>天候</th><th>米価(円/60kg)</th><th>面積</th><th>売上</th><th>所得</th><th>純資産</th><th>借入</th></tr>' + rows + '</table>' +
       '<p class="muted">ゲームの数値は学習用に単純化した試算です。実際の経営判断は、決算書や専門家との相談とあわせて行ってください。</p></body></html>';

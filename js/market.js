@@ -33,18 +33,21 @@
     else if (shockMult < 0.87) shockText = '在庫が積み上がり、米価が値下がりした';
     // 米価が動いた理由（米の需給）：全国の作柄・在庫と引き合い・前年からの流れ
     const idx = Math.round(nationalIndex);
+    // 今年の作柄（出回る量）と、前の年から持ち越した在庫・引き合い（需給）は別の話。向きが逆のときは「〜ものの、〜」でつなぐ
+    const crop = nationalIndex <= 98 ? { t: '全国の作柄が平年を下回り（作況指数' + idx + '）、今年出回る米は少なめ', dir: 1 }
+      : nationalIndex >= 102 ? { t: '全国的に豊作で（作況指数' + idx + '）、今年出回る米は多め', dir: -1 }
+        : { t: '全国の作柄はほぼ平年並み（作況指数' + idx + '）', dir: 0 };
+    const stock = crash < 1 ? { t: '全国で作付が増えて在庫が積み上がり、買い手がつかない（需給が大きく緩んだ）', dir: -1 }
+      : shockMult >= 1.06 ? { t: '前の年から持ち越した在庫が少なく、卸や外食からの引き合いが強い（需給が引き締まった）', dir: 1 }
+        : shockMult <= 0.94 ? { t: '前の年から持ち越した在庫が多く、引き合いが弱い（需給が緩んだ）', dir: -1 } : null;
     const why = [];
-    if (nationalIndex <= 98) why.push('全国の作柄が平年を下回り（作況指数' + idx + '）、出回る米が少なめ');
-    else if (nationalIndex >= 102) why.push('全国的に豊作で（作況指数' + idx + '）、出回る米が多め');
-    else why.push('全国の作柄はほぼ平年並み（作況指数' + idx + '）');
-    if (crash < 1) why.push('全国で作付が増えて在庫が積み上がり、買い手がつかない（需給が大きく緩んだ）');
-    else if (shockMult >= 1.06) why.push('在庫が少なく引き合いが強い（需給が引き締まった）');
-    else if (shockMult <= 0.94) why.push('在庫が積み上がり引き合いが弱い（需給が緩んだ）');
+    if (stock && crop.dir && stock.dir !== crop.dir) why.push(crop.t + 'だったものの、' + stock.t);
+    else { why.push(crop.t); if (stock) why.push(stock.t); }
     const priceChange = Math.round(price) / prev - 1;
     // 前年からの流れは、実際の値動きと同じ向きのときだけ理由に挙げる
     if (base / prev <= 0.97 && priceChange < 0) why.push('前年までの高値から落ち着く流れ');
     else if (base / prev >= 1.03 && priceChange > 0) why.push('前年までの安値から持ち直す流れ');
-    const marketReason = why.join('、') + '。米価は前年より' + (priceChange >= 0 ? '+' : '') + U.pct(priceChange, 1) + '。';
+    const marketReason = why.join('。') + '。その結果、米価は前年より' + (priceChange >= 0 ? '+' : '') + U.pct(priceChange, 1) + '。';
 
     // 資材価格：高騰は翌年に半分残る
     const carry = st.market.fertShock || 1;
