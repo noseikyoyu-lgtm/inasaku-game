@@ -1,120 +1,453 @@
-// シーズン画面の風景：月ごとに田んぼの様子が変わる（雪 → 田起こし → 田植え → 青田 → 穂 → 黄金 → 稲刈り）
+// シーズン画面の風景：月ごとに田んぼの様子が変わる（雪 → 雪どけ → 田起こし・代かき → 田植え → 青田 → 出穂 → 黄金 → 稲刈り → 秋起こし）
+// 動かない部分（空・山・集落・田んぼ）は月と大きさが変わったときだけ描いておき、毎フレームは雲・手前の稲・機械・雪や雨だけを描く
 (function (RG) {
   'use strict';
   const FS = RG.farmScene = {};
 
-  // 月ごとの空・地面・稲の様子
-  const SKY = { 1: ['#aebfd4', '#e7edf3'], 2: ['#b6c6d9', '#eaf0f5'], 3: ['#8fc3e8', '#e3f1f8'], 4: ['#79b9ea', '#dff0fa'], 5: ['#5fb0ea', '#d6eefb'],
-    6: ['#7ea7c9', '#d9e6ee'], 7: ['#3f9ee6', '#c8e9fb'], 8: ['#3a98e2', '#ffe9b8'], 9: ['#5aa6e0', '#ffe2a6'], 10: ['#7fb2dc', '#fbe1b4'], 11: ['#9db0c4', '#ece3d3'], 12: ['#a9b8ca', '#e9eef3'] };
-  // stage：0 雪 / 1 土 / 2 水を張った田 / 3 苗 / 4 青田 / 5 穂 / 6 黄金 / 7 稲刈りあと / 8 秋起こし
-  const STAGE = { 1: 0, 2: 0, 3: 1, 4: 2, 5: 3, 6: 4, 7: 4, 8: 5, 9: 6, 10: 7, 11: 8, 12: 0 };
-  const LABEL = { 0: '雪の田んぼ', 1: '雪どけ・田起こし', 2: '水を張った田んぼ', 3: '田植え', 4: '青々と育つ稲', 5: '穂が出た', 6: '黄金色の田んぼ', 7: '稲刈りのあと', 8: '秋起こし' };
-  FS.label = (m) => LABEL[STAGE[m]];
+  // 月ごとの様子
+  // ground：snow 雪 / melt 雪どけ / till 田起こし・代かき / plant 田植え / young 植えたばかりの青田 / green 青田 / head 出穂 / gold 黄金 / stubble 稲刈りのあと / plow 秋起こし
+  const MONTH = {
+    1: { sky: ['#9fb2c8', '#dfe6ee'], ground: 'snow', mtn: 'winter', sun: false },
+    2: { sky: ['#a7bbd0', '#e4ebf2'], ground: 'snow', mtn: 'winter', sun: false },
+    3: { sky: ['#86b4dc', '#dbe9f3'], ground: 'melt', mtn: 'early', sun: true },
+    4: { sky: ['#6eaee3', '#d9ecf8'], ground: 'till', mtn: 'spring', sun: true },
+    5: { sky: ['#57a6e6', '#d3ebfa'], ground: 'plant', mtn: 'spring', sun: true },
+    6: { sky: ['#7c9fbf', '#d3dee6'], ground: 'young', mtn: 'summer', sun: false },
+    7: { sky: ['#3b97e0', '#c6e6f8'], ground: 'green', mtn: 'summer', sun: true },
+    8: { sky: ['#3a92dc', '#f3e6c4'], ground: 'head', mtn: 'summer', sun: true },
+    9: { sky: ['#5aa2dc', '#f6e2b2'], ground: 'gold', mtn: 'late', sun: true },
+    10: { sky: ['#77acd9', '#f3dfb8'], ground: 'stubble', mtn: 'autumn', sun: true },
+    11: { sky: ['#93a8bd', '#e6ddd0'], ground: 'plow', mtn: 'autumn', sun: true },
+    12: { sky: ['#a3b3c5', '#e5eaf0'], ground: 'snow', mtn: 'winter', sun: false, light: true },
+  };
+  const LABEL = { snow: '雪の田んぼ', melt: '雪どけ', till: '田起こし・代かき', plant: '田植え', young: '植えたばかりの青田', green: '青々と育つ稲',
+    head: '穂が出た', gold: '黄金色の田んぼ', stubble: '稲刈りのあと・はさがけ', plow: '秋起こし' };
+  FS.label = (m) => LABEL[MONTH[m].ground];
+
+  // ---------- 小さな道具 ----------
+  function rnd(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  const hex = (c) => (c[0] === '#' ? [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)] : c.match(/\d+/g).slice(0, 3).map(Number)); // '#rrggbb' か 'rgb(r,g,b)'
+  function mix(a, b, t) { const x = hex(a), y = hex(b); return 'rgb(' + x.map((v, i) => Math.round(v + (y[i] - v) * t)).join(',') + ')'; }
+  function shade(c, k) { return k >= 0 ? mix(c, '#ffffff', k) : mix(c, '#000000', -k); }
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
   FS.mount = function (canvas, getMonth, opts) {
     opts = opts || {};
     canvas._alive = true;
     const ctx = canvas.getContext('2d');
     const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    let W = 0, H = 0, raf = 0;
+    let W = 0, H = 0, dpr = 1, raf = 0, bg = null, bgKey = '', last = -1e9;
     const t0 = performance.now();
-    const flakes = Array.from({ length: 60 }, (_, i) => ({ x: (i * 97) % 1000 / 1000, y: (i * 61) % 1000 / 1000, s: 0.6 + (i % 5) * 0.35, v: 0.3 + (i % 7) * 0.08 }));
+    const flakes = Array.from({ length: 70 }, (_, i) => ({ x: (i * 97) % 1000 / 1000, y: (i * 61) % 1000 / 1000, s: 0.6 + (i % 5) * 0.3, v: 0.3 + (i % 7) * 0.08 }));
 
     function size() {
-      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      dpr = Math.min(2, window.devicePixelRatio || 1);
       W = canvas.clientWidth; H = canvas.clientHeight;
       if (!W || !H) return;
       canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      bgKey = '';
     }
-    function mountain(base, amp, seed, color) {
-      ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(0, base + 30);
-      for (let x = 0; x <= W; x += 10) ctx.lineTo(x, base - amp * (0.55 + 0.45 * Math.sin(x * 0.012 + seed) * Math.cos(x * 0.005 + seed * 2)));
-      ctx.lineTo(W, base + 30); ctx.closePath(); ctx.fill();
+
+    // ---------- 遠近：奥行き Z（1 が画面の下端）と横位置 X から画面の位置へ ----------
+    const hz = () => Math.round(H * 0.4);
+    const VX = () => W * 0.46;
+    const S = () => Math.max(W * 0.55, (H - hz()) * 2.4);
+    const sy = (Z) => hz() + (H - hz()) / Z;
+    const sx = (X, Z) => VX() + X * S() / Z;
+
+    // ---------- 山の稜線 ----------
+    function ridge(x, base, amp, seed) {
+      const n = 0.55 * Math.sin(x * 0.0062 + seed) + 0.3 * Math.sin(x * 0.017 + seed * 2.3) + 0.15 * Math.sin(x * 0.047 + seed * 4.1) + 0.06 * Math.sin(x * 0.13 + seed * 7);
+      return base - amp * (0.5 + 0.5 * n);
     }
-    function draw(t) {
-      if (!W || !H) { if (canvas.clientWidth) size(); return; }
-      const m = getMonth(), st = STAGE[m], sky = SKY[m];
-      const hz = H * 0.42;
-      let g = ctx.createLinearGradient(0, 0, 0, hz);
-      g.addColorStop(0, sky[0]); g.addColorStop(1, sky[1]);
-      ctx.fillStyle = g; ctx.fillRect(0, 0, W, hz + 1);
-      // 太陽と雲
-      if (st !== 0) {
-        ctx.fillStyle = m >= 8 && m <= 10 ? '#ffd27a' : '#fff4c2';
-        ctx.beginPath(); ctx.arc(W * 0.82, H * 0.14, 14, 0, 7); ctx.fill();
+    function mountainPath(c, base, amp, seed) {
+      c.beginPath(); c.moveTo(0, base + 4);
+      for (let x = 0; x <= W + 6; x += 4) c.lineTo(x, ridge(x, base, amp, seed));
+      c.lineTo(W, base + 4); c.closePath();
+    }
+
+    // ---------- 動かない部分を描く ----------
+    function buildBg(m) {
+      const M = MONTH[m], g0 = M.ground;
+      const c = document.createElement('canvas');
+      c.width = Math.round(W * dpr); c.height = Math.round(H * dpr);
+      const g = c.getContext('2d');
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const h0 = hz(), R = rnd(m * 7919 + 13);
+      const haze = M.sky[1];
+
+      // 空
+      let gr = g.createLinearGradient(0, 0, 0, h0);
+      gr.addColorStop(0, M.sky[0]); gr.addColorStop(1, M.sky[1]);
+      g.fillStyle = gr; g.fillRect(0, 0, W, h0 + 2);
+      if (M.sun) {
+        const sxp = W * 0.84, syp = H * 0.13;
+        const rg = g.createRadialGradient(sxp, syp, 2, sxp, syp, 70);
+        rg.addColorStop(0, m >= 8 && m <= 10 ? 'rgba(255,236,190,.95)' : 'rgba(255,250,225,.95)'); rg.addColorStop(0.18, 'rgba(255,245,210,.55)'); rg.addColorStop(1, 'rgba(255,245,210,0)');
+        g.fillStyle = rg; g.fillRect(0, 0, W, h0);
+        g.fillStyle = '#fffbe8'; g.beginPath(); g.arc(sxp, syp, 9, 0, 7); g.fill();
       }
-      ctx.fillStyle = 'rgba(255,255,255,.85)';
-      for (let i = 0; i < 4; i++) {
-        const x = ((i * 260 + t * 0.008 * (1 + i * 0.3)) % (W + 160)) - 80, y = H * (0.08 + 0.06 * (i % 2));
-        ctx.beginPath(); ctx.ellipse(x, y, 34, 9, 0, 0, 7); ctx.ellipse(x + 20, y - 6, 22, 9, 0, 0, 7); ctx.fill();
+
+      // 遠くの山（青くかすむ。冬〜5月は頂に雪）
+      const farBase = h0 - 6, farAmp = H * 0.25;
+      g.fillStyle = M.mtn === 'winter' ? '#8e9db0' : mix('#7f95ad', haze, 0.35);
+      mountainPath(g, farBase, farAmp, 1.7); g.fill();
+      if (m <= 5 || m === 12) {
+        const deep = m <= 2 || m === 12 ? 0.42 : m <= 4 ? 0.3 : 0.16;
+        g.fillStyle = 'rgba(250,252,255,.92)'; g.beginPath();
+        for (let x = 0; x <= W + 6; x += 4) g.lineTo(x, ridge(x, farBase, farAmp, 1.7));
+        for (let x = W + 6; x >= 0; x -= 4) g.lineTo(x, Math.max(ridge(x, farBase, farAmp, 1.7), farBase - farAmp * (1 - deep) + 3 * Math.sin(x * 0.09) + 2 * Math.sin(x * 0.31)));
+        g.closePath(); g.fill();
       }
-      // 山（冬は雪をかぶる）
-      mountain(hz, H * 0.2, 1.3, st === 0 ? '#c9d3de' : m >= 9 && m <= 11 ? '#9c8a6e' : '#7fa57a');
-      mountain(hz + 4, H * 0.12, 3.1, st === 0 ? '#e8edf2' : m >= 9 && m <= 11 ? '#b39a6b' : '#5f8f58');
-      // 家
-      ctx.fillStyle = '#7a4b2a'; ctx.fillRect(W * 0.08, hz - 16, 30, 16);
-      ctx.fillStyle = st === 0 ? '#f2f5f8' : '#9b3b2e';
-      ctx.beginPath(); ctx.moveTo(W * 0.08 - 5, hz - 16); ctx.lineTo(W * 0.08 + 15, hz - 30); ctx.lineTo(W * 0.08 + 35, hz - 16); ctx.fill();
-      // 田んぼ（地面）
-      const ground = { 0: ['#f1f4f7', '#dfe5ea'], 1: ['#8a6a4a', '#6a4c33'], 2: ['#8fb3c9', '#6b8ea4'], 3: ['#8fb3c9', '#6b8ea4'], 4: ['#6fae4f', '#3f7f31'],
-        5: ['#8fb24c', '#5f8a2d'], 6: ['#e8bd52', '#c08a26'], 7: ['#d9c38a', '#b49a5c'], 8: ['#8b6b48', '#6a4c33'] }[st];
-      g = ctx.createLinearGradient(0, hz, 0, H);
-      g.addColorStop(0, ground[0]); g.addColorStop(1, ground[1]);
-      ctx.fillStyle = g; ctx.fillRect(0, hz, W, H - hz);
-      // あぜ道（区画）
-      ctx.strokeStyle = st === 0 ? 'rgba(255,255,255,.7)' : 'rgba(80,60,30,.35)'; ctx.lineWidth = 2;
-      [0.58, 0.78].forEach((f) => { ctx.beginPath(); ctx.moveTo(0, H * f); ctx.lineTo(W, H * f); ctx.stroke(); });
-      for (let i = -6; i <= 6; i++) { ctx.beginPath(); ctx.moveTo(W / 2 + i * 40, hz); ctx.lineTo(W / 2 + i * 190, H); ctx.stroke(); }
-      // 水面のきらめき
-      if (st === 2 || st === 3) {
-        ctx.fillStyle = 'rgba(255,255,255,.35)';
-        for (let i = 0; i < 18; i++) { const x = (i * 137 + t * 0.02) % W, y = hz + 10 + (i * 53) % (H - hz - 14); ctx.fillRect(x, y, 14, 1.5); }
+      // 手前の山（季節の色と、木の粒々）
+      const midBase = h0 - 2, midAmp = H * 0.13;
+      const mtnCol = { winter: '#b7c1cc', early: '#8a8f72', spring: '#86ad6c', summer: '#4d7d47', late: '#5f7d45', autumn: '#8a6b3f' }[M.mtn];
+      g.fillStyle = mtnCol; mountainPath(g, midBase, midAmp, 4.2); g.fill();
+      g.save(); mountainPath(g, midBase, midAmp, 4.2); g.clip();
+      const dots = M.mtn === 'winter' ? ['#6f7b86', '#8d98a3', '#f4f7fa', '#ffffff'] : M.mtn === 'autumn' ? ['#b5532c', '#c98a2e', '#6d5a32', '#9b3c24', '#7a6a3a']
+        : M.mtn === 'late' ? ['#4f6f3a', '#7a8a3e', '#a8862e'] : M.mtn === 'early' ? ['#6f7558', '#a2a088', '#e9ecef'] : M.mtn === 'spring' ? ['#a6c97f', '#6e9a55', '#c9dc9a'] : ['#3f6c3a', '#5e8e4f', '#2f5a2c'];
+      for (let i = 0; i < W * 1.4; i++) {
+        const x = R() * W, top = ridge(x, midBase, midAmp, 4.2), y = top + R() * (midBase - top + 2);
+        g.fillStyle = dots[(R() * dots.length) | 0]; g.globalAlpha = 0.55;
+        g.beginPath(); g.arc(x, y, 1 + R() * 1.8, 0, 7); g.fill();
       }
-      // 稲
-      if (st >= 3 && st <= 7) {
-        const hgt = { 3: 5, 4: 14, 5: 20, 6: 20, 7: 3 }[st];
-        const col = { 3: '#5fae45', 4: '#3e8f34', 5: '#5d8f2a', 6: '#e0a933', 7: '#c9b077' }[st];
-        const head = st === 5 ? '#c9c25a' : st === 6 ? '#f5cc5c' : null;
-        for (let r = 0; r < 9; r++) {
-          const f = r / 8, y = hz + 6 + (H - hz - 6) * Math.pow(f, 1.3), sc = 0.35 + f * 0.9;
-          const n = Math.round(14 + f * 16);
-          for (let i = 0; i < n; i++) {
-            const x = (i + (r % 2) * 0.5) / n * (W + 40) - 20;
-            const sway = reduce ? 0 : Math.sin(t * 0.002 + i * 0.7 + r) * 2 * sc;
-            ctx.strokeStyle = col; ctx.lineWidth = 1.4 * sc;
-            for (let k = -1; k <= 1; k++) { ctx.beginPath(); ctx.moveTo(x + k * 2 * sc, y); ctx.lineTo(x + k * 3.5 * sc + sway, y - hgt * sc); ctx.stroke(); }
-            if (head) { ctx.fillStyle = head; ctx.beginPath(); ctx.ellipse(x + sway + 2 * sc, y - hgt * sc + 1, 2.6 * sc, 1.6 * sc, 0.5, 0, 7); ctx.fill(); }
+      g.globalAlpha = 1; g.restore();
+      // 山すそのかすみ
+      gr = g.createLinearGradient(0, h0 - H * 0.12, 0, h0);
+      gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(1, haze);
+      g.fillStyle = gr; g.globalAlpha = 0.55; g.fillRect(0, h0 - H * 0.12, W, H * 0.12); g.globalAlpha = 1;
+
+      // 集落と木立（地平線の上）
+      village(g, m, M, R);
+
+      // 田んぼ
+      paddies(g, m, M, R);
+
+      // 遠くの田をかすませる
+      gr = g.createLinearGradient(0, h0, 0, h0 + (H - h0) * 0.4);
+      gr.addColorStop(0, haze); gr.addColorStop(1, 'rgba(255,255,255,0)');
+      g.globalAlpha = 0.45; g.fillStyle = gr; g.fillRect(0, h0, W, (H - h0) * 0.4); g.globalAlpha = 1;
+
+      // 動かない添え物：はさがけ・白鷺・雪の手前
+      if (g0 === 'stubble') hasa(g);
+      if (g0 === 'young' || g0 === 'green') egrets(g);
+      if (g0 === 'snow') {
+        gr = g.createLinearGradient(0, H * 0.86, 0, H);
+        gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(1, 'rgba(250,252,255,.95)');
+        g.fillStyle = gr; g.fillRect(0, H * 0.86, W, H * 0.14);
+      }
+      return c;
+    }
+
+    function village(g, m, M, R) {
+      const h0 = hz(), winter = M.ground === 'snow';
+      // 木立（スギと広葉樹）
+      const treeCol = winter ? ['#5d6a5f', '#7d877e'] : M.mtn === 'autumn' ? ['#6f6a3a', '#9a6a32', '#4f5f35'] : M.mtn === 'spring' ? ['#5f8f4a', '#86b064'] : ['#2f5a2e', '#3f6e38'];
+      const groves = [[0.02, 0.2], [0.55, 0.12], [0.68, 0.16], [0.9, 0.12]];
+      groves.forEach(([a, w]) => {
+        for (let i = 0; i < W * w / 3; i++) {
+          const x = W * a + R() * W * w, hgt = 6 + R() * 12;
+          g.fillStyle = treeCol[(R() * treeCol.length) | 0];
+          if (R() < 0.45) { g.beginPath(); g.moveTo(x, h0 - hgt - 4); g.lineTo(x - 3.5, h0 + 1); g.lineTo(x + 3.5, h0 + 1); g.fill(); } // スギ
+          else { g.beginPath(); g.arc(x, h0 - hgt * 0.45, 3 + R() * 4, 0, 7); g.fill(); }
+          if (winter && R() < 0.6) { g.fillStyle = 'rgba(255,255,255,.85)'; g.beginPath(); g.arc(x, h0 - hgt * 0.5 - 2, 2, 0, 7); g.fill(); }
+        }
+      });
+      // 家と作業小屋
+      const houses = [[0.1, 26, '#e7e1d3', '#4b5866'], [0.19, 20, '#cfc2a6', '#7c3a2c'], [0.6, 22, '#e9e4d8', '#3f5d7c'], [0.74, 16, '#a88a62', '#5a5a5a']];
+      houses.forEach(([a, w, wall, roof]) => {
+        const x = W * a, y = h0 + 1, hh = w * 0.42, rh = w * 0.32;
+        g.fillStyle = shade(wall, -0.18); g.fillRect(x + w * 0.62, y - hh, w * 0.38, hh); // 妻側の影
+        g.fillStyle = wall; g.fillRect(x, y - hh, w * 0.62, hh);
+        g.fillStyle = 'rgba(60,50,40,.55)'; for (let k = 0; k < 2; k++) g.fillRect(x + 3 + k * w * 0.26, y - hh * 0.62, w * 0.12, hh * 0.32); // 窓
+        g.fillStyle = winter ? '#f4f7fa' : roof;
+        g.beginPath(); g.moveTo(x - 2, y - hh); g.lineTo(x + w * 0.62, y - hh); g.lineTo(x + w * 0.81, y - hh - rh); g.lineTo(x + w * 0.2, y - hh - rh); g.closePath(); g.fill();
+        g.fillStyle = winter ? '#dfe7ef' : shade(roof, -0.2);
+        g.beginPath(); g.moveTo(x + w * 0.62, y - hh); g.lineTo(x + w + 1, y - hh); g.lineTo(x + w * 0.81, y - hh - rh); g.closePath(); g.fill();
+      });
+      // 電柱と電線
+      g.strokeStyle = 'rgba(60,55,50,.75)'; g.lineWidth = 1;
+      const poles = [0.3, 0.42, 0.52].map((a) => W * a);
+      poles.forEach((x) => { g.beginPath(); g.moveTo(x, h0 + 2); g.lineTo(x, h0 - 22); g.moveTo(x - 3, h0 - 20); g.lineTo(x + 3, h0 - 20); g.stroke(); });
+      g.strokeStyle = 'rgba(60,55,50,.35)'; g.lineWidth = 0.6;
+      for (let i = 0; i < poles.length - 1; i++) { g.beginPath(); g.moveTo(poles[i], h0 - 20); g.quadraticCurveTo((poles[i] + poles[i + 1]) / 2, h0 - 16, poles[i + 1], h0 - 20); g.stroke(); }
+    }
+
+    // ---------- 田んぼ ----------
+    const BANDS = [0.86, 1.22, 1.72, 2.55, 3.9, 6.2, 10.5, 19, 38, 80];
+    function plotsList(R) {
+      const out = [];
+      for (let b = 0; b < BANDS.length - 1; b++) {
+        const Za = BANDS[b], Zb = BANDS[b + 1];
+        const reach = (W / S()) * Zb * 0.62 + 1.6;
+        let X = -reach - R() * 1.3;
+        while (X < reach) {
+          const w = 1.05 + R() * 0.55;
+          out.push({ b, Za, Zb, Xl: X, Xr: X + w, r: R() });
+          X += w;
+        }
+      }
+      return out;
+    }
+    function poly(g, p) {
+      g.beginPath();
+      g.moveTo(sx(p.Xl, p.Za), sy(p.Za)); g.lineTo(sx(p.Xr, p.Za), sy(p.Za));
+      g.lineTo(sx(p.Xr, p.Zb), sy(p.Zb)); g.lineTo(sx(p.Xl, p.Zb), sy(p.Zb)); g.closePath();
+    }
+    // 区画の中の「列」（奥へまっすぐ伸びる線）。間隔が細かすぎるときは描かない
+    function rows(g, p, dx, fn) {
+      const span = Math.abs(sx(p.Xr, p.Za) - sx(p.Xl, p.Za));
+      const n = Math.floor((p.Xr - p.Xl) / dx);
+      if (span / Math.max(1, n) < 1.6) return;
+      for (let i = 1; i < n; i++) { const X = p.Xl + i * dx; fn(sx(X, p.Za), sy(p.Za), sx(X, p.Zb), sy(p.Zb), X); }
+    }
+    function along(p, X, dz, fn) { // 列に沿って点を打つ（手前ほど間隔が広い）
+      for (let Z = p.Za + dz * 0.5; Z < p.Zb; Z += dz * Z) { const y = sy(Z); fn(sx(X, Z), y, 1 / Z); if (sy(Z) - sy(Z + dz * Z) < 1.2) break; }
+    }
+    function plotKind(g0, p) {
+      if (g0 === 'till') return p.r < 0.55 ? 'water' : 'soil';
+      if (g0 === 'plant') return p.r < 0.72 ? 'seedling' : 'water';
+      if (g0 === 'gold') return p.r < 0.14 ? 'stubble' : 'gold';
+      if (g0 === 'stubble') return p.r < 0.12 ? 'gold' : 'stubble';
+      if (g0 === 'plow') return p.r < 0.6 ? 'plow' : 'stubble';
+      return g0;
+    }
+    function paddies(g, m, M, R) {
+      const h0 = hz(), list = plotsList(R);
+      const BASE = {
+        snow: ['#f2f5f9', '#e2e9f0'], melt: ['#7d6247', '#6a5139'], soil: ['#7c5d3f', '#684b31'], water: ['#9fc3dc', '#6f97b4'], seedling: ['#94b9cf', '#6b93ad'],
+        young: ['#86ad84', '#5e8c52'], green: ['#6e9f52', '#3f7b2e'], head: ['#7fa443', '#557f2c'], gold: ['#e3b445', '#c8902a'], stubble: ['#cdb985', '#ad9561'],
+        plow: ['#6f5138', '#55391f'],
+      };
+      const waterPath = new Path2D();
+      list.forEach((p) => {
+        const kind = plotKind(M.ground, p), far = clamp((p.Za - 1) / 28, 0, 1);
+        const base = BASE[kind];
+        const y0 = sy(p.Zb), y1 = sy(p.Za);
+        const gr = g.createLinearGradient(0, y0, 0, y1);
+        const vary = (p.r - 0.5) * 0.12;
+        gr.addColorStop(0, mix(shade(base[0], vary), M.sky[1], far * 0.55 + 0.1));
+        gr.addColorStop(1, mix(shade(base[1], vary), M.sky[1], far * 0.45));
+        poly(g, p); g.fillStyle = gr; g.fill();
+        if (kind === 'water' || kind === 'seedling') { const pp = new Path2D(); pp.moveTo(sx(p.Xl, p.Za), sy(p.Za)); pp.lineTo(sx(p.Xr, p.Za), sy(p.Za)); pp.lineTo(sx(p.Xr, p.Zb), sy(p.Zb)); pp.lineTo(sx(p.Xl, p.Zb), sy(p.Zb)); pp.closePath(); waterPath.addPath(pp); }
+        p.kind = kind;
+      });
+      // 水を張った田に、空と山が映る
+      g.save(); g.clip(waterPath);
+      g.save(); g.translate(0, h0 * 2); g.scale(1, -1);
+      const gr = g.createLinearGradient(0, h0 - H * 0.3, 0, h0);
+      gr.addColorStop(0, M.sky[0]); gr.addColorStop(1, M.sky[1]);
+      g.globalAlpha = 0.45; g.fillStyle = gr; g.fillRect(0, 0, W, h0);
+      g.globalAlpha = 0.35; g.fillStyle = '#6f8aa3'; mountainPath(g, h0 - 6, H * 0.25, 1.7); g.fill();
+      g.fillStyle = M.mtn === 'spring' ? '#6f9a5c' : '#4d7d47'; mountainPath(g, h0 - 2, H * 0.13, 4.2); g.fill();
+      g.restore(); g.globalAlpha = 1; g.restore();
+
+      // 区画ごとの模様
+      list.forEach((p) => {
+        const k = p.kind, near = 1 / p.Za;
+        g.save(); poly(g, p); g.clip();
+        if (k === 'snow') {
+          // 雪から少しだけ出ている切り株
+          if (!M.light) g.globalAlpha = 0.25;
+          g.fillStyle = '#9a8d74';
+          rows(g, p, 0.16, (x0, y0, x1, y1, X) => along(p, X, 0.06, (x, y, s) => { if (R() < (M.light ? 0.7 : 0.25)) g.fillRect(x, y - 1.2 * s * 3, 0.8, 1.2 * s * 3); }));
+          g.globalAlpha = 1;
+        } else if (k === 'melt') {
+          g.fillStyle = 'rgba(246,249,252,.92)';
+          for (let i = 0; i < 9; i++) { const X = p.Xl + R() * (p.Xr - p.Xl), Z = p.Za + R() * (p.Zb - p.Za); const w = (0.1 + R() * 0.28) * S() / Z; g.beginPath(); g.ellipse(sx(X, Z), sy(Z), w, w * 0.18, 0, 0, 7); g.fill(); }
+        } else if (k === 'soil' || k === 'plow') {
+          rows(g, p, k === 'plow' ? 0.09 : 0.12, (x0, y0, x1, y1) => { g.strokeStyle = 'rgba(40,25,10,.35)'; g.lineWidth = Math.max(0.5, near * 1.6); g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke();
+            g.strokeStyle = 'rgba(170,135,95,.35)'; g.lineWidth = Math.max(0.4, near * 0.8); g.beginPath(); g.moveTo(x0 + near * 2, y0); g.lineTo(x1, y1); g.stroke(); });
+        } else if (k === 'water') {
+          g.strokeStyle = 'rgba(255,255,255,.25)'; g.lineWidth = 0.7;
+          for (let i = 0; i < 3; i++) { const Z = p.Za + R() * (p.Zb - p.Za), X = p.Xl + R() * (p.Xr - p.Xl - 0.4); g.beginPath(); g.moveTo(sx(X, Z), sy(Z)); g.lineTo(sx(X + 0.3, Z), sy(Z)); g.stroke(); }
+        } else if (k === 'seedling') {
+          g.fillStyle = '#5f9a3a';
+          rows(g, p, 0.1, (x0, y0, x1, y1, X) => along(p, X, 0.05, (x, y, s) => { const hh = Math.max(0.8, s * 6); g.fillRect(x - Math.max(0.5, s), y - hh, Math.max(0.8, s * 2), hh); }));
+        } else if (k === 'young') {
+          rows(g, p, 0.1, (x0, y0, x1, y1, X) => along(p, X, 0.05, (x, y, s) => { const hh = Math.max(1, s * 10); g.fillStyle = '#4f8f36'; g.beginPath(); g.moveTo(x - s * 2.5, y); g.lineTo(x, y - hh); g.lineTo(x + s * 2.5, y); g.fill(); }));
+        } else if (k === 'green' || k === 'head' || k === 'gold') {
+          const lines = { green: ['rgba(30,80,20,.35)', 'rgba(150,200,110,.25)'], head: ['rgba(40,75,20,.32)', 'rgba(205,205,110,.25)'], gold: ['rgba(140,85,15,.3)', 'rgba(255,225,130,.35)'] }[k];
+          rows(g, p, 0.1, (x0, y0, x1, y1) => { g.strokeStyle = lines[0]; g.lineWidth = Math.max(0.5, near * 2.2); g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke(); });
+          // 穂波のムラ
+          for (let i = 0; i < 5; i++) { const X = p.Xl + R() * (p.Xr - p.Xl), Z = p.Za + R() * (p.Zb - p.Za); const w = (0.3 + R() * 0.5) * S() / Z; g.fillStyle = lines[1]; g.beginPath(); g.ellipse(sx(X, Z), sy(Z), w, w * 0.2, 0, 0, 7); g.fill(); }
+          if (k !== 'green') { // 手前の田は、穂の粒々
+            g.fillStyle = k === 'gold' ? 'rgba(250,215,110,.7)' : 'rgba(215,215,120,.6)';
+            if (p.Za < 3) rows(g, p, 0.1, (x0, y0, x1, y1, X) => along(p, X, 0.04, (x, y, s) => { g.beginPath(); g.ellipse(x + s * 2, y - s * 6, Math.max(0.6, s * 2.2), Math.max(0.4, s * 1.1), 0.5, 0, 7); g.fill(); }));
+          }
+        } else if (k === 'stubble') {
+          g.fillStyle = 'rgba(120,95,50,.55)';
+          rows(g, p, 0.1, (x0, y0, x1, y1, X) => along(p, X, 0.05, (x, y, s) => { const hh = Math.max(0.6, s * 3); g.fillRect(x - s, y - hh, Math.max(0.6, s * 1.6), hh); }));
+          // 刈ったわらが散らばる
+          g.strokeStyle = 'rgba(235,215,150,.5)'; g.lineWidth = 0.8;
+          for (let i = 0; i < 6; i++) { const X = p.Xl + R() * (p.Xr - p.Xl), Z = p.Za + R() * (p.Zb - p.Za); const x = sx(X, Z), y = sy(Z), l = 6 / Z; g.beginPath(); g.moveTo(x, y); g.lineTo(x + l, y - l * 0.3); g.stroke(); }
+        }
+        g.restore();
+      });
+
+      // あぜ（区画の境目）：季節で色が変わる。手前ほど太い
+      const lev = M.ground === 'snow' ? ['#ffffff', '#d4dde6'] : (m >= 5 && m <= 9) ? ['#7fa64e', '#5b7f35'] : m === 4 ? ['#9a9a62', '#7c7a4a'] : ['#a99a68', '#86764a'];
+      const levee = (x0, y0, x1, y1, w0, w1) => {
+        g.fillStyle = lev[1]; g.beginPath(); g.moveTo(x0 - w0, y0); g.lineTo(x0 + w0, y0); g.lineTo(x1 + w1, y1); g.lineTo(x1 - w1, y1); g.closePath(); g.fill();
+        g.strokeStyle = lev[0]; g.lineWidth = Math.max(0.4, w0 * 0.5); g.beginPath(); g.moveTo(x0 - w0 * 0.3, y0); g.lineTo(x1 - w1 * 0.3, y1); g.stroke();
+      };
+      list.forEach((p) => {
+        levee(sx(p.Xl, p.Za), sy(p.Za), sx(p.Xl, p.Zb), sy(p.Zb), 1.8 / p.Za, 1.8 / p.Zb);
+      });
+      for (let b = 1; b < BANDS.length; b++) {
+        const Z = BANDS[b], y = sy(Z), th = Math.max(0.7, 5.5 / Z);
+        g.fillStyle = lev[1]; g.fillRect(0, y - th * 0.5, W, th);
+        g.fillStyle = lev[0]; g.fillRect(0, y - th * 0.5, W, Math.max(0.5, th * 0.35));
+        if (Z < 3 && m >= 5 && m <= 9) { // 手前のあぜの草
+          g.strokeStyle = '#6d9a3e'; g.lineWidth = 0.8;
+          for (let x = 0; x < W; x += 3 + R() * 4) { g.beginPath(); g.moveTo(x, y); g.lineTo(x + (R() - 0.5) * 3, y - th * (0.6 + R())); g.stroke(); }
+        }
+        if (Z < 2.6 && m === 9 && R() < 1) { // 彼岸花
+          g.fillStyle = '#d8372b';
+          for (let i = 0; i < 6; i++) { const x = R() * W; g.beginPath(); g.arc(x, y - th * 0.8, 1.6, 0, 7); g.fill(); }
+        }
+      }
+    }
+
+    // はさがけ（稲を干す木の棚）
+    function hasa(g) {
+      [[1.6, -0.6], [2.2, 0.9], [3.2, -1.9]].forEach(([Z, X]) => {
+        const y = sy(Z), x = sx(X, Z), s = 1 / Z, w = 120 * s, hh = 34 * s;
+        g.strokeStyle = '#5b4126'; g.lineWidth = Math.max(1, 2.2 * s);
+        for (let k = 0; k <= 3; k++) { g.beginPath(); g.moveTo(x + w * k / 3, y); g.lineTo(x + w * k / 3, y - hh * 1.1); g.stroke(); }
+        g.fillStyle = '#c79a3e'; g.fillRect(x - 3 * s, y - hh, w + 6 * s, hh * 0.55);
+        g.fillStyle = 'rgba(120,80,25,.45)';
+        for (let i = 0; i < w; i += Math.max(2, 5 * s)) g.fillRect(x + i, y - hh, Math.max(0.6, 1.4 * s), hh * 0.55);
+        g.fillStyle = '#e2b95a'; g.fillRect(x - 3 * s, y - hh, w + 6 * s, Math.max(1, hh * 0.12));
+      });
+    }
+    // 白鷺（夏の田んぼ）
+    function egrets(g) {
+      [[2.0, 1.1], [2.9, -2.3]].forEach(([Z, X]) => {
+        const x = sx(X, Z), y = sy(Z), s = 1.6 / Z;
+        g.fillStyle = '#ffffff'; g.strokeStyle = '#ffffff'; g.lineWidth = Math.max(1, 1.6 * s);
+        g.beginPath(); g.ellipse(x, y - 9 * s, 5 * s, 3 * s, -0.3, 0, 7); g.fill();
+        g.beginPath(); g.moveTo(x + 3 * s, y - 10 * s); g.quadraticCurveTo(x + 7 * s, y - 13 * s, x + 5 * s, y - 17 * s); g.stroke();
+        g.strokeStyle = '#2f2a20'; g.lineWidth = Math.max(0.6, s); g.beginPath(); g.moveTo(x - 1 * s, y - 7 * s); g.lineTo(x - 1 * s, y); g.moveTo(x + 1 * s, y - 7 * s); g.lineTo(x + 2 * s, y); g.stroke();
+        g.strokeStyle = '#e0b030'; g.beginPath(); g.moveTo(x + 5 * s, y - 17 * s); g.lineTo(x + 9 * s, y - 16.5 * s); g.stroke();
+      });
+    }
+
+    // ---------- 毎フレーム描くもの ----------
+    function clouds(t, M, m) {
+      const n = M.ground === 'snow' || m === 6 ? 6 : 4;
+      for (let i = 0; i < n; i++) {
+        const span = W + 260, x = ((i * 233 + t * 0.006 * (1 + (i % 3) * 0.4)) % span) - 130, y = H * (0.06 + 0.07 * (i % 3)), s = 0.7 + (i % 3) * 0.25;
+        const col = M.ground === 'snow' || m === 6 ? 'rgba(235,240,246,.75)' : 'rgba(255,255,255,.8)';
+        ctx.fillStyle = col;
+        [[0, 0, 26], [18, -6, 18], [36, 0, 20], [-16, 3, 14], [52, 4, 12]].forEach(([dx, dy, r]) => { ctx.beginPath(); ctx.ellipse(x + dx * s, y + dy * s, r * s, r * 0.55 * s, 0, 0, 7); ctx.fill(); });
+        ctx.fillStyle = 'rgba(160,175,195,.18)'; ctx.beginPath(); ctx.ellipse(x + 18 * s, y + 7 * s, 40 * s, 5 * s, 0, 0, 7); ctx.fill();
+      }
+    }
+    // 手前の稲株（風で揺れる）
+    function foreground(t, M) {
+      const k = M.ground;
+      if (!{ young: 1, green: 1, head: 1, gold: 1 }[k]) return;
+      const hgt = { young: 16, green: 30, head: 36, gold: 34 }[k];
+      const leaf = { young: ['#5c9a3c', '#3f7f2b'], green: ['#4b8a33', '#2f6a24'], head: ['#5d8c32', '#41702a'], gold: ['#c79a35', '#a77a22'] }[k];
+      const step = 11;
+      for (let row = 0; row < 2; row++) {
+        const base = H + 4 - row * 10, sc = 1 - row * 0.28;
+        for (let x = (row ? step / 2 : 0) - 6; x < W + 10; x += step) {
+          const sway = reduce ? 0 : Math.sin(t * 0.0018 + x * 0.045 + row) * 3 * sc;
+          for (let j = -2; j <= 2; j++) {
+            const hh = hgt * sc * (0.75 + 0.25 * Math.cos(j)), tipX = x + j * 3.2 * sc + sway * (1 + Math.abs(j) * 0.2);
+            ctx.strokeStyle = leaf[(j + 4) % 2]; ctx.lineWidth = 1.6 * sc;
+            ctx.beginPath(); ctx.moveTo(x + j * 0.8, base); ctx.quadraticCurveTo(x + j * 1.5, base - hh * 0.6, tipX, base - hh); ctx.stroke();
+          }
+          if (k === 'head' || k === 'gold') { // 穂（実るほど垂れる）
+            const tx = x + sway * 1.2, ty = base - hgt * sc;
+            const droop = k === 'gold' ? 9 : 4;
+            ctx.strokeStyle = k === 'gold' ? '#b8862a' : '#8aa040'; ctx.lineWidth = 1 * sc;
+            ctx.beginPath(); ctx.moveTo(tx, ty + 4); ctx.quadraticCurveTo(tx + 5 * sc, ty - 3, tx + droop * sc, ty + droop * 0.6 * sc); ctx.stroke();
+            ctx.fillStyle = k === 'gold' ? '#f0c55a' : '#c7c96a';
+            for (let q = 0; q < 5; q++) { const u = q / 5; ctx.beginPath(); ctx.ellipse(tx + (2 + u * (droop - 2)) * sc, ty + (-1.5 + u * (droop * 0.6 + 1)) * sc, 1.5 * sc, 0.9 * sc, 0.8, 0, 7); ctx.fill(); }
           }
         }
       }
-      // 稲刈りのあと：はさがけ（稲を干す棚）
-      if (st === 7) {
-        for (let i = 0; i < 3; i++) {
-          const x = W * (0.3 + i * 0.2), y = hz + 24 + i * 6;
-          ctx.fillStyle = '#6b4a2a'; ctx.fillRect(x, y - 18, 2, 20); ctx.fillRect(x + 60, y - 18, 2, 20);
-          ctx.fillStyle = '#d7aa4a'; ctx.fillRect(x - 2, y - 20, 66, 10);
-        }
+    }
+    // 機械：4月 トラクター / 5月 田植機 / 9・10月 コンバイン
+    function machine(t, m) {
+      const kind = m === 4 ? 'tractor' : m === 5 ? 'planter' : m === 9 || m === 10 ? 'combine' : null;
+      if (!kind) return;
+      const Z = 1.9, y = sy(Z) + (sy(1.22) - sy(Z)) * 0.55, s = 1.1;
+      const span = W + 140, x = (t * 0.025) % span - 70;
+      ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
+      ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.beginPath(); ctx.ellipse(2, 1, 24, 3, 0, 0, 7); ctx.fill();
+      if (kind === 'tractor') {
+        ctx.fillStyle = '#8a8a8a'; ctx.fillRect(-26, -9, 12, 8); // ロータリー
+        ctx.fillStyle = 'rgba(110,80,50,.5)'; ctx.beginPath(); ctx.ellipse(-24, -1, 9, 3, 0, 0, 7); ctx.fill();
+        ctx.fillStyle = '#e0602a'; ctx.beginPath(); ctx.moveTo(-12, -6); ctx.lineTo(14, -6); ctx.lineTo(16, -14); ctx.lineTo(2, -16); ctx.lineTo(-12, -16); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#c24c1c'; ctx.fillRect(2, -14, 14, 3);
+        ctx.strokeStyle = '#333'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(-10, -16); ctx.lineTo(-10, -30); ctx.lineTo(-1, -30); ctx.lineTo(-1, -16); ctx.stroke(); // 安全フレーム
+        driver(-6, -16);
+        wheel(-8, -4, 8); wheel(11, -3, 4.5);
+      } else if (kind === 'planter') {
+        ctx.fillStyle = '#5a9a3a'; ctx.save(); ctx.translate(-16, -18); ctx.rotate(-0.35); ctx.fillRect(-10, 0, 14, 10); ctx.fillStyle = '#3f7a2a'; for (let i = 0; i < 4; i++) ctx.fillRect(-9 + i * 3.4, 0, 1.2, 10); ctx.restore(); // 苗の箱
+        ctx.fillStyle = '#ededea'; ctx.beginPath(); ctx.moveTo(-14, -6); ctx.lineTo(12, -6); ctx.lineTo(14, -13); ctx.lineTo(-6, -15); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#d8462e'; ctx.fillRect(-6, -12, 18, 3);
+        driver(-2, -15);
+        wheel(-7, -3, 5.5); wheel(9, -3, 4);
+        ctx.strokeStyle = 'rgba(255,255,255,.6)'; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(-26, 0); ctx.lineTo(-14, 0); ctx.stroke();
+      } else {
+        ctx.fillStyle = '#2f2f2f'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(-22, -7, 38, 8, 4) : ctx.rect(-22, -7, 38, 8); ctx.fill(); // クローラー
+        ctx.strokeStyle = '#555'; ctx.lineWidth = 0.8; for (let i = -18; i < 14; i += 4) { ctx.beginPath(); ctx.moveTo(i, -6); ctx.lineTo(i, 0); ctx.stroke(); }
+        ctx.fillStyle = '#e8a32a'; ctx.fillRect(-22, -22, 30, 15); // 本体
+        ctx.fillStyle = '#c9861c'; ctx.fillRect(-22, -22, 30, 3);
+        ctx.fillStyle = '#e8a32a'; ctx.fillRect(8, -26, 11, 19); // 運転席
+        ctx.fillStyle = '#a9d6ee'; ctx.fillRect(10, -24, 7, 8);
+        ctx.fillStyle = '#6a6a6a'; ctx.beginPath(); ctx.moveTo(18, -10); ctx.lineTo(30, -6); ctx.lineTo(30, -1); ctx.lineTo(18, -3); ctx.closePath(); ctx.fill(); // 刈り取り部
+        ctx.strokeStyle = '#555'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(-18, -22); ctx.lineTo(-24, -32); ctx.lineTo(-10, -34); ctx.stroke(); // 排出オーガ
+        ctx.fillStyle = 'rgba(230,200,120,.6)'; ctx.beginPath(); ctx.ellipse(-28, -2, 8, 2.5, 0, 0, 7); ctx.fill(); // わらくず
       }
-      // 機械：田植え（5月）・稲刈り（9〜10月）
-      if (m === 5 || m === 9 || m === 10) {
-        const x = (t * 0.03) % (W + 80) - 40, y = H * 0.7;
-        ctx.fillStyle = m === 5 ? '#d84a3a' : '#e8a12a';
-        ctx.fillRect(x, y - 14, 34, 12); ctx.fillRect(x + 20, y - 24, 12, 10);
-        ctx.fillStyle = '#333'; ctx.beginPath(); ctx.arc(x + 7, y, 5, 0, 7); ctx.arc(x + 27, y, 5, 0, 7); ctx.fill();
+      ctx.restore();
+      function wheel(cx, cy, r) { ctx.fillStyle = '#222'; ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.fill(); ctx.fillStyle = '#d9b52a'; ctx.beginPath(); ctx.arc(cx, cy, r * 0.42, 0, 7); ctx.fill(); }
+      function driver(cx, cy) { ctx.fillStyle = '#3d5f8a'; ctx.fillRect(cx - 2.5, cy - 8, 5, 8); ctx.fillStyle = '#f0c8a0'; ctx.beginPath(); ctx.arc(cx, cy - 10, 2.4, 0, 7); ctx.fill(); ctx.fillStyle = '#f4f4f0'; ctx.fillRect(cx - 3, cy - 13, 6, 2); }
+    }
+    // 雁の群れ（11月）
+    function geese(t) {
+      const x0 = ((t * 0.02) % (W + 200)) - 100, y0 = H * 0.18;
+      ctx.strokeStyle = 'rgba(50,50,60,.7)'; ctx.lineWidth = 1;
+      for (let i = 0; i < 7; i++) {
+        const side = i % 2 ? 1 : -1, k = Math.ceil(i / 2), x = x0 - k * 9, y = y0 + side * k * 5, f = Math.sin(t * 0.01 + i) * 1.5;
+        ctx.beginPath(); ctx.moveTo(x - 4, y - f); ctx.lineTo(x, y); ctx.lineTo(x + 4, y - f); ctx.stroke();
       }
-      // 雪・雨
-      if (st === 0) {
+    }
+
+    function draw(t) {
+      if (!W || !H) { if (canvas.clientWidth) size(); if (!W || !H) return; }
+      const m = getMonth(), M = MONTH[m];
+      const key = m + '/' + W + 'x' + H + '@' + dpr;
+      if (key !== bgKey) { bg = buildBg(m); bgKey = key; }
+      ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(bg, 0, 0); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.save(); ctx.beginPath(); ctx.rect(0, 0, W, hz()); ctx.clip(); clouds(t, M, m); ctx.restore();
+      if (m === 11) geese(t);
+      // 水面のきらめき
+      if (M.ground === 'till' || M.ground === 'plant') {
+        ctx.fillStyle = 'rgba(255,255,255,.4)';
+        for (let i = 0; i < 14; i++) { const Z = 1.25 + (i * 0.37) % 3, x = ((i * 137 + t * 0.012) % (W + 40)) - 20, y = sy(Z); ctx.fillRect(x, y, 10 / Z, 1); }
+      }
+      machine(t, m);
+      foreground(t, M);
+      const rain = opts.rain && opts.rain(m);
+      if (rain) { ctx.fillStyle = 'rgba(70,85,100,.22)'; ctx.fillRect(0, 0, W, H); }
+      if (M.ground === 'snow') {
         ctx.fillStyle = 'rgba(255,255,255,.9)';
-        flakes.forEach((f) => { const x = ((f.x * W + Math.sin(t * 0.001 + f.y * 9) * 10) % W + W) % W, y = ((f.y * H + t * 0.02 * f.v) % H); ctx.beginPath(); ctx.arc(x, y, f.s * 1.6, 0, 7); ctx.fill(); });
-      } else if (opts.rain && opts.rain(m)) {
+        flakes.forEach((f) => { const x = ((f.x * W + Math.sin(t * 0.001 + f.y * 9) * 10) % W + W) % W, y = ((f.y * H + t * 0.02 * f.v) % H); ctx.beginPath(); ctx.arc(x, y, f.s * 1.5, 0, 7); ctx.fill(); });
+      } else if (rain) {
         ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 1;
         flakes.forEach((f) => { const x = (f.x * W + t * 0.05) % W, y = (f.y * H + t * 0.4 * f.v) % H; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - 3, y + 9); ctx.stroke(); });
       }
     }
     function loop(now) {
       if (!canvas.isConnected) { canvas._alive = false; window.removeEventListener('resize', size); return; }
-      draw(now - t0);
+      if (now - last >= 33) { last = now; draw(now - t0); } // 30コマ/秒で十分
       if (!reduce) raf = requestAnimationFrame(loop);
     }
     window.addEventListener('resize', size);
