@@ -29,6 +29,8 @@
     const oldNav = root.querySelector('.nav'), navLeft = oldNav ? oldNav.scrollLeft : 0;
     root.innerHTML = '';
     root.appendChild(node);
+    // 長い説明をたたむのは、スクロールの位置を戻す前に（後でたたむと、＋−を押すたびに画面が上へずれていくため）
+    collapseLongNotes(root);
     window.scrollTo(0, app.keepScroll ? y : 0);
     if (sideKeys) root.querySelectorAll('.tbl-wrap').forEach((e, i) => { if (sideKeys[i]) e.scrollLeft = sideKeys[i]; });
     const nav = root.querySelector('.nav');
@@ -43,7 +45,6 @@
     }
     app.lastView = view;
     app.keepScroll = false;
-    collapseLongNotes(root);
     if (RG.sound) RG.sound.sync(app); // 場面に合わせてBGMを切り替える
     if (RG.tutorial) RG.tutorial.check(app);
   };
