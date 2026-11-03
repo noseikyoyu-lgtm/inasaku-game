@@ -346,8 +346,24 @@
       location.reload();
     }).catch(() => { /* つながらないときはそのまま */ });
   };
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) app.checkUpdate(); });
-  window.addEventListener('pageshow', (e) => { if (e.persisted) app.checkUpdate(); });
+  // スマホのChromeでは、ホーム画面のショートカットから2回目に開くと、裏に残っていたページが真っ黒のまま出てくることがある。
+  // そこで、しばらく裏に回っていたら：タイトル画面なら読み込み直し、遊んでいる途中なら画面を描き直す
+  const TOUCH = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+  let hiddenAt = 0;
+  function onBack() {
+    const away = hiddenAt ? Date.now() - hiddenAt : 0;
+    hiddenAt = 0;
+    if (TOUCH && away >= 2000) {
+      if (!app.st) { location.reload(); return; }
+      const b = document.body; b.style.display = 'none'; void b.offsetHeight; b.style.display = ''; // 画面全体を描き直させる
+    }
+    app.checkUpdate();
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { hiddenAt = Date.now(); if (app.st) app.autosave(); } else onBack();
+  });
+  window.addEventListener('pagehide', () => { if (!hiddenAt) hiddenAt = Date.now(); });
+  window.addEventListener('pageshow', (e) => { if (e.persisted) onBack(); });
 
   // ---------- 起動 ----------
   document.addEventListener('DOMContentLoaded', () => {

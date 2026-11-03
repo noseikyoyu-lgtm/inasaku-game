@@ -219,6 +219,9 @@
 /* スマホ（指で触る画面）では、背景のぼかしを使わない。動く絵の上でぼかすと重く、画面が点滅することがあるため */
 @media (pointer: coarse) {
   .px-window, .title-foot, .vn-chip, .vn-box { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+  /* ロゴの金色の光の動きと影のぼかしは、毎コマ大きく描き直すので、スマホではやめる */
+  .logo-kanji, .intro .logo-kanji { filter: none; animation: none; }
+  .intro .logo-kanji { animation: t-fade 1.2s ease both; }
   .px-window { background: rgba(20, 15, 11, .82); }
   .title-foot { background: rgba(14, 10, 7, .8); }
 }
