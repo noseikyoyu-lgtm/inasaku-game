@@ -11,7 +11,7 @@
 
   const GUIDES = {
     overview: '1年の流れ：① 各タブで今年の計画を立てる → ② 右の「今年の見通し」で所得と資金繰りを確認 → ③「この計画で1年を始める」→ ④ 決算書で振り返る。まずは「作付計画」から見てみましょう。',
-    crops: '品種ごとに、作る面積と栽培方法・植え方を決めます。高く売れる品種ほど天候に弱いなど、一長一短があります。早生・中生・晩生を組み合わせると稲刈りが分散します。右の見通しが変わる様子を確かめながら決めましょう。',
+    crops: '品種ごとに、作る面積と栽培方法・植え方を決めます。品種にはそれぞれ強みと弱みがあります。コシヒカリには農協の出荷の目安（作る米の6割）があり、作りすぎると安くなります。早生・業務用・酒米（契約つき）などと組み合わせましょう。',
     land: '規模を広げると1haあたりの固定費（機械費など）が下がります。ただし地代がかかり、機械と人手が追いつかないと逆効果です。',
     machines: '機械は「買う」「リースする」「作業を委託する」の3択です。面積が小さいうちは委託が安く、面積が増えるほど自前の機械が有利になります。',
     labor: '春（田植え）と秋（稲刈り）に作業が集中します。季節ごとの不足を見て、パートや社員を確保しましょう。不足すると収量と品質が落ちます。',
@@ -322,6 +322,7 @@
           fallow > 0.05 ? UI.note('warn', null, U.ha(fallow) + ' が休耕になっています。地代・水利費はかかり続けます。「＋残り」でどれかの作付に回しましょう。') : null,
           org.cert + org.trans > 0 ? UI.note('info', null, h('span', null, T('有機栽培'), '：有機として売れる面積 ' + U.ha(org.cert) + '・転換期間中 ' + U.ha(org.trans) + '。2年続けて有機で作った面積までが「有機」になります。')) : null),
         h('p', { class: 'small muted' }, '田んぼの条件（良・普通・不利）の違いは、経営全体の平均として収量と作業時間に反映されます。見込みは長い目で見た平均の気象（猛暑年や多雨年も含む）での値です。')),
+      jaLimitCard(pv),
       inputsCard(app, st),
       scheduleCard(st, pv),
       UI.card('品目ごとの見込み', '平年作の場合',
@@ -388,6 +389,22 @@
       h('p', { class: 'small muted' }, '農薬の違いは、病気や害虫が出た年に大きく効きます（平年作の見通しには出ません）。特別栽培・有機栽培の田では、もともと使う量が少ないので、費用の差も小さくなります。'));
   }
 
+  // 農協の品種別の出荷の目安（作りすぎると安くなる）
+  function jaLimitCard(pv) {
+    const list = (pv.sales.jaLimits || []);
+    if (!list.length) return null;
+    const rows = list.map((x) => {
+      const L = D.JA_LIMITS.find((y) => y.key === x.key);
+      return [x.label, { v: U.bales(x.cap), cls: 'num' }, { v: U.bales(x.total), cls: 'num' },
+        { v: x.over > 0.5 ? h('span', { class: 'neg' }, U.bales(x.over), h('div', { class: 'small', title: L ? '超えた分は' + L.via : '' }, '売上 −' + U.man(x.lost))) : h('span', { class: 'pos' }, '目安の中'), cls: 'num' }];
+    });
+    const anyOver = list.some((x) => x.over > 0.5);
+    return UI.card('農協の出荷の目安', '平年作の見込み。目安を超えた分は安く引き取られる',
+      UI.table([{ label: '品種' }, { label: '目安', num: true }, { label: '農協に出す', num: true }, { label: '超える分', num: true }], rows),
+      anyOver ? UI.note('warn', null, '目安を超えています。ほかの品種（早生・業務用など）に回すか、直販・米屋・契約で売ると、値下がりを避けられます。') : null,
+      h('p', { class: 'small muted' }, D.JA_LIMITS.map((L) => L.label + '：' + L.why + '（超えた分は' + L.via + '）').join(' ')));
+  }
+
   function varietyCards(st) {
     const list = D.CROP_ORDER.filter((k) => k !== 'none' && !D.CROPS[k].alias);
     const isLocked = (k) => (D.CROPS[k].unlock && !st.flags[D.CROPS[k].unlock]) || (RG.era && RG.era.cropLocked(st, k));
@@ -403,9 +420,11 @@
           c.estimated ? h('span', { class: 'badge warn', title: '参考ファイルに無い品種のため、ゲーム用の推定値です' }, '推定値') : null,
           locked ? h('span', { class: 'badge warn' }, '生産者登録が必要') : null, hint ? h('span', { class: 'badge warn' }, '🔒 まだ作れない') : null),
         hint ? h('div', { class: 'crop-hint' }, '🔓 きっかけ：' + hint) : locked && st.cropsOpen ? h('div', { class: 'crop-hint' }, '🔓 きっかけ：1等米の割合80%以上の年を出すと、JAから生産者登録の話が来る') : null,
-        h('div', { class: 'small' }, '平年単収 ' + c.by + 'kg/10a・' + (c.market ? '1等 ' + U.yen(c.pr) + '/60kg（R8概算金）' : '販売 ' + U.yen(c.pr) + '/60kg＋交付金')),
+        h('div', { class: 'small' }, '平年単収 ' + c.by + 'kg/10a・' + (c.market ? '1等 ' + U.yen(c.pr) + '/60kg（' + (c.prNote || 'R8概算金') + '）' : '販売 ' + U.yen(c.pr) + '/60kg＋交付金')),
         h('div', { class: 'small muted' }, '田植え適期 ' + c.bS.join('/') + '〜' + c.bE.join('/') + '・収穫 ' + AG.fmt(AG.harvestDoy(c, pm, 0)) + '頃（平年）・変動費 ' + U.yen(c.cst) + '/10a'),
         h('div', { class: 'row', style: { gap: '4px' } }, tol),
+        c.pros || c.cons ? h('ul', { class: 'crop-pc' },
+          (c.pros || []).map((t) => h('li', { class: 'pro' }, t)), (c.cons || []).map((t) => h('li', { class: 'con' }, t))) : null,
         h('div', { class: 'small muted' }, c.desc));
     })));
   }
@@ -477,7 +496,7 @@
         h('div', { class: 'row', style: { flexWrap: 'nowrap' } }, UI.bar(M.need, M.cap), h('span', { class: 'small' }, M.cap > 0 ? U.pct(M.util) : '—')),
         { v: M.contract > 0.01 ? h('span', null, U.ha(pv.labor.ops[opKey(t)].contractArea), pv.labor.ops[opKey(t)].undone > 0.05 ? h('div', { class: 'small neg' }, '委託できない ' + U.ha(pv.labor.ops[opKey(t)].undone)) : null) : '—', cls: 'num' },
         { v: U.man(pv.labor.ops[opKey(t)].fee), cls: 'num' },
-        { v: U.man(M.need * 10 * op.fee * mInf), cls: 'num muted' }];
+        { v: U.man(M.need * 10 * SIM.opFee10a(st, D.OP_ORDER.find((k) => D.OPS[k] === op)) * mInf), cls: 'num muted' }];
     });
     ['drone', 'smart'].forEach((t) => {
       const M = pv.machines[t];
@@ -629,6 +648,7 @@
             h('div', { class: 'sg-bar' }, h('i', { style: { width: (x.need > 0 ? Math.min(100, have / x.need * 100) : 100) + '%' } })),
             h('div', { class: 'sg-v' }, ok ? '💪 足りる' : '😓 ' + U.num(x.short) + 'h 不足'));
         })),
+        L.villageHelp > 0.5 ? UI.note('good', null, '🤝 集落の人が、預かった田の夏の水管理・草刈りを手伝ってくれます（夏の作業 −' + U.num(L.villageHelp) + '時間）。') : null,
         UI.table([{ label: '季節' }, { label: '必要', num: true }, { label: '家族', num: true }, { label: '社員', num: true }, { label: 'パート上限', num: true }, { label: '不足', num: true }, { label: '' }], seasonRows),
         h('div', { class: 'kpis', style: { marginTop: '10px' } },
           UI.kpi('年間の労働時間', U.num(L.totalHours) + 'h'), UI.kpi('10aあたり', U.num(L.hoursPer10a, 1) + 'h', '機械が大きいほど短くなる'),

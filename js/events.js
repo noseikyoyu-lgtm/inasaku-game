@@ -15,15 +15,19 @@
   };
 
   const landBanned = (st) => !!st.flags.landSoldYear && st.year > st.flags.landSoldYear && st.year - st.flags.landSoldYear <= (RG.actions ? RG.actions.LAND_SALE_BAN : 3);
+  // 1件の農地の話の大きさの上限（ha）：最初は2haくらいまで。経営が広がり、年数がたつほど大きな話も来る
+  // 例：3haの経営なら2ha、10haなら約3ha、20haなら約4.5ha、30ha以上なら6ha
+  E.landCap = (st) => U.clamp(1.5 + U.sum(st.fields, (f) => f.area) * 0.15 + Math.max(0, st.year - 5) * 0.1, 2, 6);
   function genLand(st) {
     if (landBanned(st)) return [];
+    const cap = E.landCap(st);
     const r = RG.rng.make(st.seed, st.year, 'land');
     let n = 1 + (r.chance(0.5 + st.trust / 200) ? 1 : 0) + (r.chance(st.trust / 150) ? 1 : 0) + (st.year >= 3 && r.chance(0.3) ? 1 : 0) + (st.path === 'grow' ? 1 : 0);
     const out = [];
     const reasons = ['高齢のため離農する', '後継者がいない', '体調を崩して作業が難しくなった', '相続した田を任せたい', '兼業で手が回らなくなった'];
     for (let i = 0; i < n; i++) {
-      const big = st.year >= 3 && st.trust >= 30 && r.chance(0.15);
-      const area = U.round(big ? r.range(3, 6) : r.range(0.3, 2.2), 1);
+      const big = st.year >= 3 && st.trust >= 30 && cap > 2.5 && r.chance(0.15); // まとまった田の話は、経営が広がってから
+      const area = U.round(big ? r.range(cap * 0.6, cap) : r.range(0.3, Math.min(2.2, cap)), 1);
       const soil = r.weighted([['good', 0.2], ['normal', 0.5], ['poor', 0.3]]);
       const buy = r.chance(0.15);
       const rent = (soil === 'poor' ? r.int(4, 7) : soil === 'good' ? r.int(10, 14) : r.int(8, 12)) * 1000;
@@ -57,6 +61,20 @@
     }
     return out;
   }
+
+  // 依頼を引き受けたときに、その品種の契約の話を今年の「販売計画」に足す（すでにあれば足さない）
+  E.addContractOffer = function (st, crop) {
+    const t = D.CONTRACT_TEMPLATES.find((x) => x.crop === crop);
+    if (!t || !st.offers || st.offers.contracts.some((o) => o.crop === crop)) return null;
+    const r = RG.rng.make(st.seed, st.year, 'contract-mission-' + crop);
+    const c = D.CROPS[crop], premium = U.round(r.range(t.pmul[0], t.pmul[1]), 2);
+    // 量は、経営の大きさに合わせる（作る米の3割くらいまで。小さな経営でも届けられるように）
+    const area = U.sum(st.fields, (f) => f.area), fit = Math.max(30, round10(area * 10 * (c.by || 500) / 60 * 0.3));
+    const o = { id: 'C' + st.year + '_m_' + crop, buyer: t.buyer, crop, minCult: t.minCult,
+      volume: Math.min(round10(r.range(t.vol[0], t.vol[1])), fit), premium, refPrice: round100(st.world.forecast * c.priceCoef * premium), years: t.years };
+    st.offers.contracts.push(o);
+    return o;
+  };
 
   function genUsed(st) {
     const r = RG.rng.make(st.seed, st.year, 'used');

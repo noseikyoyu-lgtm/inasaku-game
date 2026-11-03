@@ -76,7 +76,7 @@
     },
     shinnosuke: {
       name: '新之助', kind: '新潟の最上位ブランド米', unlock: 'shinnosuke',
-      by: 530, bq: 93, pr: 19000, pr2: 18400, cst: 26000, ht: 0.80, ft: 0.65, ct: 0.50, sp: 0.60, dy: 130,
+      by: 530, bq: 93, pr: 21000, pr2: 20300, cst: 26000, ht: 0.80, ft: 0.65, ct: 0.50, sp: 0.60, dy: 130,
       pS: [5, 8], pE: [5, 25], bS: [5, 12], bE: [5, 20],
       blast: 0.9, laborMult: 1.08, directCoef: 1.12, market: true,
       desc: '中晩生。同じ田植え日ならコシヒカリより約7日遅く成熟。高温耐性が強く、2023年の猛暑でも1等比率約95%を保った。大粒で良食味。作るには生産者登録が必要。',
@@ -175,6 +175,45 @@
   D.CROP_ORDER = ['koshiBL', 'koshi', 'shinnosuke', 'koshiibuki', 'hazuki', 'natsuhime', 'yukinko', 'akidawara', 'niji',
     'koganemochi', 'watabou', 'gohyaku', 'koshitanrei', 'ipponjime', 'feed', 'none'];
   D.CROP_ORDER.forEach((k) => { D.CROPS[k].priceCoef = D.CROPS[k].market ? D.CROPS[k].pr / D.REF_PRICE : 0; });
+
+  // ---------- 品種ごとの「売り方の性格」（ゲームの強みと弱み） ----------
+  // stable：業務用米。実需者との取引で、米価の上下が半分くらいになる / earlyNew：極早生。8月の新米として少し高く売れる
+  // earlyPay：早生。稲刈りが早いので、農協の概算金が9月に入る
+  const TRAITS = {
+    koshiBL: { pros: ['いちばんの売れ筋。農協でも直販でも高く売れる', 'いもち病に強く、農薬を減らせる'], cons: ['農協の出荷の目安があり、作りすぎると安くなる', '暑さと倒伏に弱い'] },
+    koshi: { pros: ['直販では「昔ながら」として高く売れる'], cons: ['いもち病に弱く農薬代がかさむ', 'コシヒカリの出荷の目安に入る'] },
+    shinnosuke: { prNote: 'ブランド米の上乗せを入れたゲーム用の値段', pros: ['いちばん高く売れるブランド米', '暑さに強く、猛暑でも品質が落ちにくい', '直販ではさらに高く売れる'], cons: ['登録の面積（作る米の約3割）までしかブランド米として出せない', '1等米の割合が8割に届かないと、基準外としてコシヒカリの値段になる', '手間と変動費が多い'] },
+    koshiibuki: { pros: ['早生：稲刈りを早められ、作業を分けられる', '概算金が9月に入り、お金の苦しい時期が短くなる', '倒れにくい'], cons: ['コシヒカリより安い'] },
+    hazuki: { pros: ['極早生：8月の新米として少し高く売れる', '概算金が9月に入る', '秋雨の前に刈り終えられる'], cons: ['とれる量が少ない', '刈り遅れると穂発芽しやすい'] },
+    natsuhime: { pros: ['極早生で、暑さに強い', '8月の新米として少し高く売れる', '概算金が9月に入る'], cons: ['単価が低く、とれる量も少ない'] },
+    yukinko: { pros: ['業務用：米価の上下が小さく、安い年に強い', '早生多収で作りやすい', '概算金が9月に入る'], cons: ['単価が低い'] },
+    akidawara: { pros: ['業務用：米価の上下が小さく、安い年に強い', 'たくさん取れて、変動費も安い', '晩生なので稲刈りを後ろにずらせる'], cons: ['単価が低い', '刈る時期が遅く、秋雨に当たりやすい'] },
+    niji: { pros: ['業務用：米価の上下が小さく、安い年に強い', 'たくさん取れて、暑さにも倒伏にも強い'], cons: ['単価が低い'] },
+    koganemochi: { pros: ['加工場や直売所と組み合わせると強い', '値段が安定している'], cons: ['農協が引き取る量に限りがある（約100俵まで）', 'うるち米と分ける手間がかかる'] },
+    watabou: { pros: ['早生のもち米。概算金が9月に入る', '加工場や直売所と組み合わせると強い'], cons: ['農協が引き取る量に限りがある（約100俵まで）'] },
+    gohyaku: { pros: ['酒蔵と契約すると、高い値段で決まった量を買ってもらえる', '早生で、概算金が9月に入る'], cons: ['契約がないと、ほとんどが加工用米として安く売られる', '倒れやすく、とれる量も少ない'] },
+    koshitanrei: { pros: ['大吟醸用。酒蔵との契約ではいちばん高く売れる'], cons: ['契約がないと、ほとんどが加工用米として安く売られる', '倒れやすく、作るのが難しい'] },
+    ipponjime: { pros: ['酒蔵と契約すると、高い値段で売れる', '酒米の中ではとれる量が多い'], cons: ['契約がないと、ほとんどが加工用米として安く売られる'] },
+    feed: { pros: ['交付金で手取りが安定し、手間も少ない', '米価が下がっても影響を受けにくい'], cons: ['国の方針しだいで交付金が減ることがある', '売り値そのものはとても安い'] },
+  };
+  Object.keys(TRAITS).forEach((k) => Object.assign(D.CROPS[k], TRAITS[k]));
+  ['akidawara', 'yukinko', 'niji'].forEach((k) => { D.CROPS[k].stable = true; });
+  ['hazuki', 'natsuhime'].forEach((k) => { D.CROPS[k].earlyNew = true; });
+  D.CROP_ORDER.forEach((k) => { const c = D.CROPS[k]; if (c.market && c.dy && c.dy <= 120) c.earlyPay = true; });
+
+  // ---------- 農協の品種別の出荷の目安（作りすぎると安くなる） ----------
+  // share：作る主食用・加工用の米（全部）のうち、この割合まで。min：小さな経営でも、この俵数までは目安の中 / bales：決まった俵数まで
+  // over：目安を超えた分の値段（その品種の値段に対する割合）。overCoef：超えた分を「米価×この割合」で引き取る（酒米は加工用米として）
+  D.JA_LIMITS = [
+    { key: 'koshi', label: 'コシヒカリ', test: (c) => c.group === 'koshi', share: 0.6, min: 60, over: 0.85, overLabel: '目安を超えた分・業務用として', via: '業務用並み（85%）',
+      why: 'コシヒカリが全国で作られすぎないよう、JAは品種ごとに出荷の目安を決めている。目安を超えた分は業務用として安く引き取られる。' },
+    { key: 'shinnosuke', label: '新之助', test: (c) => c.unlock === 'shinnosuke', share: 0.3, min: 40, over: 0.85, overLabel: '登録の面積を超えた分・コシヒカリ並み', via: 'コシヒカリ並み（85%）',
+      why: '新之助は生産者登録した面積の分だけ、ブランド米として出荷できる。目安（作る米の約3割）を超えた分はコシヒカリ並みの値段になる。' },
+    { key: 'sake', label: '酒米', test: (c) => !!c.sake, bales: 60, overCoef: 0.6, overLabel: '酒蔵の契約がない分・加工用米として', via: '加工用米（米価の約6割）',
+      why: '酒米は酒蔵が使う量しか売れない。契約のない分は、JAを通して酒造組合に回せる約60俵を超えると、加工用米（米価の6割ほど）になる。' },
+    { key: 'mochi', label: 'もち米', test: (c) => c.group === 'mochi', bales: 100, over: 0.8, overLabel: '需要を超えた分', via: '8割の値段',
+      why: 'もち米は使い道が限られていて、JAが引き取れる量に限りがある（約100俵）。超えた分は安くなる。' },
+  ];
   // 以前のバージョンの品種名（古いセーブデータの読み込み用）
   D.CROP_RENAME = { hikari: 'koshiBL', natsu: 'shinnosuke', yutaka: 'akidawara', yuho: 'gohyaku' };
   for (const k in D.CROP_RENAME) D.CROPS[k] = Object.assign({ alias: true }, D.CROPS[D.CROP_RENAME[k]]);
@@ -211,20 +250,26 @@
   };
 
   // ---------- 作業 ----------
-  // share: 総労働時間に占める割合 / mtype: 必要な機械 / fee: 委託料（円/10a）
+  // share: 総労働時間に占める割合 / mtype: 必要な機械 / fee: 委託料（円/10a）/ perBale: 委託料（円/俵。とれた量で決まる作業）
+  // 委託料は市町村の標準料金をもとにした（例：新潟県村上市 R6・7 耕起6,000＋代かき7,000円/10a、田植え6,500円＋側条施肥1,500円、刈取り18,000円、乾燥調製 30kgあたり950円）
   D.OPS = {
-    till:    { name: '耕起・代かき', mtype: 'tractor', share: 0.18, season: 'spring', fee: 12000, on: 'planted' },
-    nursery: { name: '育苗', mtype: 'nursery', share: 0.12, season: 'spring', fee: 9000, on: 'transplant', feeName: '苗の購入' },
+    till:    { name: '耕起・代かき', mtype: 'tractor', share: 0.18, season: 'spring', fee: 13000, on: 'planted' },
+    nursery: { name: '育苗', mtype: 'nursery', share: 0.12, season: 'spring', fee: 10000, on: 'transplant', feeName: '苗の購入' },
     plant:   { name: '田植え', mtype: 'planter', share: 0.12, season: 'spring', fee: 8000, on: 'transplant' },
     seed:    { name: '直播（播種）', mtype: null, share: 0.05, season: 'spring', fee: 0, on: 'direct' },
     manage:  { name: '水管理・除草・防除', mtype: null, share: 0.28, season: 'summer', fee: 0, on: 'planted' },
-    harvest: { name: '稲刈り', mtype: 'combine', share: 0.18, season: 'autumn', fee: 16000, on: 'planted' },
-    dry:     { name: '乾燥・調製', mtype: 'dryer', share: 0.12, season: 'autumn', fee: 13000, on: 'planted' },
+    harvest: { name: '稲刈り', mtype: 'combine', share: 0.18, season: 'autumn', fee: 18000, on: 'planted' },
+    dry:     { name: '乾燥・調製', mtype: 'dryer', share: 0.12, season: 'autumn', fee: 0, perBale: 1900, on: 'planted' },
   };
   D.OP_ORDER = ['till', 'nursery', 'plant', 'seed', 'manage', 'harvest', 'dry'];
 
   // 作業委託の受け皿（ha、作業ごと）＝ base + 地域の信頼 × perTrust
   D.CONTRACT_CAP = { base: 8, perTrust: 0.12 };
+  // 条件の悪い田（中山間・小区画）は、委託料が割高になる（料金表は30a区画が標準）
+  D.CONTRACT_POOR = 0.2;
+  D.CONTRACT_POOR_VILLAGE = 0.1; // 棚田の集落では、集落ぐるみで作業を受ける仕組みがあり、割増しが小さい
+  D.VILLAGE_HELP = 2.0;          // 棚田の集落の人が、預かった田の夏の水管理・草刈りを手伝ってくれる時間（10aあたり。夏の作業の4分の1まで）
+  D.VILLAGE_HILL_PAY = 21000;    // 中山間地域等直接支払（急傾斜の田、円/10a）
 
   // ---------- 機械・設備 ----------
   D.MACHINE_TYPES = {
@@ -300,6 +345,9 @@
     // 水田活用の直接支払交付金（数量払い・多収品種、R8年産）：標準8万円/10a、単収が標準単収±150kgで5.5万〜10.5万円
     feedSubsidyBase: 80000, feedSubsidyMin: 55000, feedSubsidyMax: 105000,
     procureExtra: 1500,       // 契約不足分を市場から調達するときの上乗せ
+    stableAnchor: 17600,      // 業務用米の値段の中心（米価との平均をとって、上下を半分にする）
+    earlyNewPremium: 1.03,    // 極早生の早出しの新米（8月）の上乗せ
+    shinR1: 0.8,              // 新之助の出荷基準：1等米の割合がこれに届かないと、コシヒカリの値段になる
     // 農協の出荷契約金（前渡金）：出荷契約の数量に応じて6月に支払われ、秋の概算金と相殺する。
     // 例：JA黒部（富山）令和8年産 出荷契約米1俵10,000円・6月25日払い（R2・R3年産は6,000円）、JA長生（千葉）R3年産 5,000円。
     // ゲームでは「その年の予想米価の約半分」を1,000円単位に丸め、5,000〜12,000円の範囲にする
@@ -460,12 +508,12 @@
   D.SCENARIOS = {
     shinki: {
       name: '新規就農', sub: '借地3haからのスタート', difficulty: '難しい',
-      desc: '研修を終えて独立。機械はほとんどなく、作業の多くを委託に頼る。就農支援金（3年間）と無利子資金を活かして、地域の信頼を得ながら規模を広げよう。',
+      desc: '研修を終えて独立。研修先から古いトラクタ・田植機・コンバインを譲ってもらったが、苗と乾燥は人に頼む。就農支援金（3年間）と無利子資金を活かして、地域の信頼を得ながら規模を広げよう。',
       corp: false, cash: 5000000, living: 2400000, trust: 20, skill: 0.92, customers: 30, brand: 0,
       fields: [
         { area: 1.2, soil: 'normal', rent: 10000 }, { area: 0.9, soil: 'good', rent: 12000 }, { area: 0.9, soil: 'poor', rent: 6000 },
       ],
-      machines: [{ model: 'tr_s', age: 12 }],
+      machines: [{ model: 'tr_s', age: 12 }, { model: 'pl_s', age: 10 }, { model: 'cb_s', age: 11 }],
       loans: [],
       family: [{ name: 'あなた', role: '経営主', hours: 2000, age: 30, tag: 'operator' }, { name: '配偶者', role: '家族（手伝い）', hours: 600, age: 30 }],
       staff: 0, partTimers: 0,
@@ -483,7 +531,7 @@
       ],
       machines: [
         { model: 'tr_m', age: 13 }, { model: 'pl_m', age: 11 }, { model: 'cb_m', age: 12 },
-        { model: 'dr_m', age: 16 }, { model: 'ns_s', age: 15 },
+        { model: 'dr_m', age: 16 }, { model: 'ns_s', age: 15 }, // 大きな経営は、乾燥施設と育苗ハウスも受け継ぐ
       ],
       loans: [{ kind: 'long', name: '設備資金（親から継承）', balance: 3000000, rate: 0.015, yearsLeft: 3 }],
       family: [
@@ -495,13 +543,13 @@
     },
     hojin: {
       name: '法人参入', sub: '異業種から農業法人を設立', difficulty: 'ふつう',
-      desc: '資本金4,000万円で農業法人を設立。撤退する農家から借りた12haで始めるが、機械はなく地域の信頼も低い。社員を雇い、投資の回収を考えながら規模を拡大しよう。',
-      corp: true, cash: 40000000, execPay: 4000000, trust: 25, skill: 0.9, customers: 0, brand: 0,
+      desc: '資本金4,000万円で農業法人を設立。撤退する農家から12haの田と、中古のトラクタ・田植機・コンバインを引き継いで始めるが、地域の信頼は低い。社員を雇い、投資の回収を考えながら規模を拡大しよう。',
+      corp: true, cash: 34700000, execPay: 4000000, trust: 25, skill: 0.9, customers: 0, brand: 0,
       fields: [
         { area: 3.0, soil: 'normal', rent: 12000 }, { area: 2.5, soil: 'normal', rent: 12000 }, { area: 2.5, soil: 'good', rent: 13000 },
         { area: 2.0, soil: 'normal', rent: 11000 }, { area: 2.0, soil: 'poor', rent: 7000 },
       ],
-      machines: [],
+      machines: [{ model: 'tr_m', age: 5 }, { model: 'pl_m', age: 5 }, { model: 'cb_m', age: 5 }], // 中古で買い取った（約530万円）
       loans: [],
       family: [{ name: 'あなた', role: '代表取締役', hours: 1800, age: 45, tag: 'operator' }],
       staff: 1, partTimers: 1,
@@ -515,12 +563,12 @@
   // ストーリーモード「じいちゃんの田んぼ」（js/scenes.js）
   D.SCENARIOS.story = {
     name: 'じいちゃんの田んぼ', sub: 'じいちゃんの2haを受け継ぐ', difficulty: 'ふつう', story: true,
-    desc: '腰を痛めたじいちゃんから、ご先祖さんの2haの田んぼを託された。米づくりはほぼ初めて。古いトラクタと田植機だけで、稲刈りと乾燥は人に頼むところから始まる。',
+    desc: '腰を痛めたじいちゃんから、ご先祖さんの2haの田んぼを託された。米づくりはほぼ初めて。古いトラクタ・田植機・コンバインはあるが、苗と乾燥は人に頼むところから始まる。',
     corp: false, cash: 3500000, living: 1800000, trust: 35, skill: 0.9, customers: 30, brand: 0,
     fields: [
       { area: 1.0, soil: 'normal', owned: true, name: '家の前の田' }, { area: 0.6, soil: 'good', owned: true, name: '川沿いの田' }, { area: 0.4, soil: 'poor', owned: true, name: '山の田' },
     ],
-    machines: [{ model: 'tr_s', age: 14 }, { model: 'pl_s', age: 12 }],
+    machines: [{ model: 'tr_s', age: 14 }, { model: 'pl_s', age: 12 }, { model: 'cb_s', age: 10 }],
     loans: [],
     family: [{ name: 'あなた', role: '経営主', hours: 2000, age: 28, tag: 'operator' }, { name: 'じいちゃん', role: '相談役', hours: 400, age: 73, tag: 'grandpa' }],
     staff: 0, partTimers: 0,
@@ -555,7 +603,7 @@
     ],
     machines: [
       { model: 'tr_l', age: 13 }, { model: 'tr_m', age: 15 }, { model: 'pl_m', age: 12 }, { model: 'pl_m', age: 10 },
-      { model: 'cb_l', age: 6 }, { model: 'cb_l', age: 4 }, { model: 'cb_l', age: 9 }, { model: 'dr_l', age: 15 }, { model: 'ns_l', age: 12 }, { model: 'tr_m', age: 6 }, { model: 'dr_m', age: 9 },
+      { model: 'cb_l', age: 6 }, { model: 'cb_l', age: 4 }, { model: 'cb_l', age: 9 }, { model: 'dr_l', age: 15 }, { model: 'ns_l', age: 12 }, { model: 'tr_m', age: 6 }, { model: 'dr_m', age: 9 }, // 大きな経営は、乾燥施設と育苗ハウスも
     ],
     loans: [
       { kind: 'long', name: '設備資金（前の経営から）', balance: 40000000, rate: 0.02, yearsLeft: 15 },

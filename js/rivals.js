@@ -100,7 +100,8 @@
     r.active = false; r.endYear = st.year; r.endReason = reason;
     // 離農した人の田は、まずプレイヤーに話が来る（地域の信頼が高いほど多く）。残りは集落法人へ（なければ大山さんへ）
     const share = U.clamp(0.4 + st.trust / 150, 0.4, 1);
-    const area = U.round(r.area * share, 1);
+    // あなたに来る話は、経営の大きさに見合うまで（残りは集落法人や大山さんが引き受ける）
+    const area = U.round(Math.min(r.area * share, RG.events.landCap ? Math.max(2, RG.events.landCap(st) * 1.5) : r.area), 1);
     const why = reason === 'retire' ? '年齢のため引退する' : reason === 'dissolve' ? '組合員の高齢化で組合を解散する' : '経営が立ち行かなくなった';
     st.rivalLand = (st.rivalLand || []).concat([{ id: r.id, owner: d.name, area, reason: why }]);
     const taker = ['higashino', 'oyama'].map((id) => st.rivals.find((x) => x.id === id)).find((x) => x && x.active && x !== r);

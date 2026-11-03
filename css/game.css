@@ -557,3 +557,10 @@ h2, h3 { font-weight: 900; letter-spacing: .04em; }
 :root[data-theme="dark"] .tone-orange { --tone: #ec9a55; --tone-2: #3a2717; }
 :root[data-theme="dark"] .tone-blue { --tone: #78aee6; --tone-2: #1c2a3a; }
 :root[data-theme="dark"] .tone-purple { --tone: #b59ae0; --tone-2: #2b2338; }
+
+/* 品種の強み（＋）と弱み（−） */
+.crop-pc { list-style: none; margin: 6px 0 2px; padding: 0; display: grid; gap: 2px; font-size: 12px; }
+.crop-pc li { padding-left: 1.4em; position: relative; line-height: 1.5; }
+.crop-pc li::before { position: absolute; left: 0; top: 0; font-weight: 900; }
+.crop-pc li.pro::before { content: '＋'; color: var(--good); }
+.crop-pc li.con::before { content: '−'; color: var(--bad); }

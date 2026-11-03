@@ -119,6 +119,59 @@
       text: '「あんたには、この集落の田んぼを任せたいんじゃ。皆にそう思われる人になっておくれ」',
       check: (st) => st.trust >= 80, progress: (st) => '今 ' + Math.round(st.trust) + '（目標 80）', reward: { land: 3.0, brand: 3 } },
   ];
+  // ---------- 品種の依頼（ストーリーで品種が作れるようになった次の年から届く） ----------
+  // crop：その品種が作れるときだけ届く。contract：引き受けると、その品種の契約の話が今年届く
+  const share = (res, crops) => { const P = res.production.plots, a = U.sum(P, (p) => p.area); return a > 0 ? U.sum(P.filter((p) => crops.indexOf(p.crop) >= 0), (p) => p.area) / a : 0; };
+  const areaOf = (res, crops) => U.sum(res.production.plots.filter((p) => crops.indexOf(p.crop) >= 0), (p) => p.area);
+  const r1Of = (res, crop) => { const P = res.production.products.filter((p) => p.crop === crop), b = U.sum(P, (p) => p.bales); return b > 0 ? U.sum(P, (p) => p.r1 * p.bales) / b : 0; };
+  // 契約を守って届けたか（足りない分がない）
+  const kept = (res, crop) => (res.sales.contracts || []).some((c) => RG.sim.group(c.crop) === RG.sim.group(crop) && c.short < 0.5 && c.delivered > 0);
+  const CROP_MISSIONS = [
+    { id: 'c_hazuki', crop: 'hazuki', who: 'takahashi', years: 2, title: '極早生「葉月みのり」で稲刈りを分ける',
+      text: '「8月に刈れる葉月みのりを1割くらい入れておくと、秋の稲刈りがぐっと楽になる。新米も早く出せるよ」',
+      check: (st, res) => share(res, ['hazuki']) >= 0.1, progress: () => '葉月みのりを作付の1割以上', reward: { reroll: 1, skill: 0.01 } },
+    { id: 'c_natsuhime', crop: 'natsuhime', who: 'takahashi', years: 2, title: '「なつひめ」で8月の新米を出す',
+      text: '「暑さに強い極早生のなつひめは、8月の新米として喜ばれる。まずは1haから試してみないか」',
+      check: (st, res) => areaOf(res, ['natsuhime']) >= 1, progress: () => 'なつひめを1ha以上作る', reward: { trust: 2, brand: 3 } },
+    { id: 'c_yukinko', crop: 'yukinko', contract: 'yukinko', who: 'aoki', years: 3, title: '業務用「ゆきん子舞」を弁当チェーンに届ける',
+      text: '「弁当チェーンが、値段の安定した業務用米を探してるんです。ゆきん子舞で契約を結んで、約束の量を届けてみませんか」（引き受けると、今年の「販売計画」に契約の話が届きます）',
+      check: (st, res) => kept(res, 'yukinko'), progress: () => 'ゆきん子舞の契約を結び、約束の量を届ける（「販売計画」タブ）', reward: { cash: 300000, trust: 2 } },
+    { id: 'c_akidawara', crop: 'akidawara', who: 'oyama', years: 2, title: '晩生多収「あきだわら」で稲刈りを後ろへ',
+      text: '「面積が増えたら、晩生のあきだわらを2割入れるといい。稲刈りが後ろにずれて、米が安い年にも強くなる」',
+      check: (st, res) => share(res, ['akidawara']) >= 0.2, progress: () => 'あきだわらを作付の2割以上', reward: { lowRateNext: true, trust: 2 } },
+    { id: 'c_niji', crop: 'niji', contract: 'niji', who: 'takahashi', years: 3, title: '「にじのきらめき」を炊飯工場に届ける',
+      text: '「暑さに強いにじのきらめきを、コンビニ向けの炊飯工場がまとめて欲しいそうだ。契約で届けてみないか」（引き受けると、今年の「販売計画」に契約の話が届きます）',
+      check: (st, res) => kept(res, 'niji'), progress: () => 'にじのきらめきの契約を結び、約束の量を届ける（「販売計画」タブ）', reward: { cash: 500000, skill: 0.01 } },
+    { id: 'c_koshi', crop: 'koshi', who: 'ogawa', years: 3, title: '昔ながらのコシヒカリを直販で届ける',
+      text: '「昔のコシヒカリが食べたい、というお客さんがいるんです。直販で40俵以上、届けてみませんか」',
+      check: (st, res) => !!res.sales.direct && /^koshi\|/.test(st.direct.product || '') && res.sales.direct.sold >= 40,
+      progress: () => '直販する米を従来のコシヒカリにして、40俵以上売る（「販売計画」タブ）', reward: { customers: 30, brand: 4 } },
+    { id: 'c_mochi', crop: 'koganemochi', contract: 'koganemochi', who: 'ogawa', years: 3, title: 'もち米で、餅の注文に応える',
+      text: '「お正月の餅の注文が増えてきたんです。もち米を加工場で使うか、もち加工の会社と契約して届けてみませんか」（引き受けると、今年の「販売計画」に契約の話が届きます）',
+      check: (st, res) => kept(res, 'koganemochi') || !!(res.sales.biz && res.sales.biz.proc && res.sales.biz.proc.mochi >= 40),
+      progress: () => 'もち米の契約を守って届けるか、加工場でもち米を40俵以上使う', reward: { customers: 20, brand: 3 } },
+    { id: 'c_gohyaku', crop: 'gohyaku', contract: 'gohyaku', who: 'takahashi', years: 3, title: '酒蔵「白峰酒造」に五百万石を届ける',
+      text: '「白峰酒造さんが、地元の五百万石で酒を仕込みたいそうだ。酒米は契約がないと安くしか売れない。まずは契約を結んで、約束の量を届けよう」（引き受けると、今年の「販売計画」に契約の話が届きます）',
+      check: (st, res) => kept(res, 'gohyaku'), progress: () => '五百万石の契約を結び、約束の量を届ける（「販売計画」タブ）', reward: { cash: 300000, trust: 4 } },
+    { id: 'c_ipponjime', crop: 'ipponjime', contract: 'ipponjime', who: 'takahashi', years: 3, title: '辛口の酒向け「一本〆」を届ける',
+      text: '「白峰酒造さんから、辛口の酒用に一本〆も頼まれた。契約を結んで、約束の量をきちんと届けよう」（引き受けると、今年の「販売計画」に契約の話が届きます）',
+      check: (st, res) => kept(res, 'ipponjime'), progress: () => '一本〆の契約を結び、約束の量を届ける（「販売計画」タブ）', reward: { brand: 3, trust: 2, reroll: 1 } },
+    { id: 'c_tanrei', crop: 'koshitanrei', contract: 'koshitanrei', who: 'takahashi', years: 3, title: '大吟醸用「越淡麗」を1等で届ける',
+      text: '「雪ノ峰酒造さんが、大吟醸を任せたいと言ってくれた。越淡麗は作るのが難しいが、1等米の割合8割以上で約束の量を届けられたら一人前だ」（引き受けると、今年の「販売計画」に契約の話が届きます）',
+      check: (st, res) => kept(res, 'koshitanrei') && r1Of(res, 'koshitanrei') >= 0.8, progress: () => '越淡麗の契約を守り、1等米の割合8割以上', reward: { brand: 6, trust: 3, omamori: 1 } },
+    { id: 'c_shinnosuke', crop: 'shinnosuke', who: 'aoki', years: 2, title: '新之助を1等米90%以上で出す',
+      text: '「新之助は、品質の基準を守ってこそのブランド米。1等米の割合90%以上で出せたら、うちでも胸を張って売れます」',
+      check: (st, res) => areaOf(res, ['shinnosuke']) >= 0.5 && r1Of(res, 'shinnosuke') >= 0.9, progress: () => '新之助を0.5ha以上作り、その1等米の割合を90%以上に', reward: { brand: 5, customers: 20 } },
+    { id: 'c_feed', crop: 'feed', who: 'takahashi', years: 2, title: '飼料用米で、地域の畜産を支える',
+      text: '「肉牛農家さんが、エサの米を待っている。交付金で手取りも安定するし、まずは2ha作ってみないか」',
+      check: (st, res) => areaOf(res, ['feed']) >= 2, progress: () => '飼料用米「新潟次郎」を2ha以上作る', reward: { trust: 4 } },
+  ];
+  // 品種が作れるか（ストーリーで、最初から作れる品種ではなく、あとから作れるようになったもの）
+  const cropOpen = (st, k) => !!st.cropsOpen && RG.era && RG.era.BASE_CROPS.indexOf(k) < 0 && !RG.era.cropLocked(st, k) && (!D.CROPS[k].unlock || !!st.flags[D.CROPS[k].unlock]);
+  CROP_MISSIONS.forEach((m) => {
+    Object.assign(m, { from: 2, until: 19, cond: (st) => cropOpen(st, m.crop) });
+    CH.MISSIONS.push(m);
+  });
   CH.def = (id) => CH.MISSIONS.find((m) => m.id === id);
 
   // ごほうびの説明
@@ -159,10 +212,16 @@
     const inst = { id, status: 'active', from: st.year, deadline: st.year + m.years - 1 };
     if (m.target) inst.target = m.target(st);
     CH.state(st).missions.push(inst);
+    if (m.contract && E.addContractOffer) E.addContractOffer(st, m.contract);
   };
   // その年に届く依頼を、年初のできごとの先頭に入れる
   CH.queueOffers = function (st) {
-    const ids = E.POOL.filter((e) => e.mission && e.cond(st) && st.events.queue.indexOf(e.id) < 0).map((e) => e.id);
+    let ids = E.POOL.filter((e) => e.mission && e.cond(st) && st.events.queue.indexOf(e.id) < 0).map((e) => e.id);
+    // 品種の依頼は、1年に1つまで（引き受けている品種の依頼があるときは届かない）
+    const isCrop = (id) => !!(CH.def(id.replace(/^mission_/, '')) || {}).crop;
+    const busy = CH.active(st).some((x) => CH.def(x.id).crop);
+    const firstCrop = busy ? null : ids.find(isCrop);
+    ids = ids.filter((id) => !isCrop(id) || id === firstCrop);
     st.events.queue = ids.concat(st.events.queue);
   };
 

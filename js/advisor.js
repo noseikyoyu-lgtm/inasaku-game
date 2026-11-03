@@ -137,6 +137,11 @@
   // ---------- 計画プレビューの注意 ----------
   AD.planHints = function (st, pv) {
     const out = [];
+    // 農協の出荷の目安を超えるとき
+    (pv.sales.jaLimits || []).filter((x) => x.over > 0.5).forEach((x) => {
+      out.push({ level: 'warn', text: x.label + 'が農協の出荷の目安を ' + U.bales(x.over) + ' 超えそうです（売上が約 ' + U.man(x.lost) + ' 減る）。' +
+        (x.key === 'sake' ? '酒米は酒蔵と契約してから作りましょう（「販売計画」タブ）。' : 'ほかの品種に回すか、直販・米屋・契約で売ると値下がりを避けられます（「作付計画」タブ）。') });
+    });
     const L = pv.labor.seasons;
     D.SEASONS.forEach((s) => {
       if (L[s].ratio > 0.01) out.push({ level: 'bad', text: D.SEASON_SHORT[s] + 'の労働力が ' + U.num(L[s].short) + '時間 不足（' + U.pct(L[s].ratio) + '）。' +
@@ -306,7 +311,7 @@
       const parts = dying.map((m) => {
         const md = D.MODELS[m.model];
         const op = D.OP_ORDER.find((k) => D.OPS[k].mtype === md.type);
-        const fee = op ? res.area.planted * 10 * D.OPS[op].fee * st.market.matInfl : 0;
+        const fee = op ? res.area.planted * 10 * RG.sim.opFee10a(st, op) * st.market.matInfl : 0;
         return md.name + '（' + (md.maxAge - m.age === 1 ? '来年が最後のシーズン' : '来年から使えない') + '）：買い替え 約' + U.man(RG.actions.newPrice(st, m.model)) +
           '・減価償却 年' + U.man(RG.actions.newPrice(st, m.model) / md.life) + (fee > 0 ? '／全部委託なら年 約' + U.man(fee) : '');
       });

@@ -83,7 +83,11 @@
     };
     sc.fields.forEach((f) => { const p = S.makePlot(st, f); if (p.owned && !sc.corp) p.heritage = true; st.fields.push(p); });
     if (sc.plan) sc.plan.forEach((r) => st.plan.push(S.makeRow(st, r.crop, 'conv', 'transplant', r.area)));
-    else st.plan.push(S.makeRow(st, sc.defaultCrop, 'conv', 'transplant', S.totalArea(st)));
+    else if (sc.defaultCrop === 'koshiBL' && S.totalArea(st) >= 1) {
+      // コシヒカリには出荷の目安（6割）があるので、高橋さんのおすすめは早生のこしいぶきと組み合わせる
+      const tot = S.totalArea(st), bl = U.round(tot * 0.6, 1);
+      st.plan.push(S.makeRow(st, 'koshiBL', 'conv', 'transplant', bl), S.makeRow(st, 'koshiibuki', 'conv', 'transplant', U.round(tot - bl, 1)));
+    } else st.plan.push(S.makeRow(st, sc.defaultCrop, 'conv', 'transplant', S.totalArea(st)));
     sc.machines.forEach((m) => {
       const md = D.MODELS[m.model];
       const book = Math.max(0, md.price - (md.price / md.life) * m.age);
@@ -137,7 +141,7 @@
     { id: 'safe', icon: '🛡️', name: '安定重視', desc: 'コシヒカリBLに早生のこしいぶきを組み合わせ、稲刈りを分散して天気の危険も分ける',
       mix: [['koshiBL', 'conv', 0.6], ['koshiibuki', 'conv', 0.4]] },
     { id: 'quality', icon: '💎', name: '単価重視', desc: '農薬と化学肥料を減らした特別栽培で、高く売れる米を作る。手間と経費は増える',
-      mix: [['koshiBL', 'special', 0.7], ['koshiibuki', 'conv', 0.3]] },
+      mix: [['koshiBL', 'special', 0.6], ['koshiibuki', 'conv', 0.4]] },
     { id: 'volume', icon: '📦', name: '量で勝負', desc: '業務用の多収品種で、とれる量を増やす。単価は低め、天気には強め',
       mix: [['akidawara', 'conv', 0.5], ['niji', 'conv', 0.3], ['koshiBL', 'conv', 0.2]] },
   ];

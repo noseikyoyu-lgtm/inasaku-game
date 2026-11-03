@@ -225,6 +225,17 @@
   // 人が乗って動かす機械：乗れる人（自分・正社員・常雇用パート）の数までしか同時に動かせない
   SIM.DRIVEN_TYPES = ['tractor', 'planter', 'combine'];
   SIM.sizeTier = (md) => (md.eff >= 1 ? 0 : md.eff >= 0.85 ? 1 : md.eff >= 0.72 ? 2 : 3);
+  // 作業委託料（円/10a・物価の上昇は入れない）。乾燥・調製は平年作のとれる量（俵）で決まり、条件の悪い田は割高
+  SIM.opFee10a = function (st, k) {
+    const op = D.OPS[k];
+    let fee = op.fee || 0;
+    if (op.perBale) {
+      const units = SIM.planUnits(st), a10 = U.sum(units, (u) => u.area * 10);
+      const bales = U.sum(units, (u) => (D.CROPS[u.crop].by * u.yieldMult * D.CULTS[u.cult].yield * D.SOWS[u.sow].yield * u.area * 10) / 60);
+      fee = op.perBale * (a10 > 0 ? bales / a10 : 8.8);
+    }
+    return k === 'nursery' ? fee : fee * (1 + (st.village ? D.CONTRACT_POOR_VILLAGE : D.CONTRACT_POOR) * SIM.soilShare(st).poor);
+  };
   SIM.soilShare = function (st) {
     const total = U.sum(st.fields, (f) => f.area);
     const sh = (soil) => (total > 0 ? U.sum(st.fields.filter((f) => f.soil === soil), (f) => f.area) / total : 0);
@@ -351,10 +362,10 @@
         const M = mach[op.mtype];
         const frac = M.need > 0 ? M.own / M.need : 0;
         hours = weighted * frac * D.BASE_HOURS * op.share * M.eff;
-        // 苗は買えば済むが、作業の受託には地域の受け皿の限界がある
-        contractArea = k === 'nursery' ? M.contract : Math.min(M.contract, contractCap);
+        // 苗は買えば済み、乾燥・調製はJAの施設（カントリーエレベーター）が引き受ける。ほかの作業の受託には地域の受け皿の限界がある
+        contractArea = k === 'nursery' || k === 'dry' ? M.contract : Math.min(M.contract, contractCap);
         undone = M.contract - contractArea;
-        fee = contractArea * 10 * op.fee * mInf;
+        fee = contractArea * 10 * SIM.opFee10a(st, k) * mInf;
       } else if (k === 'manage') {
         hours = weighted * D.BASE_HOURS * op.share * (1 - 0.4 * droneCov);
       } else {
@@ -374,6 +385,12 @@
     if (flags.extraLabor) for (const s in flags.extraLabor) need[s] += flags.extraLabor[s];
     for (const s in dfx.labor) need[s] = Math.max(0, need[s] + dfx.labor[s]);
     { const ch = D.COMMUNITY[st.community == null ? 1 : st.community].h; for (const s in ch) need[s] += ch[s]; } // 地域のつきあいの時間
+    // 棚田の集落：集落の人が、預かった田の夏の水管理・草刈りを手伝ってくれる
+    let villageHelp = 0;
+    if (st.village) {
+      villageHelp = Math.min(need.summer * 0.25, U.sum(st.fields.filter((f) => f.village), (f) => f.area) * 10 * D.VILLAGE_HELP);
+      need.summer -= villageHelp;
+    }
     // 新しい事業の作業時間（空き能力の範囲で）
     const bizL = RG.biz.labor(st, { combine: RG.biz.spare(mach.combine), drone: RG.biz.spare(mach.drone) });
     for (const s in bizL.hours) need[s] += bizL.hours[s];
@@ -404,7 +421,7 @@
     const partWage = avgWage * wInf * (st.market.partWageBoost || 1);
     const regularCost = U.sum(regs, (p) => p.wage * D.LABOR.regularHours) * wInf * (st.market.partWageBoost || 1);
     const sh = (s) => seasons[s].ratio;
-    res.labor = { ops, seasons, need, famHours, staffHours, regHours, regularCost, partHours, partWage, partCost: partHours * partWage, operators: RG.state.operators(st),
+    res.labor = { ops, seasons, need, villageHelp, famHours, staffHours, regHours, regularCost, partHours, partWage, partCost: partHours * partWage, operators: RG.state.operators(st),
       familyHoursUsed: famUsed, totalHours: U.sum(D.SEASONS, (s) => need[s]), directLabor,
       hoursPer10a: area.planted > 0 ? U.sum(D.SEASONS, (s) => need[s]) / (area.planted * 10) : 0 };
 
@@ -610,15 +627,43 @@
     });
     const shopRev = U.sum(sales.shops, (x) => x.revenue);
 
-    // 農協出荷（残り全部）
+    // 農協出荷（残り全部）。品種ごとの売り方の性格と、出荷の目安を入れる
+    const jaItems = [];
     for (const p of plist) {
       if (p.crop === 'feed' || p.rem <= 0.01) continue;
       const crop = D.CROPS[p.crop];
-      const unit = price * crop.priceCoef * D.CULT_KEYS[p.ck].jaPrem * p.gc;
-      sales.ja.push({ key: p.key, label: p.label, bales: p.rem, unit, revenue: p.rem * unit, r1: p.r1 });
+      let coef = crop.priceCoef, label = p.label;
+      // 新之助は出荷基準（1等米の割合）に届かないと、コシヒカリの値段になる
+      if (p.crop === 'shinnosuke' && p.r1 < D.SALES.shinR1) { coef = D.CROPS.koshiBL.priceCoef; label += '（基準に届かず、コシヒカリ並み）'; }
+      const base = crop.stable ? price * 0.5 + D.SALES.stableAnchor * 0.5 : price; // 業務用米は米価の上下が半分
+      const unit = base * coef * D.CULT_KEYS[p.ck].jaPrem * p.gc * (crop.earlyNew ? D.SALES.earlyNewPremium : 1);
+      jaItems.push({ p, crop, label, unit, bales: p.rem });
       p.rem = 0;
     }
+    // 出荷の目安：目安の中は高い品から順に普通の値段、超えた分は安く引き取られる
+    sales.jaLimits = [];
+    const overItems = [];
+    D.JA_LIMITS.forEach((L) => {
+      const items = jaItems.filter((x) => L.test(x.crop)).sort((a, b) => b.unit - a.unit);
+      const total = U.sum(items, (x) => x.bales);
+      if (total <= 0.01) return;
+      const cap = L.share ? Math.max(L.min || 0, L.share * res.production.marketBales) : L.bales;
+      let left = cap, over = 0, lost = 0;
+      items.forEach((x) => {
+        const ok = Math.min(x.bales, Math.max(0, left)), ex = x.bales - ok;
+        left -= ok;
+        if (ex <= 0.01) return;
+        x.bales = ok;
+        const unit = L.overCoef ? price * L.overCoef * x.p.gc : x.unit * L.over;
+        overItems.push({ key: x.p.key, crop: x.p.crop, label: x.p.label + '（' + L.overLabel + '）', bales: ex, unit, revenue: ex * unit, r1: x.p.r1, over: true });
+        over += ex; lost += ex * (x.unit - unit);
+      });
+      sales.jaLimits.push({ key: L.key, label: L.label, cap, total, over, lost });
+    });
+    jaItems.forEach((x) => { if (x.bales > 0.01) sales.ja.push({ key: x.p.key, crop: x.p.crop, label: x.label, bales: x.bales, unit: x.unit, revenue: x.bales * x.unit, r1: x.p.r1 }); });
+    overItems.forEach((x) => sales.ja.push(x));
     const jaRev = U.sum(sales.ja, (x) => x.revenue);
+    const jaEarlyRev = U.sum(sales.ja.filter((x) => D.CROPS[x.crop] && D.CROPS[x.crop].earlyPay), (x) => x.revenue); // 早生は概算金が9月に入る
     const jaBales = U.sum(sales.ja, (x) => x.bales);
     // 農協の出荷契約金（前渡金）：6月に受け取り、10月の概算金と相殺。出荷が契約数量に届かなければ11月に不足分を返す
     const advQty = SIM.advanceQty(st, res.production.expectedJA), advUnit = SIM.advanceUnit(st);
@@ -654,7 +699,8 @@
 
     // ---------- 6. 収入の計上と入金時期 ----------
     add('jaSales', jaRev);
-    cashAt(10, jaRev * D.SALES.jaAdvance, 'jaSales', '農協の概算金');
+    cashAt(9, jaEarlyRev * D.SALES.jaAdvance, 'jaSales', '農協の概算金（早生）');
+    cashAt(10, (jaRev - jaEarlyRev) * D.SALES.jaAdvance, 'jaSales', '農協の概算金');
     receive(6, jaRev * (1 - D.SALES.jaAdvance), '農協の追加払い');
     add('contractSales', contractRev);
     cashAt(11, contractRev * 0.5, 'contractSales', '契約販売の代金');

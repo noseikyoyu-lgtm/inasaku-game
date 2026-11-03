@@ -113,7 +113,7 @@
         { who: 'kucho', text: '体が動かんようになったら、田んぼはやめるしかない。このままだと10年もせんうちに、棚田は荒れ放題じゃ。' },
         { who: 'kucho', text: 'あんたの家の田んぼと、近所から預かった分で、まずは3ha。小さい田んぼばかりで手間はかかるが、景色は日本一じゃよ。' },
         { who: 'narr', text: '棚田には大きな機械が入らない。草刈りも水の管理も大変だ。それでも、この景色を残したいと思った。' },
-        { who: 'takahashi', text: 'JAの高橋です。棚田は手間がかかるぶん、売り方しだいで高く売れる。それに、条件の悪い田んぼを守る活動には「中山間地域等直接支払」という交付金が10aあたり1万5千円出ます。手間と稼ぎのつり合いを、数字で一緒に考えましょう。' },
+        { who: 'takahashi', text: 'JAの高橋です。棚田は手間がかかるぶん、売り方しだいで高く売れる。それに、条件の悪い田んぼを守る活動には「中山間地域等直接支払」という交付金が10aあたり2万1千円出ます。手間と稼ぎのつり合いを、数字で一緒に考えましょう。' },
         { who: 'kucho', text: 'ひとつ約束してくれんか。20年後も、この集落の田んぼの7割で米を作っていてほしい。全部とは言わん。あんたが倒れたら元も子もないからの。' },
         { who: 'goal' },
       ],
@@ -141,9 +141,9 @@
       const v = st.village;
       if (!v) return;
       v.pending = 0;
-      // 中山間地域等直接支払：条件の悪い集落の田を守る活動に、10aあたり1万5千円
+      // 中山間地域等直接支払：条件の悪い集落の田（急傾斜）を守る活動に、10aあたり2万1千円
       const hill = U.sum(st.fields.filter((f) => f.village && f.soil === 'poor'), (f) => f.area);
-      if (hill > 0) RG.state.addLedger(st, { amount: Math.round(hill * 10 * 15000), cat: 'subsidy', label: '中山間地域等直接支払交付金（' + U.ha(hill) + '）', month: 11 });
+      if (hill > 0) RG.state.addLedger(st, { amount: Math.round(hill * 10 * D.VILLAGE_HILL_PAY), cat: 'subsidy', label: '中山間地域等直接支払交付金（' + U.ha(hill) + '）', month: 11 });
       if (st.year < 2 || v.others <= 0) return;
       // 年がたつほど、離農する人が増える
       const r = RG.rng.make(st.seed, st.year, 'village');

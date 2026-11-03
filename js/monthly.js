@@ -6,6 +6,10 @@
   const ME = RG.monthly = {};
 
   const area10 = (st) => U.sum(st.fields, (f) => f.area) * 10;
+  // 経営の様子（できごとが「自分の経営らしく」出るように）
+  const grows = (st, f) => st.plan.some((r) => r.area > 0 && f(D.CROPS[r.crop] || {}, r));
+  const hasM = (st, type) => st.machines.some((m) => D.MODELS[m.model].type === type);
+  const totalArea = (st) => U.sum(st.fields, (f) => f.area);
   // e：y=収量（+0.01で+1%）q=品質（1等米の割合に効く点数）cost=出費 income=収入 trust brand cust=直販のお客さん skill bd=今年の機械の故障しやすさ（×） h=作業時間 { season: 時間 }
   const o = (t, e) => ({ t, e: e || {} });
   ME.EVENTS = [
@@ -31,7 +35,7 @@
         { label: '税理士に頼む', pre: { cost: 50000 }, out: [o('とくに節税できるところはなかった。'), o('経費の整理で、税金が少し安くなった。', { income: 50000 }), o('使える特例を教わり、税金がだいぶ安くなった。', { income: 120000 })] },
         { label: '自分で申告する', pre: { h: { winter: 10 } }, out: [o('計算をまちがえ、あとで追加の税金を払った。', { cost: 30000 }), o('なんとか終わらせた。'), o('入れ忘れていた経費を見つけた。', { income: 30000 })] },
       ] },
-    { id: 'tenken', months: [2, 3], who: 'oyama', icon: '🔧', title: '農機具屋の点検キャンペーン', text: '大山さん「今なら農機具屋が点検を安くやってくれるぞ。わしは毎年出しとる」',
+    { id: 'tenken', months: [2, 3], who: 'oyama', cond: (st) => st.machines.some((m) => !m.lease), icon: '🔧', title: '農機具屋の点検キャンペーン', text: '大山さん「今なら農機具屋が点検を安くやってくれるぞ。わしは毎年出しとる」',
       choices: [
         { label: '全部の機械を点検に出す', pre: { cost: (st) => 20000 * Math.max(1, st.machines.filter((m) => !m.lease).length) }, out: [o('大きな問題は見つからなかった。', { bd: 0.85 }), o('すり減った部品を交換した。', { bd: 0.7 }), o('壊れかけの部品を見つけ、早めに交換できた。', { bd: 0.5 })] },
         { label: '自分で油さしと点検をする', pre: { h: { winter: 8 } }, out: [o('どこが悪いのかよくわからなかった。'), o('ひととおり手入れした。', { bd: 0.9 }), o('ゆるんだボルトを見つけて締め直した。', { bd: 0.8 })] },
@@ -42,7 +46,7 @@
         { label: 'お湯で消毒する（温湯消毒）', pre: { h: { spring: 6 } }, out: [o('お湯が熱すぎ、芽の出がそろわなかった。', { y: -0.005 }), o('農薬を使わずに消毒できた。', { q: 1 }), o('「農薬を減らした米」として、直販のお客さんにも喜ばれた。', { q: 2, brand: 2 })] },
         { label: '薬で消毒する', pre: { cost: 10000 }, out: [o('ばか苗病が少し出てしまった。', { y: -0.005 }), o('問題なく消毒できた。'), o('苗の病気がまったく出なかった。', { q: 1 })] },
       ] },
-    { id: 'ikubyo', months: [3, 4], who: 'narr', icon: '🌱', title: '育苗ハウスの夜の冷え込み', text: '夜になると、ぐっと冷え込む日が続いている。苗が心配だ。',
+    { id: 'ikubyo', months: [3, 4], who: 'narr', cond: (st) => hasM(st, 'nursery') && grows(st, (c, r) => r.sow === 'transplant'), icon: '🌱', title: '育苗ハウスの夜の冷え込み', text: '夜になると、ぐっと冷え込む日が続いている。苗が心配だ。',
       choices: [
         { label: '夜中も見回る', pre: { h: { spring: 12 } }, out: [o('寝不足でへとへとになった。', { h: { spring: 10 } }), o('苗は無事に育った。', { q: 1 }), o('苗がそろって、よく育った。', { y: 0.01, q: 1 })] },
         { label: '保温シートを買う', pre: { cost: 30000 }, out: [o('強い風でシートが飛ばされた。', { y: -0.005 }), o('苗は無事に育った。', { y: 0.005 }), o('苗がそろって、よく育った。', { y: 0.01 })] },
@@ -59,18 +63,18 @@
         { label: '田んぼの写真だけ提供する', out: [o('別の人の記事に埋もれてしまった。'), o('きれいな田んぼの写真が載った。', { brand: 1 }), o('表紙に使われた！', { brand: 3, cust: 5 })] },
       ] },
     // ---------- 5月 ----------
-    { id: 'kids', months: [5], who: 'tamura', icon: '🧒', title: '小学校の田植え体験', text: '「小学校の子どもたちに、田植えを体験させてもらえんかのう」',
+    { id: 'kids', months: [5], who: 'tamura', cond: (st) => grows(st, (c, r) => r.sow === 'transplant'), icon: '🧒', title: '小学校の田植え体験', text: '「小学校の子どもたちに、田植えを体験させてもらえんかのう」',
       choices: [
         { label: '受け入れる', pre: { h: { spring: 8 } }, out: [o('苗を少し踏まれてしまった。', { y: -0.003, trust: 2, brand: 1 }), o('子どもたちは大喜びだった。', { trust: 3, brand: 2 }), o('子どもたちの家族が、新米を予約してくれた。', { trust: 3, brand: 3, cust: 10 })] },
         { label: '見学だけにしてもらう', pre: { h: { spring: 2 } }, out: [o('子どもたちは少し退屈そうだった。', { trust: 1 }), o('田んぼの話をした。', { trust: 2 }), o('質問攻めにあい、楽しい時間になった。', { trust: 2, brand: 1 })] },
       ] },
-    { id: 'taue_help', months: [5], who: 'oyama', icon: '🤝', title: '田植えの手伝いを頼まれた', text: '大山さん「田植機が止まってしもうた。半日でいいから手伝ってくれんか」',
+    { id: 'taue_help', months: [5], who: 'oyama', cond: (st) => hasM(st, 'planter'), icon: '🤝', title: '田植えの手伝いを頼まれた', text: '大山さん「田植機が止まってしもうた。半日でいいから手伝ってくれんか」',
       choices: [
         { label: '手伝う', pre: { h: { spring: 15 } }, out: [o('自分の田植えが少し遅れてしまった。', { y: -0.005, trust: 2 }), o('お礼をもらった。', { trust: 3, income: 20000 }), o('お礼に、使わなくなった道具を譲ってもらった。', { trust: 4, income: 20000, bd: 0.9 })] },
         { label: '機械だけ貸す', out: [o('貸した機械が調子を崩した。', { bd: 1.15, trust: 1 }), o('感謝された。', { trust: 2 }), o('お礼にお酒をもらい、関係が深まった。', { trust: 3 })] },
       ] },
     // ---------- 6月 ----------
-    { id: 'hotaru', months: [6], who: 'narr', icon: '✨', title: '田んぼにホタルが飛んだ', text: '夜、田んぼのまわりにホタルが飛んでいる。農薬を減らしてきたおかげかもしれない。',
+    { id: 'hotaru', months: [6], who: 'narr', cond: (st) => grows(st, (c, r) => r.cult !== 'conv'), icon: '✨', title: '田んぼにホタルが飛んだ', text: '夜、田んぼのまわりにホタルが飛んでいる。農薬を減らしてきたおかげかもしれない。',
       choices: [
         { label: 'SNSに写真をのせる', out: [o('ほとんど誰にも見られなかった。'), o('「すてき！」と反応があった。', { brand: 2, cust: 5 }), o('写真が話題になり、お米の注文が来た。', { brand: 5, cust: 20 })] },
         { label: 'ホタルの観察会を開く', pre: { cost: 10000, h: { summer: 6 } }, out: [o('雨で中止になった。'), o('近所の家族連れが来てくれた。', { trust: 2, brand: 2 }), o('大盛況で、新米の予約まで入った。', { trust: 3, brand: 4, cust: 15 })] },
@@ -81,7 +85,7 @@
         { label: '近所の人に草刈りを頼む', pre: { cost: 30000 }, out: [o('頼んだ日が雨で、刈れなかった。'), o('きれいに刈ってもらえた。', { q: 1, trust: 1 }), o('ていねいに刈ってもらえた。', { q: 2, trust: 2 })] },
       ] },
     // ---------- 7月 ----------
-    { id: 'natsumatsuri', months: [7], who: 'tamura', icon: '🏮', title: '夏祭りに屋台を出す？', text: '「夏祭りで、去年の米でおにぎりを売ってみんか」',
+    { id: 'natsumatsuri', months: [7], who: 'tamura', cond: (st) => st.year >= 2, icon: '🏮', title: '夏祭りに屋台を出す？', text: '「夏祭りで、去年の米でおにぎりを売ってみんか」',
       choices: [
         { label: 'おにぎりの屋台を出す', pre: { cost: 20000, h: { summer: 10 } }, out: [o('夕立で人が来なかった。'), o('よく売れた。', { income: 50000, cust: 5 }), o('行列ができ、お米の名前を覚えてもらえた。', { income: 100000, cust: 15, brand: 2 })] },
         { label: 'おにぎりを差し入れる', pre: { cost: 10000 }, out: [o('ほかの差し入れに埋もれた。'), o('喜んでもらえた。', { trust: 2 }), o('「どこの米？」と聞かれた。', { trust: 3, cust: 5 })] },
@@ -151,8 +155,312 @@
         { label: '10枚買う（3,000円）', pre: { cost: 3000 }, out: [o('全部はずれた。'), o('300円が当たった。', { income: 300 }), o('1万円が当たった！', { income: 10000, jackpot: true })] },
         { label: 'お守りを買いに神社へ行く（1,000円）', pre: { cost: 1000 }, out: [o('おみくじは「凶」だった……。'), o('おみくじは「吉」。', { trust: 0 }), o('おみくじは「大吉」！ お守りをもう1つもらった。', { omamori: 1 })] },
       ] },
+
+    // ---------- もっといろいろなできごと（20年やっても飽きないように。from：その年から出る） ----------
+    // 1月
+    { id: 'fukubukuro', months: [1], who: 'ogawa', icon: '🎍', title: '初売りの福袋', text: '小川さん「初売りで、新米と餅の福袋を出してみません？ 1年の最初のお客さんになってもらえますよ」',
+      choices: [
+        { label: '福袋を作って売る', pre: { cost: 15000, h: { winter: 6 } }, out: [o('売れ残ってしまった。', { income: 5000 }), o('ほどよく売れた。', { income: 40000, cust: 4 }), o('すぐに売り切れ、SNSで話題になった。', { income: 70000, cust: 12, brand: 2 })] },
+        { label: '近所の店に少しだけ置く', out: [o('ほとんど売れなかった。'), o('いくつか売れた。', { income: 15000, cust: 1 }), o('店の人が気に入って、また置きたいと言ってくれた。', { income: 25000, trust: 1, cust: 3 })] },
+      ] },
+    { id: 'josetsu_baito', months: [1, 2], who: 'tamura', icon: '🚜', title: '道の除雪を頼まれた', text: '「町の除雪車が足りんそうじゃ。トラクターで集落の道の雪をかいてくれんか。日当も出るらしい」',
+      choices: [
+        { label: '朝早くから除雪する', pre: { h: { winter: 20 } }, out: [o('雪の下の側溝に車輪を落とした。', { cost: 40000, trust: 2 }), o('日当をもらい、感謝された。', { income: 60000, trust: 2 }), o('毎年お願いしたいと、町から正式に頼まれた。', { income: 90000, trust: 4 })] },
+        { label: '自分の家の前だけにする', out: [o('「若いもんが手伝わんのか」と言われた。', { trust: -2 }), o('ふつうに冬を越した。'), o('空いた時間で、来年の計画をじっくり練れた。', { skill: 0.003 })] },
+      ] },
+    { id: 'keiei_happyou', months: [1], from: 6, who: 'kimura', icon: '🎤', title: '経営の発表会に呼ばれた', text: '木村さん「若い農家の経営発表会があるんです。あなたの20年、いや、これまでの工夫を話してもらえませんか」',
+      choices: [
+        { label: '決算書を見せて発表する', pre: { h: { winter: 12 } }, out: [o('緊張して、うまく話せなかった。', { trust: 1 }), o('質問がたくさん出た。', { trust: 2, brand: 2, skill: 0.003 }), o('優秀賞に選ばれ、新聞にも載った。', { trust: 3, brand: 5, income: 50000 })] },
+        { label: '聞く側で参加する', out: [o('話が難しかった。'), o('ほかの人の工夫が参考になった。', { skill: 0.004 }), o('同じ悩みの仲間と知り合えた。', { skill: 0.005, trust: 1 })] },
+      ] },
+    // 2月
+    { id: 'kiki_tenji', months: [2], who: 'oyama', icon: '🏭', title: '農機の展示会', text: '大山さん「町の体育館で農機の展示会じゃ。新しい機械を見るだけでも勉強になるぞ」',
+      choices: [
+        { label: '見に行って、メーカーの人と話す', pre: { h: { winter: 6 } }, out: [o('高い機械ばかりで、ため息が出た。'), o('手入れのコツを教わった。', { bd: 0.9 }), o('部品の割引券をもらい、点検もしてもらえた。', { bd: 0.8, income: 20000 })] },
+        { label: 'パンフレットだけもらう', out: [o('読まずにしまいこんだ。'), o('来年の買い替えの参考になった。', { skill: 0.002 }), o('中古の出物の情報も手に入った。', { skill: 0.003 })] },
+      ] },
+    { id: 'furusato', months: [2, 3], from: 3, who: 'takahashi', icon: '🏡', title: 'ふるさと納税の返礼品に', text: '「町が、ふるさと納税のお礼の品に、地元のお米を探しているそうだ。出してみないかい？」',
+      choices: [
+        { label: '返礼品に登録する', pre: { h: { winter: 6 } }, out: [o('ほかの品に埋もれて、あまり選ばれなかった。', { income: 20000 }), o('全国から注文が来た。', { income: 60000, cust: 8, brand: 2 }), o('「また頼みたい」と、直販のお客さんになってくれた。', { income: 90000, cust: 20, brand: 3 })] },
+        { label: '今回は見送る', out: [o('近くの農家が評判になった。', { brand: -1 }), o('いつもどおりの冬。'), o('そのぶん、冬の作業に集中できた。', { h: { winter: -5 } })] },
+      ] },
+    { id: 'kaze_kazoku', months: [2], who: 'narr', icon: '🤒', title: '家族がそろって風邪をひいた', text: '家族がつぎつぎと風邪をひいてしまった。冬の作業がたまっている。',
+      choices: [
+        { label: '休んで治すのを優先する', out: [o('長引いて、春の準備まで遅れた。', { h: { spring: 10 } }), o('しっかり休んで治った。'), o('ゆっくり休んで、気持ちも新たになった。', { skill: 0.002 })] },
+        { label: '無理をして作業を進める', out: [o('こじらせてしまい、かえって長引いた。', { h: { winter: 10, spring: 10 } }), o('なんとか作業は進んだ。', { h: { winter: -4 } }), o('作業が片づき、気も晴れた。', { h: { winter: -8 } })] },
+      ] },
+    // 3月
+    { id: 'nenryo', months: [3], who: 'narr', icon: '⛽', title: '燃料の値段が上がった', text: '春の作業を前に、軽油の値段がじわじわ上がっている。',
+      choices: [
+        { label: '今のうちにまとめて買う', pre: { cost: 60000 }, out: [o('そのあと値下がりしてしまった。', { cost: 10000 }), o('値上がり前に買えた。', { income: 60000 }), o('ちょうど高値の前に買えて、だいぶ得をした。', { income: 90000 })] },
+        { label: 'いつもどおり少しずつ買う', out: [o('さらに値上がりした。', { cost: 30000 }), o('大きな差はなかった。'), o('すぐに値下がりした。', { income: 15000 })] },
+      ] },
+    { id: 'shinki_kengaku', months: [3], from: 6, who: 'hayashi', icon: '🙋', title: '新しく農業を始めた人の見学', text: '林さん「農業を始めたばかりの仲間を連れて、見学に行ってもいいですか？ 育苗のやり方を知りたいんです」',
+      choices: [
+        { label: '半日かけて案内する', pre: { h: { spring: 6 } }, out: [o('質問に答えきれず、反省した。', { trust: 1 }), o('喜んでもらえた。', { trust: 3 }), o('「この地域で続けたい」と言ってもらえた。', { trust: 4, brand: 2 })] },
+        { label: '資料を渡して説明だけする', pre: { h: { spring: 2 } }, out: [o('少し物足りなそうだった。'), o('役に立ったと言われた。', { trust: 2 }), o('資料がわかりやすいと評判になった。', { trust: 2, brand: 1 })] },
+      ] },
+    { id: 'dote_yaki', months: [3, 4], who: 'tamura', icon: '🔥', title: '土手の野焼き', text: '「虫を減らすのに、川の土手の枯れ草を焼く日じゃ。人手がいるんよ」',
+      choices: [
+        { label: '消火の係で参加する', pre: { h: { spring: 6 } }, out: [o('煙で目が痛くなった。', { trust: 1 }), o('無事に終わった。', { trust: 2, q: 1 }), o('段取りよく進み、カメムシも減りそうだ。', { trust: 3, q: 2 })] },
+        { label: '用事があると断る', out: [o('「毎年来んのう」と言われた。', { trust: -2 }), o('とくに何もなかった。'), o('代わりに後片づけを手伝い、許してもらえた。', { trust: 1, h: { spring: 2 } })] },
+      ] },
+    // 4月
+    { id: 'sakura', months: [4], who: 'ogawa', icon: '🌸', title: '桜まつりで米の試食', text: '小川さん「川沿いの桜まつりで、炊きたてご飯の試食を出してみませんか？」',
+      choices: [
+        { label: 'かまどで炊いて出す', pre: { cost: 15000, h: { spring: 6 } }, out: [o('風が強く、ご飯が冷めてしまった。', { brand: 1 }), o('おいしいと評判だった。', { brand: 2, cust: 6 }), o('長い列ができ、お米の名前が広まった。', { brand: 4, cust: 15 })] },
+        { label: 'おにぎりを配るだけにする', pre: { cost: 5000 }, out: [o('すぐになくなってしまった。'), o('喜んでもらえた。', { cust: 3 }), o('「どこで買えるの？」と何人にも聞かれた。', { cust: 8, brand: 1 })] },
+      ] },
+    { id: 'ikimono', months: [4, 6], who: 'narr', icon: '🐸', title: '田んぼの生きもの調査', text: '近くの小学校から「田んぼの生きもの調査をしたい」と連絡があった。',
+      choices: [
+        { label: '田んぼに入ってもらう', pre: { h: { spring: 3 } }, out: [o('あぜを少し崩されてしまった。', { trust: 1, h: { spring: 4 } }), o('カエルやヤゴがたくさん見つかった。', { trust: 2, brand: 2 }), o('「生きものがいっぱいの田んぼ」として新聞に載った。', { trust: 2, brand: 5, cust: 6 })] },
+        { label: '用水路だけで調べてもらう', out: [o('あまり見つからなかった。'), o('子どもたちは楽しそうだった。', { trust: 1, brand: 1 }), o('先生から丁寧なお礼の手紙が来た。', { trust: 2, brand: 1 })] },
+      ] },
+    { id: 'shizai_yoyaku', months: [4], who: 'takahashi', icon: '🧾', title: 'JAの資材の予約割引', text: '「秋の肥料を今のうちに予約すると、少し安くなるよ。どうする？」',
+      choices: [
+        { label: 'まとめて予約する', pre: { cost: 30000 }, out: [o('秋に値下がりして、損をした。'), o('割引がきいた。', { income: 50000 }), o('値上がりの前に予約できて、大きく得をした。', { income: 90000 })] },
+        { label: '使う分だけそのつど買う', out: [o('秋に値上がりした。', { cost: 30000 }), o('いつもどおり。'), o('秋にセールがあった。', { income: 20000 })] },
+      ] },
+    // 5月
+    { id: 'taue_ame', months: [5], who: 'narr', icon: '☔', title: '田植えの日に大雨', text: '田植えの予定の日に、朝から大雨の予報が出た。',
+      choices: [
+        { label: '日を延ばす', out: [o('延ばした日も雨で、苗が伸びすぎた。', { y: -0.006 }), o('次の晴れの日に無事に植えられた。'), o('かえって田の水がちょうどよくなった。', { y: 0.004 })] },
+        { label: 'カッパを着て植える', pre: { h: { spring: 6 } }, out: [o('苗が浮いて、植え直しになった。', { h: { spring: 10 }, y: -0.004 }), o('なんとか植えきった。'), o('予定どおり終わり、ほかの作業も進んだ。', { h: { spring: -6 } })] },
+      ] },
+    { id: 'nae_amari', months: [5], who: 'tamura', icon: '🌱', title: '苗が余った', text: '「うちは苗が足りんのじゃ。あんたのところで余っとったら、分けてくれんか」',
+      choices: [
+        { label: '分けてあげる', out: [o('自分の補植の分まで足りなくなった。', { y: -0.003, trust: 2 }), o('とても感謝された。', { trust: 3 }), o('お礼に野菜をたくさんもらい、関係が深まった。', { trust: 4, income: 10000 })] },
+        { label: '少し代金をもらって分ける', out: [o('「水くさい」と言われた。', { trust: -1, income: 5000 }), o('ちょうどいい値段で分けた。', { income: 15000, trust: 1 }), o('お互い助かったと喜ばれた。', { income: 15000, trust: 2 })] },
+      ] },
+    { id: 'gw_tetsudai', months: [5], who: 'narr', icon: '🎒', title: '連休に友だちが手伝いに来た', text: '連休に、都会の友だちが「田植えを手伝ってみたい」と遊びに来た。',
+      choices: [
+        { label: '田植えを手伝ってもらう', pre: { cost: 10000 }, out: [o('慣れない作業でかえって時間がかかった。', { h: { spring: 4 } }), o('手が増えて助かった。', { h: { spring: -8 } }), o('楽しかったと、会社の仲間に新米をすすめてくれた。', { h: { spring: -8 }, cust: 8 })] },
+        { label: '田んぼの見学と食事だけにする', pre: { cost: 10000 }, out: [o('雨で見学どころではなかった。'), o('楽しんでくれた。', { cust: 2 }), o('SNSに写真を上げてくれた。', { cust: 5, brand: 1 })] },
+      ] },
+    // 6月
+    { id: 'kamo', months: [6], who: 'narr', icon: '🦆', title: 'カモの親子が田んぼに', text: 'カモの親子が田んぼに入って、植えたばかりの苗のあいだを泳いでいる。',
+      choices: [
+        { label: 'そっとしておく', out: [o('苗をかなり踏まれてしまった。', { y: -0.006 }), o('ほほえましく見守った。', { brand: 1 }), o('写真が話題になり、「カモのいる田んぼの米」が評判に。', { brand: 3, cust: 6 })] },
+        { label: '網を張って入らないようにする', pre: { cost: 10000, h: { summer: 4 } }, out: [o('網にからまってしまい、助け出すのに苦労した。', { h: { summer: 4 } }), o('苗が守れた。'), o('苗がよくそろった。', { y: 0.003 })] },
+      ] },
+    { id: 'sanchoku_site', months: [6, 7], from: 3, who: 'aoki', icon: '🛒', title: '産直サイトからの出店の誘い', text: '青木さん「産直の通販サイトが、新米の出店者を探しているそうです。手数料はかかりますが、全国に売れますよ」',
+      choices: [
+        { label: '出店する', pre: { cost: 20000, h: { summer: 4 } }, out: [o('写真がいまひとつで、目立たなかった。', { cust: 2 }), o('少しずつ注文が入った。', { cust: 10, brand: 1 }), o('特集ページに載り、注文が一気に増えた。', { cust: 25, brand: 3 })] },
+        { label: '今の売り方を続ける', out: [o('ほかの農家が出店して評判になった。'), o('いつもどおり。'), o('今のお客さんを大事にでき、喜ばれた。', { brand: 1 })] },
+      ] },
+    { id: 'nagaame', months: [6, 7], who: 'takahashi', icon: '🌧️', title: '長雨でいもち病が心配', text: '「雨が続いて、いもち病が出やすい天気だ。田んぼをよく見ておいて」',
+      choices: [
+        { label: '早めに予防の薬をまく', pre: { cost: (st) => Math.round(area10(st) * 500), h: { summer: 6 } }, out: [o('結局、病気は出なかった。'), o('病気を防げた。', { q: 1 }), o('周りで病気が出たが、自分の田は無事だった。', { q: 2, y: 0.005 })] },
+        { label: '毎日見回って、出たらまく', pre: { h: { summer: 10 } }, out: [o('見つけるのが遅れて、少し広がった。', { y: -0.008, q: -1 }), o('早めに見つけて抑えた。'), o('病気は出ず、薬代も浮いた。', { q: 1 })] },
+      ] },
+    // 7月
+    { id: 'netchusho', months: [7, 8], who: 'narr', icon: '🥵', title: '猛暑日が続く', text: '35度をこえる日が続いている。日中の作業はつらい。',
+      choices: [
+        { label: '朝夕だけ作業する', out: [o('作業がたまってしまった。', { h: { summer: 8 } }), o('体調をくずさずにすんだ。'), o('涼しい時間にまとめてやり、はかどった。', { h: { summer: -4 } })] },
+        { label: '空調服とスポーツドリンクで乗りきる', pre: { cost: 20000 }, out: [o('それでも熱中症で1日寝こんだ。', { h: { summer: 10 } }), o('なんとか乗りきった。'), o('快適に作業が進んだ。', { h: { summer: -6 } })] },
+      ] },
+    { id: 'kamemushi', months: [7], who: 'takahashi', icon: '🐞', title: 'カメムシ注意報', text: '「県からカメムシの注意報が出た。斑点米が出ると等級が下がるから、気をつけて」',
+      choices: [
+        { label: 'あぜの草刈りと防除をしっかりやる', pre: { cost: (st) => Math.round(area10(st) * 300), h: { summer: 8 } }, out: [o('それでも少し斑点米が出た。', { q: 1 }), o('被害をおさえられた。', { q: 3 }), o('ほとんど被害がなく、1等米ばかりになった。', { q: 5 })] },
+        { label: 'いつもどおりにする', out: [o('斑点米が出て、等級が下がった。', { q: -3 }), o('少し出たが、大きな被害はなかった。', { q: -1 }), o('今年は運よく、あまり来なかった。')] },
+      ] },
+    { id: 'intern', months: [7, 8], from: 4, who: 'narr', icon: '🎓', title: '農業大学の学生のインターン', text: '農業大学から「夏の間、学生を実習で受け入れてもらえませんか」と頼まれた。',
+      choices: [
+        { label: '2週間受け入れる', pre: { cost: 20000 }, out: [o('教えるのに手がかかった。', { h: { summer: 6 } }), o('よく働いてくれた。', { h: { summer: -10 }, trust: 1 }), o('「卒業したらここで働きたい」と言ってくれた。', { h: { summer: -12 }, trust: 2, brand: 2 })] },
+        { label: '見学だけにしてもらう', out: [o('少しがっかりされた。'), o('熱心に質問してくれた。', { trust: 1 }), o('レポートで農場を紹介してくれた。', { brand: 2 })] },
+      ] },
+    // 8月
+    { id: 'kaminari', months: [8], who: 'narr', icon: '⚡', title: '夕立と雷', text: '夕方、急に空が暗くなり、雷が鳴りはじめた。乾燥機の作業場が心配だ。',
+      choices: [
+        { label: '作業場の電源と雨戸を見に行く', pre: { h: { summer: 2 } }, out: [o('ずぶぬれになって風邪をひいた。', { h: { summer: 4 } }), o('無事だった。'), o('雨もりを見つけて、すぐに直せた。', { bd: 0.9 })] },
+        { label: '家でじっとしている', out: [o('停電で機械の制御盤が壊れた。', { cost: 50000, bd: 1.1 }), o('とくに被害はなかった。'), o('恵みの雨で、稲が元気になった。', { y: 0.004 })] },
+      ] },
+    { id: 'inoshishi', months: [8, 9], who: 'tamura', icon: '🐗', title: 'イノシシが出た', text: '「山の田んぼに、イノシシが入って稲を倒しよった。あんたのとこも気をつけえ」',
+      choices: [
+        { label: '電気柵を張る', pre: { cost: 40000, h: { summer: 6 } }, out: [o('柵のすき間から入られた。', { y: -0.006 }), o('入られずにすんだ。'), o('近所の田も守れて、感謝された。', { trust: 2 })] },
+        { label: '見回りを増やす', pre: { h: { summer: 8 } }, out: [o('夜のうちに荒らされた。', { y: -0.012 }), o('少し被害が出た。', { y: -0.004 }), o('猟友会が捕まえてくれた。', { trust: 1 })] },
+      ] },
+    { id: 'jiyukenkyu', months: [8], who: 'narr', icon: '📓', title: '子どもの夏休みの自由研究', text: '近所の子どもが「稲の育ち方を自由研究にしたい」と聞きに来た。',
+      choices: [
+        { label: '田んぼで一緒に観察する', pre: { h: { summer: 3 } }, out: [o('暑くて子どもがばててしまった。'), o('しっかりまとめられたようだ。', { trust: 1, brand: 1 }), o('研究が学校で表彰され、うちの田んぼも紹介された。', { trust: 2, brand: 3 })] },
+        { label: '育て方の資料をあげる', out: [o('ちょっと難しかったらしい。'), o('喜んでもらえた。', { trust: 1 }), o('お礼の絵が届き、作業場に飾った。', { trust: 1, brand: 1 })] },
+      ] },
+    // 9月
+    { id: 'taifu_yohou', months: [9], who: 'takahashi', icon: '🌀', title: '台風が近づいている', text: '「台風がこっちに向かっている。進路しだいだが、刈れる田は先に刈ってしまう手もあるよ」',
+      choices: [
+        { label: '少し早いが刈れる田を刈る', pre: { h: { autumn: 10 } }, out: [o('台風はそれ、早刈りで少し収量が落ちた。', { y: -0.004 }), o('無事に刈り取れた。'), o('刈ったあとに台風が直撃。早めの判断が正解だった。', { y: 0.008 })] },
+        { label: '予定どおりにする', out: [o('強い風で稲が倒れた。', { y: -0.01, q: -2 }), o('台風はそれた。'), o('台風一過の晴れで、気持ちよく刈れた。', { q: 1 })] },
+      ] },
+    { id: 'combine_kashikari', months: [9, 10], who: 'oyama', icon: '🤝', title: 'コンバインの貸し借り', text: '大山さん「うちのコンバインが今年は空く日がある。必要なら貸すぞ。代わりにうちの乾燥を手伝ってくれ」',
+      choices: [
+        { label: '借りて稲刈りを早める', pre: { h: { autumn: 6 } }, out: [o('慣れない機械で手間取った。', { h: { autumn: 4 } }), o('稲刈りが早く終わった。', { h: { autumn: -12 } }), o('刈り遅れがなくなり、品質も上がった。', { h: { autumn: -15 }, q: 1, trust: 1 })] },
+        { label: '気持ちだけ受け取る', out: [o('ちょっと気まずくなった。', { trust: -1 }), o('「いつでも言え」と言ってくれた。', { trust: 1 }), o('話のついでに、来年の段取りを相談できた。', { trust: 2 })] },
+      ] },
+    { id: 'shinmai_shishoku', months: [9, 10], who: 'aoki', icon: '🍙', title: '米屋さんの新米の試食会', text: '青木さん「うちの店で新米の食べくらべ会をやります。あなたの米も並べていいですか？」',
+      choices: [
+        { label: '自分も店に立って説明する', pre: { h: { autumn: 4 } }, out: [o('となりの米のほうが人気だった。', { brand: 1 }), o('おいしいと言ってもらえた。', { brand: 2, cust: 5 }), o('「この農家さんの米で」と指名の注文が入った。', { brand: 4, cust: 10 })] },
+        { label: '米だけ出す', out: [o('目立たなかった。'), o('そこそこ好評だった。', { brand: 1 }), o('店の人が熱心にすすめてくれた。', { brand: 2, cust: 4 })] },
+      ] },
+    // 10月
+    { id: 'akisame', months: [10], who: 'narr', icon: '🌦️', title: '秋雨で稲刈りが止まった', text: '秋雨が続いて、残りの田の稲刈りが止まっている。',
+      choices: [
+        { label: '晴れ間をねらって夜まで刈る', pre: { h: { autumn: 12 } }, out: [o('ぬかるみに機械がはまった。', { bd: 1.1, h: { autumn: 6 } }), o('なんとか刈りきった。'), o('刈り遅れを出さずにすんだ。', { q: 1 })] },
+        { label: '天気が戻るまで待つ', out: [o('待ちすぎて、穂から芽が出てしまった。', { q: -3, y: -0.005 }), o('少し遅れたが、問題なく刈れた。', { q: -1 }), o('晴れが続き、一気に刈れた。')] },
+      ] },
+    { id: 'nougyo_matsuri', months: [10, 11], who: 'takahashi', icon: '🎪', title: 'JAの農業まつり', text: '「JAの農業まつりで、地元の農家のコーナーがあるんだ。出てみないかい？」',
+      choices: [
+        { label: '新米と手作りの品を出す', pre: { cost: 10000, h: { autumn: 6 } }, out: [o('ほかの店に人が集まった。', { trust: 1 }), o('よく売れた。', { income: 40000, cust: 6, trust: 1 }), o('組合長の目にとまり、来年の目玉にと頼まれた。', { income: 60000, cust: 10, trust: 3, brand: 2 })] },
+        { label: 'お客として楽しむ', out: [o('人ごみで疲れた。'), o('知り合いとたくさん話せた。', { trust: 1 }), o('くじ引きで肥料券が当たった。', { income: 20000 })] },
+      ] },
+    { id: 'inbound', months: [10], from: 8, who: 'ogawa', icon: '🌏', title: '海外からの観光客の稲刈り体験', text: '小川さん「海外からのお客さんが、日本の稲刈りを体験したいそうです。受け入れてみません？」',
+      choices: [
+        { label: '受け入れて案内する', pre: { h: { autumn: 6 } }, out: [o('言葉が通じず、苦労した。', { income: 20000 }), o('とても喜ばれた。', { income: 60000, brand: 2 }), o('動画が世界中で見られ、海外から注文が来た。', { income: 100000, brand: 5, cust: 10 })] },
+        { label: '今回は断る', out: [o('ほかの農家がやって評判になった。'), o('いつもどおりの稲刈り。'), o('稲刈りに集中できた。', { h: { autumn: -4 } })] },
+      ] },
+    // 11月
+    { id: 'momigara', months: [11], who: 'narr', icon: '🍂', title: 'もみ殻の使い道', text: '乾燥のあとのもみ殻が、山のようにたまっている。',
+      choices: [
+        { label: 'くん炭にして田んぼに戻す', pre: { h: { autumn: 6 } }, out: [o('煙で近所から苦情が来た。', { trust: -2 }), o('土がよくなりそうだ。', { y: 0.004 }), o('くん炭が評判になり、ほしい人に売れた。', { y: 0.004, income: 20000 })] },
+        { label: '畜産農家に引き取ってもらう', out: [o('取りに来るのが遅れた。'), o('引き取ってもらえた。', { trust: 1 }), o('お礼に堆肥をもらった。', { trust: 1, y: 0.003 })] },
+      ] },
+    { id: 'kenshin', months: [11, 12], who: 'narr', icon: '🩺', title: '健康診断のお知らせ', text: '農協から健康診断のお知らせが来た。忙しくて、ここ何年か受けていない。',
+      choices: [
+        { label: 'ちゃんと受ける', pre: { cost: 10000 }, out: [o('再検査になったが、早く見つかってよかった。', { h: { winter: 4 } }), o('どこも問題なかった。'), o('体の調子がいいと言われ、来年もがんばれそうだ。', { skill: 0.002 })] },
+        { label: '今年も見送る', out: [o('冬に腰を痛め、春の作業がつらかった。', { h: { spring: 12 } }), o('とくに何もなかった。'), o('元気に冬を越した。')] },
+      ] },
+    { id: 'kazoku_ryokou', months: [11, 12], who: 'narr', icon: '♨️', title: '家族で温泉旅行', text: '稲刈りも終わった。家族が「今年こそ温泉に行こう」と言っている。',
+      choices: [
+        { label: '1泊で温泉に行く', pre: { cost: 40000 }, out: [o('雪で道が混み、疲れて帰ってきた。'), o('ゆっくり休めた。', { h: { winter: -6 } }), o('リフレッシュして、来年のアイデアもわいた。', { h: { winter: -6 }, skill: 0.003 })] },
+        { label: '近くの日帰り温泉にする', pre: { cost: 5000 }, out: [o('混んでいて休まらなかった。'), o('ほっとひと息つけた。', { h: { winter: -2 } }), o('温泉で近所の人と話がはずんだ。', { trust: 1, h: { winter: -2 } })] },
+      ] },
+    // 12月
+    { id: 'neage_yokoku', months: [12], who: 'takahashi', icon: '📈', title: '来年の資材の値上げ予告', text: '「来年の春から、肥料と農薬が値上げになるそうだ。年内に買っておく人も多いよ」',
+      choices: [
+        { label: '年内にまとめて買う', pre: { cost: 50000 }, out: [o('値上げが小さく、置き場所に困っただけだった。'), o('値上げ前に買えた。', { income: 70000 }), o('予想以上の値上げで、大きく得をした。', { income: 110000 })] },
+        { label: '必要なときに買う', out: [o('大きく値上がりした。', { cost: 40000 }), o('思ったほど上がらなかった。'), o('セールで安く買えた。', { income: 20000 })] },
+      ] },
+    { id: 'kazoku_kaigi', months: [12], who: 'narr', icon: '👨‍👩‍👧', title: '年末の家族会議', text: '年の瀬。家族で、来年の目標を話し合うことにした。',
+      choices: [
+        { label: '数字を見ながら真剣に話す', pre: { h: { winter: 3 } }, out: [o('意見が合わず、気まずくなった。'), o('来年の目標がはっきりした。', { skill: 0.004 }), o('家族のアイデアで、新しい売り方を思いついた。', { skill: 0.004, brand: 2, cust: 4 })] },
+        { label: 'ごちそうを食べて、ゆるく話す', pre: { cost: 10000 }, out: [o('食べすぎて話どころではなかった。'), o('楽しい年越しになった。', { h: { winter: -3 } }), o('「来年も一緒にがんばろう」とまとまった。', { h: { winter: -3 }, skill: 0.002 })] },
+      ] },
+    { id: 'kitaku_shimai', months: [12], who: 'narr', icon: '🧹', title: '雪が降る前の片づけ', text: '本格的な雪の前に、機械や資材を片づけておきたい。',
+      choices: [
+        { label: '機械を洗って油をさしてしまう', pre: { h: { winter: 8 } }, out: [o('手がかじかんで、はかどらなかった。', { bd: 0.95 }), o('きれいに片づいた。', { bd: 0.85 }), o('傷んだ部品にも気づけた。', { bd: 0.75 })] },
+        { label: 'シートをかけておくだけにする', out: [o('雪の重みでシートが破れた。', { bd: 1.1 }), o('ひとまず冬を越せた。'), o('意外と問題なかった。')] },
+      ] },
+    // ---------- 長く続けると出てくるできごと ----------
+    { id: 'mousho_yohou', months: [6], from: 10, who: 'takahashi', icon: '🌡️', title: '記録的な猛暑の予報', text: '「今年の夏も、記録的な暑さになりそうだ。田植えの時期をずらしたり、水を深めに張ったり、備えておこう」',
+      choices: [
+        { label: '深水と夜の水の入れかえをする', pre: { h: { summer: 10 } }, out: [o('水が足りず、思うようにできなかった。', { q: 1 }), o('白い米を減らせた。', { q: 3 }), o('猛暑でも1等米がたくさんとれた。', { q: 5, skill: 0.003 })] },
+        { label: 'いつもどおりにする', out: [o('白く濁った米が増えた。', { q: -3 }), o('少し品質が落ちた。', { q: -1 }), o('予報ほど暑くならなかった。')] },
+      ] },
+    { id: 'atotsugi_kai', months: [1], from: 12, who: 'ishii', icon: '🧑‍🤝‍🧑', title: '集落の跡継ぎの集まり', text: '集落法人の石井さん「集落の田んぼを、これから誰がどう守るか。若い人を集めて話し合いたいんです」',
+      choices: [
+        { label: '自分の経験を話す', pre: { h: { winter: 4 } }, out: [o('話がまとまらなかった。', { trust: 1 }), o('若い人の相談に乗ることになった。', { trust: 3 }), o('「あんたについていく」と言う若者が出てきた。', { trust: 5, brand: 2 })] },
+        { label: '聞き役にまわる', out: [o('あまり発言できなかった。'), o('みんなの考えがわかった。', { trust: 1 }), o('いいまとめ役だと言われた。', { trust: 2 })] },
+      ] },
+    { id: 'smart_hojo', months: [3], from: 9, who: 'takahashi', icon: '🛰️', title: 'スマート農業の補助の説明会', text: '「自動で走る田植機や、生育を見るドローンの補助の説明会があるよ。話だけでも聞いておくといい」',
+      choices: [
+        { label: '説明会に出て相談する', pre: { h: { spring: 4 } }, out: [o('条件が合わなかった。'), o('来年に向けて情報が集まった。', { skill: 0.004 }), o('試験的に機械を使わせてもらえることになった。', { skill: 0.006, h: { spring: -8 } })] },
+        { label: '資料だけもらう', out: [o('読まずにしまった。'), o('流れはわかった。', { skill: 0.002 }), o('自分の経営に合う使い方を思いついた。', { skill: 0.004 })] },
+      ] },
+
+    // ---------- 経営に合わせたできごと（その経営のときだけ出て、出やすい） ----------
+    { id: 'sake_kura', months: [2], who: 'takahashi', icon: '🍶', title: '酒蔵の仕込みを見学', cond: (st) => grows(st, (c) => c.sake) || st.contracts.some((c) => D.CROPS[c.crop].sake),
+      text: '「酒蔵さんが、寒仕込みを見に来ないかと言ってくれた。自分の酒米がどう使われるか、見ておくといいよ」',
+      choices: [
+        { label: '見学して杜氏さんと話す', pre: { h: { winter: 6 } }, out: [o('専門の話が難しくて、よくわからなかった。', { trust: 1 }), o('心白（米の中心の白い部分）の大切さがわかった。', { skill: 0.005, q: 1 }), o('「来年もあんたの米で仕込みたい」と言われた。', { skill: 0.006, q: 2, trust: 3, brand: 2 })] },
+        { label: '試飲会にだけ出る', pre: { cost: 5000 }, out: [o('飲みすぎてしまった……。'), o('酒蔵の人と顔なじみになった。', { trust: 2 }), o('自分の米の酒が評判だと聞き、うれしくなった。', { trust: 2, brand: 2 })] },
+      ] },
+    { id: 'mochi_order', months: [12], who: 'ogawa', icon: '🍡', title: '年末の餅の注文', cond: (st) => grows(st, (c) => c.group === 'mochi') || (RG.biz && RG.biz.has(st, 'proc')),
+      text: '小川さん「お正月用の餅の注文が、今年もたくさん来ていますよ。どうします？」',
+      choices: [
+        { label: '家族総出で餅をついて届ける', pre: { cost: 20000, h: { winter: 16 } }, out: [o('つきすぎて固い餅になってしまった。', { income: 30000 }), o('喜んでもらえた。', { income: 80000, cust: 5 }), o('「来年もお願い」と予約がたくさん入った。', { income: 120000, cust: 12, brand: 2 })] },
+        { label: 'もち米のまま売る', out: [o('思ったより売れなかった。', { income: 10000 }), o('いつもの量が売れた。', { income: 40000 }), o('餅屋さんがまとめて買ってくれた。', { income: 70000, trust: 1 })] },
+      ] },
+    { id: 'shin_check', months: [8], who: 'takahashi', icon: '✨', title: '新之助の品質の事前指導', cond: (st) => grows(st, (c) => c.unlock === 'shinnosuke'),
+      text: '「新之助は1等米の割合と食味の基準がある。出穂のあとの水の管理と、刈り取りの時期の見極めが大事だよ。指導会に来るかい？」',
+      choices: [
+        { label: '指導会に出て、田んぼも見てもらう', pre: { h: { summer: 6 } }, out: [o('言われたことを全部はできなかった。', { q: 1 }), o('水の管理を見直せた。', { q: 3 }), o('刈り取りの時期までぴったり教わった。', { q: 5, skill: 0.004 })] },
+        { label: '資料だけもらう', out: [o('読むひまがなかった。'), o('ポイントはおさえた。', { q: 1 }), o('資料のとおりにやって、うまくいった。', { q: 2 })] },
+      ] },
+    { id: 'chokuha_tori', months: [5], who: 'narr', icon: '🐦', title: '直播の田に鳥が来た', cond: (st) => grows(st, (c, r) => r.sow === 'direct'),
+      text: '直播の田に、スズメやカモが種もみを食べに来ている。',
+      choices: [
+        { label: '防鳥網とテープを張る', pre: { cost: (st) => Math.round(area10(st) * 300), h: { spring: 8 } }, out: [o('網のすき間から入られた。', { y: -0.006 }), o('鳥はほとんど来なくなった。'), o('苗がきれいにそろった。', { y: 0.005 })] },
+        { label: '朝夕に見回って追い払う', pre: { h: { spring: 12 } }, out: [o('追いつかず、かなり食べられた。', { y: -0.012 }), o('少し食べられたが、なんとか守れた。', { y: -0.004 }), o('ほとんど被害が出なかった。')] },
+      ] },
+    { id: 'jakuso', months: [6], who: 'narr', icon: '🌿', title: '田んぼの草取り', cond: (st) => grows(st, (c, r) => r.cult === 'organic' || r.cult === 'special'),
+      text: '農薬を減らした田んぼに、ヒエやコナギがどんどん生えてきた。',
+      choices: [
+        { label: '除草機で何度も回る', pre: { h: { summer: 14 } }, out: [o('取りきれず、草に負けた田が出た。', { y: -0.01 }), o('草をおさえこめた。', { q: 1 }), o('きれいな田になり、見学に来た人にほめられた。', { q: 2, brand: 2 })] },
+        { label: '人を頼んで手で取る', pre: { cost: (st) => Math.round(area10(st) * 600) }, out: [o('人が集まらず、半分しかできなかった。', { y: -0.005 }), o('ていねいに取ってもらえた。', { q: 1, trust: 1 }), o('「こだわりの米づくり」として話題になった。', { q: 2, brand: 3 })] },
+      ] },
+    { id: 'smart_demo', months: [4], who: 'ishii', icon: '📡', title: '水管理の機械の実演会', cond: (st) => totalArea(st) >= 15,
+      text: '集落法人の石井さん「田んぼの水を、スマホで見て開け閉めできる機械の実演会があるんです。広くやるなら便利ですよ」',
+      choices: [
+        { label: '試しに何枚かの田に付ける', pre: { cost: 80000 }, out: [o('電波がとどかない田があった。', { h: { summer: -5 } }), o('見回りがずいぶん楽になった。', { h: { summer: -20 } }), o('水の管理がそろい、品質も上がった。', { h: { summer: -25 }, q: 2 })] },
+        { label: '実演会で話だけ聞く', out: [o('難しそうだと思った。'), o('来年の参考になった。', { skill: 0.003 }), o('石井さんと水路の管理を分担する話になった。', { trust: 2, h: { summer: -8 } })] },
+      ] },
+    { id: 'staff_shikaku', months: [1], who: 'narr', icon: '🪪', title: '社員の資格取得', cond: (st) => st.staff.length > 0,
+      text: '社員から「大型特殊とドローンの資格を取りたい」と相談があった。',
+      choices: [
+        { label: '費用を会社で出す', pre: { cost: 60000, h: { winter: 10 } }, out: [o('試験に落ちてしまった。'), o('資格を取って、作業の幅が広がった。', { skill: 0.005, h: { spring: -10 } }), o('ほかの社員にも教えてくれるようになった。', { skill: 0.008, h: { spring: -15, autumn: -10 } })] },
+        { label: '自分で取ってもらう', out: [o('「会社は出してくれないのか」と不満が出た。', { h: { spring: 6 } }), o('休みの日に勉強して取ってきた。', { skill: 0.002 }), o('自分の力で取り、自信をつけた。', { skill: 0.004 })] },
+      ] },
+    { id: 'part_sashiire', months: [9], who: 'narr', icon: '🍙', title: '稲刈りのパートさんへの差し入れ', cond: (st) => st.partTimers > 0 || (st.regulars || []).length > 0,
+      text: '稲刈りでパートさんたちも大忙し。何か差し入れをしようか。',
+      choices: [
+        { label: '新米のおにぎりとお茶を出す', pre: { cost: 10000 }, out: [o('天気が悪く、休憩も取れなかった。'), o('みんな元気が出た。', { h: { autumn: -8 } }), o('「来年もここで働きたい」と言ってもらえた。', { h: { autumn: -12 }, trust: 1 })] },
+        { label: '終わったら打ち上げをする', pre: { cost: 30000 }, out: [o('遅くまで飲んで、翌日の作業が遅れた。', { h: { autumn: 6 } }), o('楽しい打ち上げになった。', { trust: 1 }), o('仲間意識が生まれ、口コミで人が集まるようになった。', { trust: 2, h: { autumn: -10 } })] },
+      ] },
+    { id: 'drone_kaze', months: [7], who: 'narr', icon: '🛸', title: 'ドローン防除の日に風が出た', cond: (st) => hasM(st, 'drone'),
+      text: '防除の予定の朝、思ったより風が強い。',
+      choices: [
+        { label: '風がやむのを待って飛ばす', pre: { h: { summer: 4 } }, out: [o('一日待っても風がやまず、防除が遅れた。', { q: -1 }), o('夕方に風がやみ、無事にまけた。'), o('ぴったりの時間にまけ、よく効いた。', { q: 2 })] },
+        { label: 'そのまま飛ばす', out: [o('農薬が隣の畑に飛び、謝りに行った。', { trust: -3, cost: 20000 }), o('なんとかまけた。', { q: -1 }), o('風を読んでうまくまけた。', { skill: 0.003 })] },
+      ] },
+    { id: 'bank_mendan', months: [11], who: 'kimura', icon: '🏦', title: '金融機関との面談', cond: (st) => st.loans.some((l) => l.balance > 0),
+      text: '木村さん「秋の面談の季節です。今年の見込みと、来年の計画を聞かせてください」',
+      choices: [
+        { label: '計画書を作って説明する', pre: { h: { autumn: 6 } }, out: [o('数字の説明がうまくできなかった。'), o('「しっかり考えていますね」と言われた。', { trust: 1, skill: 0.002 }), o('次の借入の金利を少し下げる話をもらった。', { trust: 2, income: 30000 })] },
+        { label: '決算書を渡すだけにする', out: [o('「もう少し説明がほしい」と言われた。', { trust: -1 }), o('いつもどおりの面談で終わった。'), o('数字がよかったので、すんなり終わった。', { trust: 1 })] },
+      ] },
+    { id: 'feed_taihi', months: [11], who: 'tamura', icon: '🐄', title: '畜産農家からのお返し', cond: (st) => grows(st, (c, r) => r.crop === 'feed'),
+      text: '「あんたの飼料用米で育った牛の堆肥じゃ。お返しに田んぼに入れてやろうか」',
+      choices: [
+        { label: 'ありがたく入れてもらう', pre: { h: { autumn: 4 } }, out: [o('まき方にむらが出た。'), o('土がよくなった。', { y: 0.006, trust: 1 }), o('地域で米と牛がつながる、とほめられた。', { y: 0.01, trust: 3 })] },
+        { label: '気持ちだけ受け取る', out: [o('少し残念そうだった。'), o('来年もよろしくと言われた。', { trust: 1 }), o('かわりに稲わらと交換する約束をした。', { trust: 2, income: 15000 })] },
+      ] },
+    { id: 'proc_bussan', months: [3], who: 'ogawa', icon: '🥖', title: '物産展に米粉の商品を出す', cond: (st) => RG.biz && RG.biz.has(st, 'proc'),
+      text: '小川さん「町の物産展に、うちの米粉パンや餅を出してみませんか？」',
+      choices: [
+        { label: '出店する', pre: { cost: 30000, h: { spring: 8 } }, out: [o('人通りが少なく、売れ残った。', { income: 10000 }), o('よく売れた。', { income: 70000, cust: 6 }), o('バイヤーの目にとまり、店に置いてもらえることになった。', { income: 120000, cust: 12, brand: 3 })] },
+        { label: '試食だけ配る', pre: { cost: 10000 }, out: [o('あまり人が来なかった。'), o('おいしいと言ってもらえた。', { brand: 1, cust: 3 }), o('試食から注文につながった。', { brand: 2, cust: 8 })] },
+      ] },
+    { id: 'stand_shinmai', months: [10], who: 'ogawa', icon: '🏪', title: '直売所の新米まつり', cond: (st) => RG.biz && RG.biz.has(st, 'stand'),
+      text: '小川さん「直売所で新米まつりをやりましょう！ 炊きたての試食もつけて」',
+      choices: [
+        { label: '試食つきで大々的にやる', pre: { cost: 40000, h: { autumn: 8 } }, out: [o('雨でお客さんが少なかった。', { income: 20000 }), o('にぎわった。', { income: 90000, cust: 10 }), o('行列ができ、地元の新聞に載った。', { income: 150000, cust: 20, brand: 3 })] },
+        { label: 'いつもの売り場に新米を並べる', out: [o('目立たなかった。', { income: 10000 }), o('いつもより売れた。', { income: 40000, cust: 3 }), o('「待ってました」とまとめ買いが入った。', { income: 70000, cust: 6 })] },
+      ] },
+    { id: 'review', months: [10], who: 'ogawa', icon: '⭐', title: '通販サイトの口コミ', cond: (st) => st.direct.customers >= 50,
+      text: '小川さん「直販のお米に、口コミがたくさん付いていますよ。返事を書いてみたら？」',
+      choices: [
+        { label: '一つずつ、ていねいに返事を書く', pre: { h: { autumn: 6 } }, out: [o('厳しい口コミに落ちこんだ。', { brand: -1 }), o('お客さんとのつながりが深まった。', { brand: 2, cust: 5 }), o('返事の人柄が評判になり、リピーターが増えた。', { brand: 4, cust: 15 })] },
+        { label: 'お礼のカードを同封する', pre: { cost: 10000 }, out: [o('気づかれなかった。'), o('「うれしい」と口コミに書かれた。', { brand: 1, cust: 3 }), o('カードの写真が広まり、注文が増えた。', { brand: 2, cust: 10 })] },
+      ] },
+    { id: 'shuraku_kyoudou', months: [6], who: 'ishii', icon: '🤝', title: '集落の水路の共同作業', cond: (st) => totalArea(st) >= 8,
+      text: '集落法人の石井さん「水路の泥上げと草刈りを、集落みんなでやります。広く作っている方には、ぜひ」',
+      choices: [
+        { label: '機械を持って参加する', pre: { h: { summer: 8 } }, out: [o('機械が泥にはまってしまった。', { trust: 1, cost: 20000 }), o('作業がはかどり、感謝された。', { trust: 3 }), o('「頼りになる」と、田を預けたいという話が出た。', { trust: 5 })] },
+        { label: '出不足金を払う', pre: { cost: 10000 }, out: [o('「金で済ませるのか」と言われた。', { trust: -2 }), o('ふつうに済んだ。'), o('事情をわかってもらえた。', { trust: 1 })] },
+      ] },
   ];
   ME.def = (id) => ME.EVENTS.find((e) => e.id === id);
+  ['sake_kura', 'mochi_order', 'shin_check', 'chokuha_tori', 'jakuso', 'smart_demo', 'staff_shikaku', 'part_sashiire', 'drone_kaze', 'bank_mendan', 'feed_taihi', 'proc_bussan', 'stand_shinmai', 'review', 'shuraku_kyoudou']
+    .forEach((id) => { ME.def(id).ctx = true; });
 
   // その月のできごと（シードで決まる。同じ年に同じできごとは出さない）
   ME.eventFor = function (st, month) {
@@ -160,10 +468,17 @@
     for (let m = 1; m < month; m++) { const e = pick(st, m, used); if (e) used[e.id] = true; }
     return pick(st, month, used);
   };
+  // 経営に合わせたできごと（ctx）は、ふつうのできごとの3倍出やすい
   function pick(st, month, used) {
-    const list = ME.EVENTS.filter((e) => e.months.indexOf(month) >= 0 && !used[e.id] && (!e.cond || e.cond(st)));
+    const list = ME.EVENTS.filter((e) => e.months.indexOf(month) >= 0 && !used[e.id] && (!e.from || st.year >= e.from) && (!e.cond || e.cond(st)));
     if (!list.length) return null;
-    return list[RG.rng.hash(st.seed, st.year, 'mev', month) % list.length];
+    // 最近の年に出たできごとは出にくくする（去年・おととし：とても出にくい、3〜4年前：少し出にくい）
+    const seen = st.mevSeen || {};
+    const fresh = (e) => { const y = seen[e.id]; if (!y) return 1; const ago = st.year - y; return ago <= 2 ? 0.1 : ago <= 4 ? 0.4 : 1; };
+    const w = list.map((e) => Math.max(1, Math.round((e.ctx ? 3 : 1) * fresh(e) * 20))), total = U.sum(w, (x) => x);
+    let k = RG.rng.hash(st.seed, st.year, 'mev', month) % total;
+    for (let i = 0; i < list.length; i++) { if (k < w[i]) return list[i]; k -= w[i]; }
+    return list[list.length - 1];
   }
 
   ME.state = (st) => { const yf = st.yearFlags || (st.yearFlags = {}); return yf.mev || (yf.mev = {}); };
@@ -260,6 +575,9 @@
   // 決算のとき：信頼・ブランド・お客さん・技術・お守り
   ME.applyEnd = function (st) {
     const s = ME.state(st);
+    // 今年出たできごとを覚えておく（次の年から数年は出にくくなる）
+    st.mevSeen = st.mevSeen || {};
+    Object.keys(s).forEach((k) => { if (s[k] && s[k].id) st.mevSeen[s[k].id] = st.year; });
     Object.keys(s).forEach((k) => {
       const c = s[k], ev = ME.def(c.id);
       if (!ev || c.ci < 0) return;
