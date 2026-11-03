@@ -16,7 +16,9 @@
 }
 
 .title-screen { position: relative; min-height: 100vh; background: #120c08; color: var(--t-ink); font-family: var(--t-font); overflow-x: hidden; }
-.title-canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; z-index: 0; }
+/* 絵が描けないとき（スマホで絵が消されたときなど）も、夕暮れの色が見えるように下地を敷く */
+.title-canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; z-index: 0;
+  background: linear-gradient(#1d2540 0%, #4d4468 19%, #c9765a 37%, #f2b46d 50%, #fbdca0 60%, #d29638 61%, #a0651a 80%, #5a3a12 100%); }
 .title-content { position: relative; z-index: 1; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 0 16px 28px; }
 
 /* ---------- ロゴ ---------- */

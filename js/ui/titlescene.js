@@ -190,6 +190,7 @@
     }
 
     function resize(force) {
+      if (failed || document.hidden) return;
       const dpr = DPR();
       const nW = canvas.clientWidth || window.innerWidth, nH = canvas.clientHeight || window.innerHeight;
       // スマホでは、スクロールでアドレスバーが出たり消えたりするたびに高さが少し変わる。
@@ -364,20 +365,47 @@
       ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
     }
 
-    let lastDraw = -1e9;
+    let lastDraw = -1e9, fails = 0, failed = false;
     function loop(now) {
       if (!canvas.isConnected) { cleanup(); return; }
-      if (!TOUCH || now - lastDraw >= 33) { lastDraw = now; draw(now - start); } // スマホは30コマ/秒で十分（電池と熱のため）
+      if (!TOUCH || now - lastDraw >= 33) { // スマホは30コマ/秒で十分（電池と熱のため）
+        lastDraw = now;
+        try { draw(now - start); fails = 0; } catch (e) {
+          // 描けないことが続いたら、絵をやめて下地の色だけにする（文字とメニューは見えるように）
+          if (++fails >= 3) { giveUp(); return; }
+        }
+      }
       raf = requestAnimationFrame(loop);
     }
+    function giveUp() { failed = true; cancelAnimationFrame(raf); free(); }
+    // 絵に使っているメモリを手放す（下地の色が見える）
+    function free() { canvas.width = 0; canvas.height = 0; carpet = levees = null; W = H = 0; }
+    // スマホのChromeは、裏に回ったページの絵を消すことがある。また、ホーム画面のショートカットから開くと、
+    // 前に開いたままのページがそのまま出てくる。そこで、裏に回ったら絵をやめてメモリを手放し、戻ってきたら描き直す
+    function pause() { cancelAnimationFrame(raf); raf = 0; free(); }
+    function resume() {
+      if (failed || !canvas.isConnected) return;
+      cancelAnimationFrame(raf);
+      requestAnimationFrame(() => { try { resize(true); } catch (e) { giveUp(); return; } if (!reduce) raf = requestAnimationFrame(loop); });
+    }
+    const onVis = () => { if (document.hidden) pause(); else resume(); };
+    const onShow = (e) => { if (e.persisted) resume(); };
+    const onLost = (e) => { e.preventDefault(); pause(); };
     const onMove = (e) => { tx = (e.clientX / window.innerWidth - 0.5) * 2; ty = (e.clientY / window.innerHeight - 0.5) * 2; };
     let resizeTimer = 0;
     const onResize = () => { if (!canvas.isConnected) { cleanup(); return; } clearTimeout(resizeTimer); resizeTimer = setTimeout(() => resize(), 150); };
-    function cleanup() { canvas._alive = false; cancelAnimationFrame(raf); window.removeEventListener('pointermove', onMove); window.removeEventListener('resize', onResize); }
+    function cleanup() {
+      canvas._alive = false; cancelAnimationFrame(raf); window.removeEventListener('pointermove', onMove); window.removeEventListener('resize', onResize);
+      document.removeEventListener('visibilitychange', onVis); window.removeEventListener('pageshow', onShow);
+    }
 
     window.addEventListener('resize', onResize);
+    document.addEventListener('visibilitychange', onVis);
+    window.addEventListener('pageshow', onShow);
+    canvas.addEventListener('contextlost', onLost);
+    canvas.addEventListener('contextrestored', resume);
     if (!reduce) window.addEventListener('pointermove', onMove);
     // DOM に入ってから大きさを測る
-    requestAnimationFrame(() => { resize(true); if (!reduce) raf = requestAnimationFrame(loop); });
+    requestAnimationFrame(() => { try { resize(true); } catch (e) { giveUp(); return; } if (!reduce) raf = requestAnimationFrame(loop); });
   };
 })(window.RG = window.RG || {});

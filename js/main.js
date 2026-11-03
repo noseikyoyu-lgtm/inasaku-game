@@ -334,11 +334,27 @@
     try { localStorage.setItem('inasaku.theme', t); } catch (e) { /* 無視 */ }
   };
 
+  // ---------- 新しい版が出ていたら読み込み直す ----------
+  // ホーム画面のショートカットから開くと、前に開いたままの古いページが出てくることがある。
+  // タイトル画面のときに、公開されている版を確かめて、新しければ読み込み直す（同じ版では1回だけ）
+  app.checkUpdate = function () {
+    if (app.st || location.protocol === 'file:' || !window.fetch) return;
+    fetch('js/config.js?check=' + Date.now(), { cache: 'no-store' }).then((r) => (r.ok ? r.text() : '')).then((t) => {
+      const v = (t.match(/version:\s*'([^']+)'/) || [])[1];
+      if (!v || v === RG.CONFIG.version || app.st) return;
+      try { if (sessionStorage.getItem('inasaku.reloaded') === v) return; sessionStorage.setItem('inasaku.reloaded', v); } catch (e) { return; }
+      location.reload();
+    }).catch(() => { /* つながらないときはそのまま */ });
+  };
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) app.checkUpdate(); });
+  window.addEventListener('pageshow', (e) => { if (e.persisted) app.checkUpdate(); });
+
   // ---------- 起動 ----------
   document.addEventListener('DOMContentLoaded', () => {
     try { const t = localStorage.getItem('inasaku.theme'); if (t) document.documentElement.setAttribute('data-theme', t); } catch (e) { /* 無視 */ }
     UI.installTermPopup();
     RG.sound.install();
     app.render();
+    app.checkUpdate();
   });
 })(window.RG = window.RG || {});
