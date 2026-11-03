@@ -220,7 +220,7 @@
         young: ['#86ad84', '#5e8c52'], green: ['#6e9f52', '#3f7b2e'], head: ['#7fa443', '#557f2c'], gold: ['#e3b445', '#c8902a'], stubble: ['#cdb985', '#ad9561'],
         plow: ['#6f5138', '#55391f'],
       };
-      const waterPath = new Path2D();
+      const waters = []; // 水を張った田（あとで空と山を映す）
       list.forEach((p) => {
         const kind = plotKind(M.ground, p), far = clamp((p.Za - 1) / 28, 0, 1);
         const base = BASE[kind];
@@ -230,11 +230,14 @@
         gr.addColorStop(0, mix(shade(base[0], vary), M.sky[1], far * 0.55 + 0.1));
         gr.addColorStop(1, mix(shade(base[1], vary), M.sky[1], far * 0.45));
         poly(g, p); g.fillStyle = gr; g.fill();
-        if (kind === 'water' || kind === 'seedling') { const pp = new Path2D(); pp.moveTo(sx(p.Xl, p.Za), sy(p.Za)); pp.lineTo(sx(p.Xr, p.Za), sy(p.Za)); pp.lineTo(sx(p.Xr, p.Zb), sy(p.Zb)); pp.lineTo(sx(p.Xl, p.Zb), sy(p.Zb)); pp.closePath(); waterPath.addPath(pp); }
+        if (kind === 'water' || kind === 'seedling') waters.push(p);
         p.kind = kind;
       });
       // 水を張った田に、空と山が映る
-      g.save(); g.clip(waterPath);
+      // 古いスマホでも動くように、Path2D を使わず1つの道筋にまとめて切り抜く
+      g.save(); g.beginPath();
+      waters.forEach((p) => { g.moveTo(sx(p.Xl, p.Za), sy(p.Za)); g.lineTo(sx(p.Xr, p.Za), sy(p.Za)); g.lineTo(sx(p.Xr, p.Zb), sy(p.Zb)); g.lineTo(sx(p.Xl, p.Zb), sy(p.Zb)); g.closePath(); });
+      g.clip();
       g.save(); g.translate(0, h0 * 2); g.scale(1, -1);
       const gr = g.createLinearGradient(0, h0 - H * 0.3, 0, h0);
       gr.addColorStop(0, M.sky[0]); gr.addColorStop(1, M.sky[1]);
