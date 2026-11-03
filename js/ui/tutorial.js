@@ -60,7 +60,14 @@
     const st = app.st;
     if (!st) return null;
     if (st.phase === 'plan' && !app.viewingLast) return 'plan';
-    if (st.phase === 'season') return st.seasonPending && RG.dice.pending(st) && RG.dice.pending(st).month <= st.seasonMonth && !RG.dice.choiceOf(st, RG.dice.pending(st).id) ? 'crisis' : 'season';
+    if (st.phase === 'season') {
+      // シーズン画面と同じ順番：同じ月に田んぼの作業の判断があれば、そちらが先に出ている
+      const m = st.seasonMonth || 1;
+      const p = st.seasonPending ? RG.dice.pending(st) : null;
+      const wp = st.seasonPending && RG.fieldwork ? RG.fieldwork.pending(st) : null;
+      const workNow = wp && wp.month <= m && (!p || wp.month <= p.month);
+      return !workNow && p && p.month <= m && !RG.dice.choiceOf(st, p.id) ? 'crisis' : 'season';
+    }
     if (st.phase === 'result' || (st.phase === 'plan' && app.viewingLast)) return 'result';
     if (st.phase === 'dice') return 'dice';
     if (st.phase === 'event') return 'event';

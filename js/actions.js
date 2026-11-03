@@ -208,7 +208,7 @@
     const kinds = A.loanKinds(st);
     // 機械・施設・農地を買うときは、無利子資金の枠があればそれを使う（無利子資金は使い道が決まっている）
     if (forPurchase && kinds.nointerest && SIM.noInterestAvailable(st) >= amount) kindKey = 'nointerest';
-    if (kindKey === 'nointerest' && !forPurchase) return '無利子資金は、機械・施設を買うときだけ使えます（「機械・設備」タブで借入で購入すると自動で使われます）';
+    if (kindKey === 'nointerest' && !forPurchase) return '無利子資金は、機械・施設・農地を買うときだけ使えます（「機械・設備」タブや「農地」タブで借入で購入すると自動で使われます）';
     const k = kinds[kindKey];
     if (!k) return 'この借入は利用できません';
     if (k.kind === 'nointerest') {

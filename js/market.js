@@ -45,8 +45,13 @@
     else { why.push(crop.t); if (stock) why.push(stock.t); }
     const priceChange = Math.round(price) / prev - 1;
     // 前年からの流れは、実際の値動きと同じ向きのときだけ理由に挙げる
-    if (base / prev <= 0.97 && priceChange < 0) why.push('前年までの高値から落ち着く流れ');
-    else if (base / prev >= 1.03 && priceChange > 0) why.push('前年までの安値から持ち直す流れ');
+    let flowDir = 0;
+    if (base / prev <= 0.97 && priceChange < 0) { why.push('前年までの高値から落ち着く流れ'); flowDir = -1; }
+    else if (base / prev >= 1.03 && priceChange > 0) { why.push('前年までの安値から持ち直す流れ'); flowDir = 1; }
+    // 3%以上動いたのに、書いた理由に値動きと同じ向きのものがないときは、引き合いの強さ・弱さを足す（「豊作で値上がり」のように読めないように）
+    const sgn = priceChange > 0.03 ? 1 : priceChange < -0.03 ? -1 : 0;
+    if (sgn && !(stock && stock.dir === sgn) && flowDir !== sgn && crop.dir !== sgn)
+      why.push(sgn > 0 ? 'ただ、卸や外食からの引き合いが思ったより強く、作柄のわりに値が締まった' : 'ただ、引き合いが思ったより弱く、作柄のわりに値が緩んだ');
     const marketReason = why.join('。') + '。その結果、米価は前年より' + (priceChange >= 0 ? '+' : '') + U.pct(priceChange, 1) + '。';
 
     // 資材価格：高騰は翌年に半分残る

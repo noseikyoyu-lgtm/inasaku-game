@@ -446,11 +446,13 @@
       }
     }
     function loop(now) {
-      if (!canvas.isConnected) { canvas._alive = false; window.removeEventListener('resize', size); return; }
+      if (!canvas.isConnected) { canvas._alive = false; window.removeEventListener('resize', onResize); return; }
       if (now - last >= 33) { last = now; draw(now - t0); } // 30コマ/秒で十分
       if (!reduce) raf = requestAnimationFrame(loop);
     }
-    window.addEventListener('resize', size);
+    // 動きを控える設定ではアニメーションしないので、画面の大きさが変わったら描き直す（大きさを変えると絵が消えるため）
+    const onResize = () => { if (!canvas.isConnected) { window.removeEventListener('resize', onResize); return; } size(); if (reduce) draw(0); };
+    window.addEventListener('resize', onResize);
     requestAnimationFrame(() => { size(); draw(0); if (!reduce) raf = requestAnimationFrame(loop); });
     canvas._redraw = () => { if (reduce) draw(0); };
     void raf;

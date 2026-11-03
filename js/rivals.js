@@ -110,10 +110,13 @@
     notes.push(d.name + '（' + d.label + '）が' + what + '。田んぼ ' + U.ha(area) + 'を引き受けてほしいと話が来ている（「農地」タブ）。');
   }
 
-  // 離農した人の田を、年初の農地のオファーにする
+  // 離農した人の田（と、依頼のお礼の条件の良い田）を、年初の農地のオファーにする
   RV.landOffers = function (st) {
-    const out = (st.rivalLand || []).map((x, i) => ({ id: 'L' + st.year + '_rv' + i, owner: x.owner, reason: x.reason, place: '同じ集落',
-      area: x.area, soil: 'normal', buy: false, rent: 9000, price: Math.round(x.area * 10 * 800000), price10a: 800000, rival: x.id }));
+    const out = (st.rivalLand || []).map((x, i) => {
+      const good = x.soil === 'good', p10 = good ? 1000000 : 800000;
+      return { id: 'L' + st.year + '_rv' + i, owner: x.owner, reason: x.reason, place: '同じ集落',
+        area: x.area, soil: x.soil || 'normal', buy: false, rent: good ? 12000 : 9000, price: Math.round(x.area * 10 * p10), price10a: p10, rival: x.id };
+    });
     st.rivalLand = [];
     return out;
   };

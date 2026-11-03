@@ -53,7 +53,7 @@
             onChange: (v) => app.update((s) => BZ.setArea(s, 'harvest', v)) }),
             h('span', { class: 'muted small' }, 'コンバインの空き能力 ' + U.ha(spC) + (b.harvest > spC ? '（空き能力を超えた分は引き受けられません）' : ''))),
           money(sb.harvest),
-          riskNote('harvest', b.harvest, '受託先の田で石や倒れた稲を巻き込むと、コンバインが壊れて修理費がかかります（条件の悪い田が多いほど起きやすい）。自分の稲刈りで手いっぱいになったり秋雨が続いたりすると、受託先の田が刈り遅れて補償が要ります。コンバインが故障して刈りきれないと、ほかの業者に頼む差額も負担します。引き受けた面積のぶん、自分のコンバインも故障しやすくなります。'),
+          riskNote('harvest', Math.min(b.harvest, spC), '受託先の田で石や倒れた稲を巻き込むと、コンバインが壊れて修理費がかかります（条件の悪い田が多いほど起きやすい）。自分の稲刈りで手いっぱいになったり秋雨が続いたりすると、受託先の田が刈り遅れて補償が要ります。コンバインが故障して刈りきれないと、ほかの業者に頼む差額も負担します。引き受けた面積のぶん、自分のコンバインも故障しやすくなります。'),
           insRow()]
         : UI.note('info', null, '自分のコンバインがあると始められます（「機械・設備」タブ）。')));
 
@@ -66,7 +66,7 @@
           ? [h('div', { class: 'row' }, '請け負う面積', UI.numInput({ value: b.drone, min: 0, max: 200, step: 1, suffix: 'ha', label: 'ドローン防除の面積',
               onChange: (v) => app.update((s) => BZ.setArea(s, 'drone', v)) }),
               h('span', { class: 'muted small' }, 'ドローンの空き能力 ' + U.ha(spD))), money(sb.drone),
-              riskNote('drone', b.drone, '風で農薬が隣の畑に飛ぶと、補償が要ります。ドローンが電線に触れて墜落すると、修理費がかかります。'),
+              riskNote('drone', Math.min(b.drone, spD), '風で農薬が隣の畑に飛ぶと、補償が要ります。ドローンが電線に触れて墜落すると、修理費がかかります。'),
               b.harvest > 0 ? null : insRow()]
           : UI.btn('操縦の研修を受ける（' + U.man(D2.license) + '）', () => app.update((s) => BZ.takeLicense(s), { msg: '研修を受けた' }), 'primary'))
         : UI.note('info', null, '防除用ドローンがあると始められます（「機械・設備」タブ）。')));

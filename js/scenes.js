@@ -422,7 +422,7 @@
     text: () => '「社長、作付も段取りも、前のやり方で回ってきたんです。いきなり変えられても、現場は混乱するだけですよ」',
     choices: [
       { label: '話を聞いて、一緒に決める', desc: '社員の士気 +10。今年は前のやり方が多く残る（技術力の伸びがゆっくり）', apply: (st) => { morale(st, 10); st.skill = Math.max(0.8, st.skill - 0.005); return '山根さんと一緒に、今年の段取りを決めることにした。'; } },
-      { label: '新しいやり方を通す', desc: '社員の士気 −15・技術力が少し上がる', apply: (st) => { morale(st, -15); st.skill = Math.min(1.04, st.skill + 0.02); return '新しいやり方を通した。現場には不満が残った。'; } },
+      { label: '新しいやり方を通す', desc: '社員の士気 −15・技術力が少し上がる', apply: (st) => { morale(st, -15); st.skill = Math.max(st.skill, Math.min(1.04, st.skill + 0.02)); return '新しいやり方を通した。現場には不満が残った。'; } },
     ],
   });
   E.POOL.push({

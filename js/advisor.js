@@ -143,8 +143,8 @@
         (s === 'winter' ? '直販の出荷が滞ります。' : '作業が遅れて収量・品質が落ちます。') + 'パートや社員の雇用、機械の能力アップを検討しましょう。' });
     });
     if (pv.cash.minBalance < 0) {
-      out.push({ level: 'bad', text: pv.cash.minMonth + '月に資金が ' + U.man(-pv.cash.minBalance) + ' 不足する見込み。つなぎ資金（年8%）を借りることになります。「資金」タブで運転資金（年2%）を借りておくと安く済みます。' +
-        (!(st.jaAdvance && st.jaAdvance.on) ? '農協の出荷契約金（6月入金・利息なし）を申し込むのも手です。' : '') });
+      out.push({ level: 'bad', text: pv.cash.minMonth + '月に資金が ' + U.man(-pv.cash.minBalance) + ' 不足する見込み。つなぎ資金（年' + U.pct(D.FIN.emergencyRate, 0) + '）を借りることになります。「資金」タブで運転資金（年' + U.pct(D.FIN.shortRate, 1) + '）を借りておくと安く済みます。' +
+        (!(st.jaAdvance && st.jaAdvance.on) ? '農協の出荷契約金（6月入金・年' + U.pct(D.SALES.advanceInterest, 1) + 'の利息）を申し込むのも手です。' : '') });
     } else if (pv.cash.minBalance < 500000) {
       out.push({ level: 'warn', text: pv.cash.minMonth + '月の資金残高が ' + U.man(pv.cash.minBalance) + ' まで下がる見込み。不作や値下がりがあると資金が足りなくなるかもしれません。' });
     }
@@ -228,7 +228,7 @@
       else info('60kgあたり生産費', U.yen(an.costPer60) + '（家族労働費を含めると ' + U.yen(an.fullCostPer60) + '）。米価との差 ' + U.yen(margin) + ' が1俵あたりのもうけの目安です。');
     }
     if (isFinite(an.bepArea) && an.bepArea > res.area.planted * 1.02) warn('損益分岐面積に届いていない', '今の費用構造では、あと ' + U.ha(an.bepArea - res.area.planted) + ' 作付面積を増やさないと黒字になりません（損益分岐面積 ' + U.ha(an.bepArea) + '）。');
-    else if (isFinite(an.bepArea) && an.bepArea > 0) info('損益分岐面積', '固定費をまかなうのに必要な面積は ' + U.ha(an.bepArea) + '（' + (st.corp ? '' : '生活費も含めると ' + U.ha(an.bepAreaLiving)) + '）。現在の作付は ' + U.ha(res.area.planted) + 'です。');
+    else if (isFinite(an.bepArea) && an.bepArea > 0) info('損益分岐面積', '固定費をまかなうのに必要な面積は ' + U.ha(an.bepArea) + (st.corp ? '' : '（生活費も含めると ' + U.ha(an.bepAreaLiving) + '）') + '。現在の作付は ' + U.ha(res.area.planted) + 'です。');
 
     // 費用構成
     const dep = pl.get('depreciation'), contract = pl.get('contract'), sales = pl.sales;
@@ -254,7 +254,7 @@
     }
 
     // 資金
-    if (res.cash.emergencyPeak > res.cash.emergencyStart + 1) bad('資金ショート', '一時的に資金が足りず、つなぎ資金（年8%）を最大 ' + U.man(res.cash.emergencyPeak) + ' 借りました。利息は ' + U.man(res.cash.emInterest) + '。運転資金を事前に借りるか、支出の時期を見直しましょう。');
+    if (res.cash.emergencyPeak > res.cash.emergencyStart + 1) bad('資金ショート', '一時的に資金が足りず、つなぎ資金（年' + U.pct(D.FIN.emergencyRate, 0) + '）を最大 ' + U.man(res.cash.emergencyPeak) + ' 借りました。利息は ' + U.man(res.cash.emInterest) + '。運転資金を事前に借りるか、支出の時期を見直しましょう。');
     else if (res.cash.minBalance < 300000) warn('資金に余裕がない', res.cash.minMonth + '月に資金残高が ' + U.man(res.cash.minBalance) + ' まで下がりました。');
     if (an.debt > 0) {
       if (!isFinite(an.repayYears)) bad('返済の原資がない', '償還財源（税引後利益＋減価償却費' + (st.corp ? '' : '－家計費') + '）がマイナスです。このままでは借入を返せません。');
@@ -296,8 +296,8 @@
     if (em > 1 || res.cash.minBalance < 0) {
       const need = round10man(Math.max(em, -res.cash.minBalance) + 500000);
       const advOff = !(st.jaAdvance && st.jaAdvance.on);
-      add(10, '資金繰りの備え', res.cash.minMonth + '月に資金が足りなくなりました。来年は年初に運転資金（年2%）を約' + U.man(Math.min(need, SIM.shortLoanLimit(st))) + '借りておきましょう' +
-        (advOff ? '。農協の出荷契約金（6月入金・利息なし）を申し込むのも効果的です' : '') + '。', 'finance');
+      add(10, '資金繰りの備え', res.cash.minMonth + '月に資金が足りなくなりました。来年は年初に運転資金（年' + U.pct(D.FIN.shortRate, 1) + '）を約' + U.man(Math.min(need, SIM.shortLoanLimit(st))) + '借りておきましょう' +
+        (advOff ? '。農協の出荷契約金（6月入金・年' + U.pct(D.SALES.advanceInterest, 1) + 'の利息）を申し込むのも効果的です' : '') + '。', 'finance');
     }
 
     // 来年使えなくなる・来年が最後の機械（まとめて1項目）
@@ -380,7 +380,9 @@
 
     // 保険
     if (st.insurance === 'none' && (res.bs.longLoans > 0 || (res.events || []).some((e) => e.sev === 'heavy'))) {
-      add(4, '収入の下ぶれへの備え', '借入の返済があるなら、収入保険（米価の下落にも対応）を検討しましょう。前年の決算実績があるので、来年から加入できます。', 'finance');
+      // ストーリーでは、収入保険は青色申告の実績が2年たまる3年目から
+      const insWait = RG.era && RG.era.featLocked(st, 'incomeIns') && st.history.length < 2;
+      add(4, '収入の下ぶれへの備え', '借入の返済があるなら、収入保険（米価の下落にも対応）を検討しましょう。' + (insWait ? '青色申告の実績が2年たまる3年目から加入できます。' : '前年の決算実績があるので、来年から加入できます。'), 'finance');
     }
 
     // 大きな課題がないとき

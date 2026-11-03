@@ -125,7 +125,7 @@
           const T = SY.state(st).trainee; T.stage = 3;
           if (st.corp) st.execPay += 600000; else st.living += 600000;
           const s = kentaStaff(st); st.staff = st.staff.filter((x) => x !== s);
-          st.family.push({ id: U.uid(st, 'p'), name: '健太さん', role: '後継者', hours: 1800, age: (s.age || 26) + (st.year - T.at), tag: 'successor' });
+          st.family.push({ id: U.uid(st, 'p'), name: '健太さん', role: '後継者', hours: 1800, age: (s.age || 26) + (s.years || 0), tag: 'successor' }); // 社員として過ごした年数ぶん年をとっている
           return '健太さんを後継者として迎えた。家族以外への「第三者継承」の始まりだ。'; } },
         { label: 'まだ考えさせてほしい', desc: '数年後にまた話し合う', apply: (st) => { SY.state(st).trainee.at = st.year; return 'もう少し考えることにした。'; } }] },
   ];

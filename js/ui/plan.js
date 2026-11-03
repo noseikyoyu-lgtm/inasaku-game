@@ -247,7 +247,7 @@
       h('div', { class: 'kpis', style: { marginTop: '10px' } },
         UI.kpi(h('span', null, '10年以内の', T('機械の寿命', '機械の買い替え')), U.man(cost10), '今の資金 ' + U.man(st.cash), cost10 > st.cash + SIM.loanCapacity(st) ? 'warn' : ''),
         op && op.age != null ? UI.kpi('経営主の年齢', op.age + '歳', D.AGING.retire + '歳で引退まで ' + Math.max(0, D.AGING.retire - op.age) + '年') : null,
-        UI.kpi(h('span', null, T('経営継承', '後継者')), sc ? sc.name + '（' + sc.age + '歳）' : st.custom && st.custom.successor === 'plan' && !st.events.seen.successor_join ? '就農予定' : 'いない', null, sc ? 'good' : '')));
+        UI.kpi(h('span', null, T('経営継承', '後継者')), sc ? sc.name : st.custom && st.custom.successor === 'plan' && !st.events.seen.successor_join ? '就農予定' : 'いない', sc ? sc.age + '歳' : null, sc ? 'good' : '')));
   }
 
   // ---------- 作付計画 ----------
@@ -805,7 +805,7 @@
       UI.card('今年の資金繰りの見通し', '平年作の場合。線が0を下回る月は資金ショート',
         RG.chart.cash(pv.cash.months, pv.cash.start),
         h('details', { class: 'more' }, h('summary', null, '月ごとの表を見る'), cashTable(pv.cash.months))),
-      UI.card(h('span', null, T('運転資金'), '（短期借入）'), '1月に借りて12月に返す。年利 ' + U.pct(D.FIN.shortRate),
+      UI.card(h('span', null, T('運転資金'), '（短期借入）'), '1月に借りて12月に返す。年利 ' + U.pct(D.FIN.shortRate, 1),
         h('div', { class: 'row' }, UI.numInput({ value: st.shortLoan, min: 0, max: SIM.shortLoanLimit(st), step: 100000, width: 130, suffix: '円（上限 ' + U.man(SIM.shortLoanLimit(st)) + '）', label: '運転資金の借入額',
           onChange: (v) => app.update((s) => { s.shortLoan = Math.round(v / 10000) * 10000; }) })),
         h('p', { class: 'small muted' }, '資金が足りなくなると自動で', T('つなぎ資金'), '（年8%）を借ります。最も少ない月の不足額くらいを運転資金で借りておくと、利息を抑えられます。')),
@@ -816,7 +816,7 @@
           UI.btn('手元資金で返す', () => app.update((s) => A.repayEmergency(s, Math.min(s.emergency, s.cash)), { undo: true, msg: 'つなぎ資金を返済しました' }), 'sm')) : null,
         h('h4', { style: { margin: '12px 0 6px' } }, '長期資金を借りる'),
         h('p', { class: 'small' }, '今年あと ' + Math.max(0, D.FIN.loansPerYear - ((st.yearFlags || {}).newLoans || 0)) + ' 件申し込めます（使い道を決めない運転資金の借入は1年に' + D.FIN.loansPerYear + '件まで。機械・施設・農地を借入で買うのは別）' +
-          (SIM.noInterestAvailable(st) > 0 ? '。無利子資金の残り ' + U.man(SIM.noInterestAvailable(st)) + ' は、' + D.FIN.noInterestYears + '年目まで、機械・施設を借入で買うときに自動で使われます。' : '。')),
+          (SIM.noInterestAvailable(st) > 0 ? '。無利子資金の残り ' + U.man(SIM.noInterestAvailable(st)) + ' は、' + D.FIN.noInterestYears + '年目まで、機械・施設・農地を借入で買うときに自動で使われます。' : '。')),
         A.loanLock(st) ? UI.note('warn', null, A.loanLock(st)) : null,
         h('div', { class: 'row' },
           UI.select(kindKeys.map((k) => ({ value: k, label: kinds[k].name + '・年利' + U.pct(kinds[k].rate, 1) })), app.loanKind, (v) => { app.loanKind = v; app.keepScroll = true; app.render(); }, { 'aria-label': '借入の種類' }),
@@ -837,10 +837,10 @@
   // 農協の出荷契約金（前渡金）
   function advanceCard(app, st, pv) {
     const a = st.jaAdvance || { on: false, auto: true, qty: 0 };
-    const unit = SIM.advanceUnit(st), qty = SIM.advanceQty(st), exp = Math.floor(SIM.expectedJA(st));
+    const exp = Math.floor(pv.production.expectedJA), unit = SIM.advanceUnit(st), qty = SIM.advanceQty(st, pv.production.expectedJA);
     const pick = (on, auto) => app.update((s) => {
       s.jaAdvance = Object.assign({}, s.jaAdvance || {}, { on, auto });
-      if (on && !auto && !s.jaAdvance.qty) s.jaAdvance.qty = Math.floor(SIM.expectedJA(s) * D.SALES.advanceAutoShare / 10) * 10;
+      if (on && !auto && !s.jaAdvance.qty) s.jaAdvance.qty = Math.floor(exp * D.SALES.advanceAutoShare / 10) * 10;
     });
     const opt = (label, desc, on, auto) => h('button', { class: 'radio-card' + (a.on === on && (!on || !!a.auto === auto) ? ' on' : ''), type: 'button',
       'aria-pressed': a.on === on && (!on || !!a.auto === auto) ? 'true' : 'false', onclick: () => pick(on, auto) },

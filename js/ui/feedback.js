@@ -27,7 +27,11 @@
   // セーブから農場名を除く（自分の経営で遊んだ場合も名前は送らない）
   // slim：送信用に軽くする（試算用の初期状態と、別に送るプレイ記録を外す）
   FB.cleanSave = function (st, slim) {
-    const c = JSON.parse(JSON.stringify(st));
+    // 農場名は、ニュースの文などに入っているものも含めて、すべて「農場」に置きかえる
+    const names = [st.farmName, st.custom && st.custom.farmName].filter((n) => typeof n === 'string' && n && n !== '農場');
+    const scrub = (v) => (typeof v === 'string' ? names.reduce((x, n) => x.split(n).join('農場'), v)
+      : Array.isArray(v) ? v.map(scrub) : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, scrub(x)])) : v);
+    const c = scrub(JSON.parse(JSON.stringify(st)));
     c.farmName = '農場';
     if (slim) { delete c.initialSnapshot; delete c.playlog; delete c.baseline; }
     else if (typeof c.initialSnapshot === 'string') {

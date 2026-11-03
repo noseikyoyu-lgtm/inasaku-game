@@ -206,10 +206,11 @@
   const val = (v, st) => (typeof v === 'function' ? v(st) : v);
   const SEASON_OF = (m) => (m <= 2 || m === 12 ? 'winter' : m <= 5 ? 'spring' : m <= 8 ? 'summer' : 'autumn');
   // 効果の説明
+  const money = (v) => (Math.abs(v) < 10000 ? U.yen(v) : U.man(v)); // 1万円未満は円で（「＋0.0万円」と出ないように）
   ME.effText = function (e, st) {
     const t = [];
-    if (e.income) t.push('＋' + U.man(e.income));
-    if (e.cost) t.push('−' + U.man(e.cost));
+    if (e.income) t.push('＋' + money(e.income));
+    if (e.cost) t.push('−' + money(e.cost));
     if (e.y) t.push('収量 ' + (e.y > 0 ? '+' : '') + U.round(e.y * 100, 1) + '%');
     if (e.q) t.push('品質 ' + (e.q > 0 ? '+' : '') + e.q);
     if (e.trust) t.push('地域の信頼 ' + (e.trust > 0 ? '+' : '') + e.trust);
@@ -226,7 +227,7 @@
     const p = ch.pre || {};
     const t = [];
     const c = val(p.cost, st), h = val(p.h, st);
-    if (c) t.push(U.man(c));
+    if (c) t.push(money(c));
     if (h) for (const s in h) t.push(D.SEASON_SHORT[s] + 'の作業 +' + h[s] + '時間');
     return t.join('・');
   };

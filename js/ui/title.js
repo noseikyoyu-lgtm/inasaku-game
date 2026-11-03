@@ -229,7 +229,7 @@
         h('span', { class: 'cf-name' }, D.MACHINE_TYPES[t].name), sel(c.machines[t], 'size', sizes(t), D.MACHINE_TYPES[t].name + 'の大きさ', true),
         unit(num(c.machines[t], 'age', { min: 0, max: 40, label: D.MACHINE_TYPES[t].name + 'の使用年数', w: 70 }), '年使用'),
         c.machines[t].size !== 'none' ? unit(num(c.machines[t], 'count', { min: 1, max: 10, label: D.MACHINE_TYPES[t].name + 'の台数', w: 60 }), '台') : null))),
-      h('p', { class: 'small' }, '大規模で同じ機械を何台か持っている場合は、台数も入れてください（使用年数は平均でかまいません）。'),
+      h('p', { class: 'small' }, '大規模で同じ機械を何台か持っている場合は、台数も入れてください（使用年数は平均でかまいません）。寿命に近い機械は、1年目が最後のシーズンになります。'),
       section('お金'),
       h('div', { class: 'px-fields' },
         fld('経営に使える預貯金', unit(num(c, 'cash', { min: 0, max: 1e9, step: 100000, label: '預貯金', w: 130 }), '円')),

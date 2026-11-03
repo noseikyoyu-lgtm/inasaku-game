@@ -41,6 +41,14 @@
   // 加工の需要（俵）：直販のお客さんとブランド力で増える
   BZ.procDemand = (st) => Math.round(40 + 0.3 * st.direct.customers + 1.0 * st.brand);
   BZ.procPlanned = (st) => (BZ.has(st, 'proc') ? Math.max(0, BZ.state(st).proc || 0) : 0);
+  // 実際に加工できそうな量：予定の量を、契約と直販に回したあとの米（平年作）で頭打ちにする（冬の作業時間に使う）
+  BZ.procUsable = function (st) {
+    const p = BZ.procPlanned(st);
+    if (!p) return 0;
+    const ub = (u) => (D.CROPS[u.crop].by * u.yieldMult * D.CULTS[u.cult].yield * D.SOWS[u.sow].yield * u.area * 10) / 60;
+    const avail = U.sum(RG.sim.planUnits(st).filter((u) => D.CROPS[u.crop].market), ub) - U.sum(st.contracts, (c) => c.volume) - RG.sim.directPlanned(st);
+    return Math.min(p, Math.max(0, Math.round(avail)));
+  };
   // 加工に使う米：もち米があればもち米、なければうるち米
   BZ.procIsMochi = (st) => RG.sim.planUnits(st).some((u) => D.CROPS[u.crop].group === 'mochi');
 
@@ -54,7 +62,7 @@
     const hv = Math.min(b.harvest || 0, spare.combine), dr = b.droneLicense ? Math.min(b.drone || 0, spare.drone) : 0;
     out.autumn += hv * 10 * BZ.DEFS.harvest.hours;
     out.summer += dr * 10 * BZ.DEFS.drone.hours;
-    out.winter += BZ.procPlanned(st) * BZ.DEFS.proc.hours;
+    out.winter += BZ.procUsable(st) * BZ.DEFS.proc.hours;
     if (BZ.has(st, 'stand')) for (const s in BZ.DEFS.stand.hours) out[s] += BZ.DEFS.stand.hours[s];
     return { hours: out, harvest: hv, drone: dr };
   };

@@ -196,7 +196,7 @@
         if (r.skill) st.skill = Math.min(1.1, st.skill + r.skill);
         if (r.omamori) st.items.omamori += r.omamori;
         if (r.reroll) st.items.reroll += r.reroll;
-        if (r.land) st.rivalLand = (st.rivalLand || []).concat([{ id: 'm_' + m.id, owner: D.PEOPLE[m.who] ? D.PEOPLE[m.who].name.replace(/（.*）/, '') : '地域の人', area: r.land, reason: '依頼を果たしてくれたお礼に' }]);
+        if (r.land) st.rivalLand = (st.rivalLand || []).concat([{ id: 'm_' + m.id, owner: D.PEOPLE[m.who] ? D.PEOPLE[m.who].name.replace(/（.*）/, '') : '地域の人', area: r.land, soil: 'good', reason: '依頼を果たしてくれたお礼に' }]);
         if (r.cash || r.lowRateNext || r.subsidyNext) st.nextRewards.push(Object.assign({ title: m.title }, r));
         notes.push('【依頼達成】「' + m.title + '」を達成した！ ごほうび：' + CH.rewardText(r));
         done.push(m.id);

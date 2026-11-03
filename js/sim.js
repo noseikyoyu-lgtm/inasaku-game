@@ -112,9 +112,10 @@
     const cap = {};
     const share = SIM.soilShare(st);
     st.machines.forEach((m) => { const md = D.MODELS[m.model]; cap[md.type] = (cap[md.type] || 0) + (md.cap ? SIM.fieldCap(st, m.model, share) : 0); });
+    // 作業受託で引き受けた面積も、コンバインの仕事に入る（コンバインの空き能力で引き受けられる分だけ）
+    const hvAcc = RG.biz && RG.biz.has(st, 'combine') ? Math.min(RG.biz.state(st).harvest || 0, RG.biz.spare(allocType(st, 'combine', planted, {}))) : 0;
     return {
-      // 作業受託で引き受けた面積も、コンバインの仕事に入る
-      need: { tractor: planted, nursery: transplant, planter: transplant, combine: planted + (RG.biz ? RG.biz.state(st).harvest || 0 : 0), dryer: planted },
+      need: { tractor: planted, nursery: transplant, planter: transplant, combine: planted + hvAcc, dryer: planted },
       cap,
       poorShare: total > 0 ? U.sum(st.fields.filter((f) => f.soil === 'poor'), (f) => f.area) / total : 0,
       // 倒れやすさ（耐倒伏の弱い品種ほど大きい）と、直播の割合
@@ -196,10 +197,12 @@
     const bales = U.sum(units, (u) => (D.CROPS[u.crop].by * u.yieldMult * D.CULTS[u.cult].yield * D.SOWS[u.sow].yield * u.area * 10) / 60);
     return Math.max(0, Math.min(st.direct.alloc, bales));
   };
-  SIM.advanceQty = function (st) {
+  // exp：農協への出荷見込み（見通しの計算から渡す。ないときは簡単な見積もり）
+  SIM.advanceQty = function (st, exp) {
     const a = st.jaAdvance;
     if (!a || !a.on) return 0;
-    return a.auto ? Math.floor(SIM.expectedJA(st) * D.SALES.advanceAutoShare / 10) * 10 : Math.max(0, Math.min(Math.round(a.qty || 0), Math.floor(SIM.expectedJA(st))));
+    const e = exp != null ? exp : SIM.expectedJA(st);
+    return a.auto ? Math.floor(e * D.SALES.advanceAutoShare / 10) * 10 : Math.max(0, Math.min(Math.round(a.qty || 0), Math.floor(e)));
   };
 
   SIM.shortLoanLimit = function (st) {
@@ -428,7 +431,7 @@
       .forEach((u) => { u.ref.hStart = u.start; u.ref.hEnd = u.end; u.ref.late = u.late; });
     const plotRes = [];
     const products = {};
-    let kyosaiPay = 0;
+    let kyosaiPay = 0, expMgmt = 0; // expMgmt：平年作で見込める米の量（経営の条件を入れたもの。出荷契約金の自動数量に使う）
     for (const p of P) {
       const v = p.crop;
       const n = norm[p.f.crop];
@@ -458,6 +461,7 @@
       pr.bales += bales; pr.area += p.f.area; pr.r1w += r1 * bales; pr.gcw += gi.coef * bales;
       // 収量共済の基準は「その経営の平年収量」：気象・病害虫・獣害以外の減収は補てんしない
       const stdMgmt = std * p.timing.m * skillY * laborY * delayY * (1 - lateY);
+      if (v.market) expMgmt += stdMgmt * p.a10 / 60;
       if (v.market && y10 < 0.8 * stdMgmt) kyosaiPay += ((0.8 * stdMgmt - y10) / 60) * p.a10 * 0.75 * price * v.priceCoef;
     }
     const plist = Object.values(products);
@@ -471,6 +475,8 @@
       marketYieldPer10a: area.marketCrop > 0 ? (marketBales * 60) / (area.marketCrop * 10) : 0,
       r1: marketBales > 0 ? U.sum(plist.filter((x) => D.CROPS[x.crop].market), (x) => x.r1w) / marketBales : 0,
       laborY, delayY, pestLoss: sev,
+      // 農協への出荷見込み（平年作。契約・直販・加工・米屋や商店に回す分を除く）
+      expectedJA: Math.max(0, expMgmt - U.sum(st.contracts, (c) => c.volume) - SIM.directPlanned(st) - (RG.biz ? RG.biz.procPlanned(st) : 0) - SIM.shopsPlanned(st)),
       maxLate: P.length ? Math.max.apply(null, P.map((p) => p.late)) : 0,
     };
 
@@ -615,7 +621,7 @@
     const jaRev = U.sum(sales.ja, (x) => x.revenue);
     const jaBales = U.sum(sales.ja, (x) => x.bales);
     // 農協の出荷契約金（前渡金）：6月に受け取り、10月の概算金と相殺。出荷が契約数量に届かなければ11月に不足分を返す
-    const advQty = SIM.advanceQty(st), advUnit = SIM.advanceUnit(st);
+    const advQty = SIM.advanceQty(st, res.production.expectedJA), advUnit = SIM.advanceUnit(st);
     const adv = { qty: advQty, unit: advUnit, amount: advQty * advUnit, shipped: jaBales, offset: Math.min(advQty, jaBales) * advUnit, ret: Math.max(0, advQty - jaBales) * advUnit };
     res.jaAdvance = adv;
     if (adv.amount > 0) {
@@ -644,7 +650,7 @@
     const bizRev = U.sum(['harvest', 'drone', 'proc', 'stand'], (k) => (biz[k] ? biz[k].revenue : 0));
     const salesTotal = jaRev + contractRev + shopRev + direct.revenue + spotRev + feedRev + bizRev + (stockSale ? stockSale.revenue : 0);
     // 収入保険の対象：今年とれた米の販売（保管に回した分は収穫時の値段で含める）
-    const insurableRev = jaRev + contractRev + shopRev + direct.revenue + spotRev + (stockEnd ? stockEnd.value : 0);
+    const insurableRev = jaRev + contractRev + shopRev + direct.revenue + spotRev + (biz.proc ? biz.proc.revenue : 0) + (stockEnd ? stockEnd.value : 0); // 加工に回した米の売上も収入に入れる
 
     // ---------- 6. 収入の計上と入金時期 ----------
     add('jaSales', jaRev);
@@ -748,7 +754,8 @@
     spend('landTax', area.owned * 10 * D.COST.landTax, { 6: 1 });
     spend('misc', D.COST.miscFixed * mInf + D.COST.miscRate * salesTotal, MONTHLY);
     if (st.corp) spend('execPay', st.execPay * 1.15, MONTHLY, '役員報酬');
-    dfx.costs.forEach((c) => spend('eventCost', c.amount, { [c.month]: 1 }, c.label));
+    // 費用が浮く選択（穂肥をやらない・農薬を減らすなど）はマイナスの費用として差し引く
+    dfx.costs.forEach((c) => { if (c.amount < 0) { add('eventCost', c.amount); cashAt(c.month, -c.amount, 'eventCost', c.label); } else spend('eventCost', c.amount, { [c.month]: 1 }, c.label); });
     (dfx.incomes || []).forEach((c) => { add('otherIncome', c.amount); cashAt(c.month, c.amount, 'otherIncome', c.label); });
 
     // 計画フェーズ中の取引（購入・借入・イベントなど）
@@ -773,10 +780,12 @@
     }
 
     // 借入金
-    if (st.shortLoan > 0) {
-      const it = st.shortLoan * D.FIN.shortRate * 11 / 12;
-      cashAt(1, st.shortLoan, 'loanIn', '運転資金の借入');
-      cashAt(12, -st.shortLoan, 'loanOut', '運転資金の返済');
+    // 運転資金：その年の上限（前年の売上で決まる）を超えては借りられない
+    const sl = Math.min(st.shortLoan || 0, SIM.shortLoanLimit(st));
+    if (sl > 0) {
+      const it = sl * D.FIN.shortRate * 11 / 12;
+      cashAt(1, sl, 'loanIn', '運転資金の借入');
+      cashAt(12, -sl, 'loanOut', '運転資金の返済');
       add('interest', it);
       cashAt(12, -it, 'interest', '運転資金の利息');
     }
@@ -990,7 +999,8 @@
     RG.market.advance(st);
 
     const bs = ACC.bs(st);
-    Object.assign(res, { corp: st.corp, living: livingUsed, cashEnd: st.cash, lossCarry: st.lossCarry });
+    const capital = U.sum(st.ledger.filter((x) => x.cat === 'capital'), (x) => x.amount); // その年の出資（援助など）
+    Object.assign(res, { corp: st.corp, living: livingUsed, cashEnd: st.cash, lossCarry: st.lossCarry, capital });
     res.bsStart = bsStart;
     res.bs = bs;
     res.analysis = ACC.analyze(st, res, bs);

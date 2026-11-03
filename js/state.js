@@ -295,7 +295,9 @@
       const m = c.machines[t];
       if (!m || !m.size || m.size === 'none') return;
       const n = U.clamp(Math.round(numOr(m.count, 1)), 1, 10);
-      for (let i = 0; i < n; i++) machines.push({ model: SIZE_MODEL[t][m.size], age: U.clamp(Math.round(numOr(m.age, 0)), 0, 40) });
+      // 寿命の年数に届いている機械も、1年目は使えるようにする（寿命の1年前にそろえる）
+      const model = SIZE_MODEL[t][m.size], lim = (D.MODELS[model].maxAge || 41) - 1;
+      for (let i = 0; i < n; i++) machines.push({ model, age: U.clamp(Math.round(numOr(m.age, 0)), 0, Math.min(40, lim)) });
     });
     const family = [{ name: 'あなた', role: c.corp ? '代表' : '経営主', hours: 2000, age: Math.round(numOr(c.age, 60)), tag: 'operator' }];
     (c.family || []).forEach((f) => family.push({ name: f.rel || '家族', role: '家族（' + D.WORK_STYLES[f.work].name + '）', hours: D.WORK_STYLES[f.work].hours, age: Math.round(numOr(f.age, 60)) }));
@@ -343,7 +345,9 @@
   };
 
   S.addStaff = function (st) {
-    const name = D.STAFF_NAMES[st.staff.length % D.STAFF_NAMES.length] + 'さん';
+    // 今いる社員と同じ名前にならないようにする
+    const used = new Set(st.staff.map((s) => s.name)), names = D.STAFF_NAMES.map((n) => n + 'さん');
+    const name = names.find((n) => !used.has(n)) || names[st.staff.length % names.length];
     st.staff.push({ id: U.uid(st, 's'), name, years: 0, salary: D.LABOR.staffSalary * st.market.wageInfl });
   };
 
@@ -387,6 +391,7 @@
     // 自分の経営モードは区切りなく続く（中間評価と見立ての期間を10年ずつ延ばす）
     if (st.year > st.maxYear && st.mode === 'endless') st.maxYear += 10;
     if (st.year > st.maxYear) { st.year = st.maxYear; st.phase = 'end'; return; }
+    if (RG.sim && st.shortLoan > 0) st.shortLoan = Math.min(st.shortLoan, RG.sim.shortLoanLimit(st)); // 前年の売上が減ると、運転資金の上限も下がる
     S.beginYear(st);
   };
 

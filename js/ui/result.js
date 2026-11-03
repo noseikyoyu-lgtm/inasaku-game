@@ -172,7 +172,8 @@
     const r = (label, x, y, cls) => ({ cls: cls || '', cells: [label, { v: U.man(x), cls: 'num' }, { v: U.man(y), cls: 'num ' + (y < 0 ? 'neg' : '') }, { v: (y - x >= 0 ? '+' : '') + U.man(y - x), cls: 'num' }] });
     const hd = [{ label: '' }, { label: '期首', num: true }, { label: '期末', num: true }, { label: '増減', num: true }];
     const pl = res.pl;
-    const capital = U.sum(st.ledger.filter((x) => x.cat === 'capital'), (x) => x.amount);
+    // 出資は、表示している年の決算に残した額を使う（前年の決算を見るときに今年の帳簿を見ないように）
+    const capital = res.capital != null ? res.capital : U.sum(st.ledger.filter((x) => x.cat === 'capital'), (x) => x.amount);
     return h('div', { class: 'stack' },
       h('div', { class: 'grid2' },
         UI.card('資産の部', null, UI.table(hd, [
@@ -212,6 +213,7 @@
       ['売却損益（利益に含まれている分）', -gains],
       ['機械・農地の購入', byCat('asset')],
       ['新たな借入', byCat('loanIn')],
+      ['出資（援助など）', byCat('capital')],
       ['借入金の返済（元金）', byCat('loanOut')],
       ['前年分の税金の支払い', byCat('tax')],
       st.corp ? null : ['家計費', byCat('withdraw')],

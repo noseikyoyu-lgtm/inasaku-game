@@ -9,7 +9,9 @@
 
   // ---------- オファー ----------
   E.genOffers = function (st) {
-    return { land: genLand(st).concat(RG.rivals ? RG.rivals.landOffers(st) : []), contracts: genContracts(st), used: genUsed(st) };
+    // 農地を売ったあとの3年間は、離農した人や依頼のお礼の田の話も来ない（話は取っておき、期間が明けたら届く）
+    const rv = RG.rivals && !landBanned(st) ? RG.rivals.landOffers(st) : [];
+    return { land: genLand(st).concat(rv), contracts: genContracts(st), used: genUsed(st) };
   };
 
   const landBanned = (st) => !!st.flags.landSoldYear && st.year > st.flags.landSoldYear && st.year - st.flags.landSoldYear <= (RG.actions ? RG.actions.LAND_SALE_BAN : 3);
@@ -170,7 +172,7 @@
       title: '経営・栽培の研修会',
       text: () => '普及センター主催の研修会（栽培技術と経営分析）の案内が来た。',
       choices: [
-        { label: '参加する（受講料 10万円）', desc: '技術力 +0.02（収量・品質・作業効率が上がる）', apply: (st) => { addCost(st, 100000, '研修会の受講料', 'recruit'); st.skill = Math.min(1.04, st.skill + 0.02); return '研修で多くを学んだ。技術力が上がった。'; } },
+        { label: '参加する（受講料 10万円）', desc: '技術力 +0.02（収量・品質・作業効率が上がる）', apply: (st) => { addCost(st, 100000, '研修会の受講料', 'recruit'); st.skill = Math.max(st.skill, Math.min(1.04, st.skill + 0.02)); return '研修で多くを学んだ。技術力が上がった。'; } },
         { label: '忙しいので見送る', desc: '', apply: () => '研修は見送った。' },
       ],
     },

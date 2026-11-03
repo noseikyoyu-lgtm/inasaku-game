@@ -58,7 +58,7 @@
         ret ? UI.note('warn', '経営主が' + ret.age + '歳になり、農作業から引退しました', '引き継げる後継者がいないため、ここで経営を終えます。引退時の純資産は ' + U.man(hs[years - 1].equity) + '、借入残高は ' + U.man(hs[years - 1].debt) + ' でした。') : null,
         h('div', { class: 'row', style: { gap: '20px', alignItems: 'center', marginTop: ret ? '10px' : 0 } },
           h('div', { style: { textAlign: 'center' } }, h('div', { class: 'rank' }, sc.rank), h('div', { class: 'muted small' }, U.num(sc.total, 1) + ' / 100点')),
-          h('div', null, h('h2', null, sc.title), h('p', null, years + '年間で純資産を ' + U.man(sc.eqGain) + ' 増やし、経営者・家族は年平均 ' + U.man(sc.avgInc) + ' の所得を得ました。'))),
+          h('div', null, h('h2', null, sc.title), h('p', null, years + '年間で' + (Math.round(sc.eqGain / 1e5) >= 0 ? '純資産を ' + U.man(sc.eqGain) + ' 増やし' : '純資産が ' + U.man(-sc.eqGain) + ' 減り') + '、経営者・家族は年平均 ' + U.man(sc.avgInc) + ' の所得を得ました。'))),
         UI.table([{ label: '評価項目' }, { label: '実績', num: true }, { label: '得点', num: true }],
           sc.items.map((x) => [x.label, { v: x.value, cls: 'num' }, { v: U.num(x.pts, 1) + ' / ' + x.max, cls: 'num' }])));
     }
@@ -114,15 +114,16 @@
       U.man(x.sales) + '</td><td>' + U.man(x.income) + '</td><td>' + U.man(x.equity) + '</td><td>' + U.man(x.debt) + '</td></tr>').join('');
     let input = '';
     if (c) {
-      const fam = c.family.map((f) => esc(f.rel) + ' ' + f.age + '歳（' + D.WORK_STYLES[f.work].name + '）').join('、') || 'なし';
-      const mach = Object.keys(c.machines).map((t) => D.MACHINE_TYPES[t].name + '：' + (c.machines[t].size === 'none' ? '委託' : D.MODELS[RG.state.SIZE_MODEL[t][c.machines[t].size]].name + '・' + c.machines[t].age + '年使用')).join('、');
+      const n = RG.state.numOr; // 空欄のときは、ゲームで実際に使った初期値を書く（S.buildCustom と同じ）
+      const fam = c.family.map((f) => esc(f.rel) + ' ' + Math.round(n(f.age, 60)) + '歳（' + D.WORK_STYLES[f.work].name + '）').join('、') || 'なし';
+      const mach = Object.keys(c.machines).map((t) => D.MACHINE_TYPES[t].name + '：' + (c.machines[t].size === 'none' ? '委託' : D.MODELS[RG.state.SIZE_MODEL[t][c.machines[t].size]].name + '・' + Math.round(n(c.machines[t].age, 0)) + '年使用')).join('、');
       input = '<h2>始めたときの経営</h2><ul>' +
-        '<li>経営主 ' + c.age + '歳・経験 ' + c.exp + '年・' + (c.corp ? '法人' : '個人経営') + '</li>' +
-        '<li>家族の働き手：' + fam + '・後継者：' + ({ now: 'いる（一緒に働いている）', plan: 'いる（' + c.succYear + '年後に就農予定）', none: 'いない・未定' }[c.successor]) + '</li>' +
-        '<li>農地：所有 ' + c.owned + 'ha・借地 ' + c.rented + 'ha（地代 ' + U.num(c.rent) + '円/10a）</li>' +
+        '<li>経営主 ' + Math.round(n(c.age, 60)) + '歳・経験 ' + U.clamp(n(c.exp, 0), 0, 60) + '年・' + (c.corp ? '法人' : '個人経営') + '</li>' +
+        '<li>家族の働き手：' + fam + '・後継者：' + ({ now: 'いる（一緒に働いている）', plan: 'いる（' + Math.round(n(c.succYear, 1)) + '年後に就農予定）', none: 'いない・未定' }[c.successor]) + '</li>' +
+        '<li>農地：所有 ' + Math.max(0, n(c.owned, 0)) + 'ha・借地 ' + Math.max(0, n(c.rented, 0)) + 'ha（地代 ' + U.num(Math.max(0, n(c.rent, 10000))) + '円/10a）</li>' +
         '<li>作付：' + c.crops.map((x) => esc(D.CROPS[x.crop].name) + ' ' + x.pct + '%').join('、') + '</li>' +
         '<li>機械：' + esc(mach) + '</li>' +
-        '<li>預貯金 ' + U.man(c.cash) + '・借入 ' + U.man(c.debt) + '（残り' + c.debtYears + '年）・' + (c.corp ? '役員報酬 ' + U.man(c.execPay) : '家計費 ' + U.man(c.living)) + '</li></ul>';
+        '<li>預貯金 ' + U.man(Math.max(0, n(c.cash, 0))) + '・借入 ' + U.man(Math.max(0, n(c.debt, 0))) + '（残り' + Math.max(1, Math.round(n(c.debtYears, 5))) + '年）・' + (c.corp ? '役員報酬 ' + U.man(Math.max(D.FIN.livingMin, n(c.execPay, 0))) : '家計費 ' + U.man(Math.max(D.FIN.livingMin, n(c.living, 0)))) + '</li></ul>';
     }
     const html = '<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>' + esc(st.farmName) + ' 経営の振り返り</title>' +
       '<style>body{font-family:"Hiragino Kaku Gothic ProN","Yu Gothic UI","Meiryo",sans-serif;max-width:860px;margin:24px auto;padding:0 16px;color:#222;line-height:1.6}' +
