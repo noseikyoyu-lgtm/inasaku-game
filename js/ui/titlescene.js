@@ -15,6 +15,10 @@
     return v / n;
   }
 
+  // スマホ（指で触る画面）では、絵の細かさを下げて軽くする（メモリが足りずに点滅しないように）
+  const TOUCH = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+  const DPR = () => Math.min(TOUCH ? 1.5 : 2, window.devicePixelRatio || 1);
+
   TS.mount = function (canvas) {
     canvas._alive = true;
     const ctx = canvas.getContext('2d');
@@ -77,7 +81,7 @@
 
     // 田んぼ（稲の面）と畦を、別の canvas に描いておく
     function buildField(r) {
-      const hz = horizon(), FH = H - hz, dpr = Math.min(2, window.devicePixelRatio || 1), CW = W + OVER * 2;
+      const hz = horizon(), FH = H - hz, dpr = DPR(), CW = W + OVER * 2;
       const mk = () => { const c = document.createElement('canvas'); c.width = Math.round(CW * dpr); c.height = Math.round(FH * dpr); const x = c.getContext('2d'); x.setTransform(dpr, 0, 0, dpr, 0, 0); return [c, x]; };
       const [cc, c] = mk(), [lc, l] = mk();
       const vx = CW / 2;
@@ -185,9 +189,13 @@
       carpet = cc; levees = lc;
     }
 
-    function resize() {
-      const dpr = Math.min(2, window.devicePixelRatio || 1);
-      W = canvas.clientWidth || window.innerWidth; H = canvas.clientHeight || window.innerHeight;
+    function resize(force) {
+      const dpr = DPR();
+      const nW = canvas.clientWidth || window.innerWidth, nH = canvas.clientHeight || window.innerHeight;
+      // スマホでは、スクロールでアドレスバーが出たり消えたりするたびに高さが少し変わる。
+      // そのたびに描き直すと画面が点滅するので、幅が同じで高さの変化が小さいときは描き直さない（絵はそのまま伸び縮みさせる）
+      if (!force && W && nW === W && Math.abs(nH - H) < 160) return;
+      W = nW; H = nH;
       canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       build();
@@ -356,18 +364,20 @@
       ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
     }
 
+    let lastDraw = -1e9;
     function loop(now) {
       if (!canvas.isConnected) { cleanup(); return; }
-      draw(now - start);
+      if (!TOUCH || now - lastDraw >= 33) { lastDraw = now; draw(now - start); } // スマホは30コマ/秒で十分（電池と熱のため）
       raf = requestAnimationFrame(loop);
     }
     const onMove = (e) => { tx = (e.clientX / window.innerWidth - 0.5) * 2; ty = (e.clientY / window.innerHeight - 0.5) * 2; };
-    const onResize = () => { if (!canvas.isConnected) { cleanup(); return; } resize(); };
+    let resizeTimer = 0;
+    const onResize = () => { if (!canvas.isConnected) { cleanup(); return; } clearTimeout(resizeTimer); resizeTimer = setTimeout(() => resize(), 150); };
     function cleanup() { canvas._alive = false; cancelAnimationFrame(raf); window.removeEventListener('pointermove', onMove); window.removeEventListener('resize', onResize); }
 
     window.addEventListener('resize', onResize);
     if (!reduce) window.addEventListener('pointermove', onMove);
     // DOM に入ってから大きさを測る
-    requestAnimationFrame(() => { resize(); if (!reduce) raf = requestAnimationFrame(loop); });
+    requestAnimationFrame(() => { resize(true); if (!reduce) raf = requestAnimationFrame(loop); });
   };
 })(window.RG = window.RG || {});

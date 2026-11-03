@@ -31,6 +31,8 @@
   function shade(c, k) { return k >= 0 ? mix(c, '#ffffff', k) : mix(c, '#000000', -k); }
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
+  const TOUCH = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches); // スマホは絵の細かさを少し下げる
+
   FS.mount = function (canvas, getMonth, opts) {
     opts = opts || {};
     canvas._alive = true;
@@ -41,8 +43,10 @@
     const flakes = Array.from({ length: 70 }, (_, i) => ({ x: (i * 97) % 1000 / 1000, y: (i * 61) % 1000 / 1000, s: 0.6 + (i % 5) * 0.3, v: 0.3 + (i % 7) * 0.08 }));
 
     function size() {
-      dpr = Math.min(2, window.devicePixelRatio || 1);
-      W = canvas.clientWidth; H = canvas.clientHeight;
+      const nd = Math.min(TOUCH ? 1.5 : 2, window.devicePixelRatio || 1), nW = canvas.clientWidth, nH = canvas.clientHeight;
+      // 大きさが変わっていなければ描き直さない（スマホでアドレスバーが出入りするたびに絵が消えて点滅しないように）
+      if (nW === W && nH === H && nd === dpr && canvas.width) return;
+      dpr = nd; W = nW; H = nH;
       if (!W || !H) return;
       canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);

@@ -213,3 +213,10 @@
 .stc-meta .diff-meter { display: inline-flex; gap: 3px; }
 .stc-meta .diff-meter i { width: 14px; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, .18); }
 .stc-meta .diff-meter i.on { background: var(--t-gold); }
+
+/* スマホ（指で触る画面）では、背景のぼかしを使わない。動く絵の上でぼかすと重く、画面が点滅することがあるため */
+@media (pointer: coarse) {
+  .px-window, .title-foot, .vn-chip, .vn-box { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+  .px-window { background: rgba(20, 15, 11, .82); }
+  .title-foot { background: rgba(14, 10, 7, .8); }
+}
