@@ -5,7 +5,12 @@
   const D = RG.data, U = RG.util, E = RG.events;
   const PL = RG.playlog = {};
 
-  PL.get = (st) => st.playlog || (st.playlog = { plans: [], events: [], results: [], notes: [] });
+  PL.get = (st) => {
+    const L = st.playlog || (st.playlog = { plans: [], events: [], results: [], notes: [] });
+    // ゲームごとの番号（同じ人が同じ条件で遊び直しても、別のゲームとして数えるため）
+    if (!L.gid) L.gid = 'g' + Math.random().toString(36).slice(2, 10);
+    return L;
+  };
   const r0 = (v) => Math.round(v || 0);
   const r1 = (v) => Math.round((v || 0) * 10) / 10;
 
@@ -58,7 +63,7 @@
   PL.summary = function (st) {
     const L = PL.get(st);
     return {
-      scenario: st.scenarioId, custom: st.scenarioId === 'custom', seed: st.seed, year: st.year, maxYear: st.maxYear, phase: st.phase,
+      gid: L.gid, scenario: st.scenarioId, custom: st.scenarioId === 'custom', seed: st.seed, year: st.year, maxYear: st.maxYear, phase: st.phase, mode: st.mode, closed: !!st.closed,
       corp: !!st.corp, gameOver: st.gameOver ? { reason: st.gameOver.reason, year: st.gameOver.year } : null,
       score: st.history.length && RG.score ? { rank: RG.score(st).rank, total: r1(RG.score(st).total) } : null,
       midterms: (st.midterms || []).map((m) => m.year + ':' + m.rank + r0(m.total)),

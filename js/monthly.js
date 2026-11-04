@@ -10,6 +10,8 @@
   const grows = (st, f) => st.plan.some((r) => r.area > 0 && f(D.CROPS[r.crop] || {}, r));
   const hasM = (st, type) => st.machines.some((m) => D.MODELS[m.model].type === type);
   const totalArea = (st) => U.sum(st.fields, (f) => f.area);
+  // その年にサイコロ勝負（台風・カメムシなど）が来るか（同じ題の毎月のできごとと重ならないように）
+  const crisisYear = (st, id) => !!(RG.dice && RG.dice.crises(st).some((c) => c.id === id));
   // e：y=収量（+0.01で+1%）q=品質（1等米の割合に効く点数）cost=出費 income=収入 trust brand cust=直販のお客さん skill bd=今年の機械の故障しやすさ（×） h=作業時間 { season: 時間 }
   const o = (t, e) => ({ t, e: e || {} });
   ME.EVENTS = [
@@ -259,7 +261,7 @@
         { label: '朝夕だけ作業する', out: [o('作業がたまってしまった。', { h: { summer: 8 } }), o('体調をくずさずにすんだ。'), o('涼しい時間にまとめてやり、はかどった。', { h: { summer: -4 } })] },
         { label: '空調服とスポーツドリンクで乗りきる', pre: { cost: 20000 }, out: [o('それでも熱中症で1日寝こんだ。', { h: { summer: 10 } }), o('なんとか乗りきった。'), o('快適に作業が進んだ。', { h: { summer: -6 } })] },
       ] },
-    { id: 'kamemushi', months: [7], who: 'takahashi', icon: '🐞', title: 'カメムシ注意報', text: '「県からカメムシの注意報が出た。斑点米が出ると等級が下がるから、気をつけて」',
+    { id: 'kamemushi', months: [7], cond: (st) => !crisisYear(st, 'stinkbug'), who: 'takahashi', icon: '🐞', title: 'カメムシ注意報', text: '「県からカメムシの注意報が出た。斑点米が出ると等級が下がるから、気をつけて」',
       choices: [
         { label: 'あぜの草刈りと防除をしっかりやる', pre: { cost: (st) => Math.round(area10(st) * 300), h: { summer: 8 } }, out: [o('それでも少し斑点米が出た。', { q: 1 }), o('被害をおさえられた。', { q: 3 }), o('ほとんど被害がなく、1等米ばかりになった。', { q: 5 })] },
         { label: 'いつもどおりにする', out: [o('斑点米が出て、等級が下がった。', { q: -3 }), o('少し出たが、大きな被害はなかった。', { q: -1 }), o('今年は運よく、あまり来なかった。')] },
@@ -286,7 +288,7 @@
         { label: '育て方の資料をあげる', out: [o('ちょっと難しかったらしい。'), o('喜んでもらえた。', { trust: 1 }), o('お礼の絵が届き、作業場に飾った。', { trust: 1, brand: 1 })] },
       ] },
     // 9月
-    { id: 'taifu_yohou', months: [9], who: 'takahashi', icon: '🌀', title: '台風が近づいている', text: '「台風がこっちに向かっている。進路しだいだが、刈れる田は先に刈ってしまう手もあるよ」',
+    { id: 'taifu_yohou', months: [9], cond: (st) => !crisisYear(st, 'typhoon'), who: 'takahashi', icon: '🌀', title: '台風が近づいている', text: '「台風がこっちに向かっている。進路しだいだが、刈れる田は先に刈ってしまう手もあるよ」',
       choices: [
         { label: '少し早いが刈れる田を刈る', pre: { h: { autumn: 10 } }, out: [o('台風はそれ、早刈りで少し収量が落ちた。', { y: -0.004 }), o('無事に刈り取れた。'), o('刈ったあとに台風が直撃。早めの判断が正解だった。', { y: 0.008 })] },
         { label: '予定どおりにする', out: [o('強い風で稲が倒れた。', { y: -0.01, q: -2 }), o('台風はそれた。'), o('台風一過の晴れで、気持ちよく刈れた。', { q: 1 })] },

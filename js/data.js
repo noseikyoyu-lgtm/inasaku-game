@@ -13,7 +13,7 @@
   D.SEASON_NAMES = { spring: '春（3〜5月）', summer: '夏（6〜8月）', autumn: '秋（9〜11月）', winter: '冬（12〜2月）' };
   D.SEASON_ICON = { spring: '🌸', summer: '☀️', autumn: '🍁', winter: '❄️' };
   D.SEASON_SHORT = { spring: '春', summer: '夏', autumn: '秋', winter: '冬' };
-  D.SEASON_CAP = { spring: 0.28, summer: 0.30, autumn: 0.28, winter: 0.14 }; // 年間労働時間の季節配分
+  D.SEASON_CAP = { spring: 0.32, summer: 0.26, autumn: 0.28, winter: 0.14 }; // 年間労働時間の季節配分（育苗・代かき・田植えが重なる春をいちばん多く）
   D.PART_CAP = { spring: 160, summer: 100, autumn: 160, winter: 60 };        // パート1人の季節別上限時間
   D.SEASON_SHARE_MIN = 0.10; D.SEASON_SHARE_MAX = 0.40; // 家族・社員が1つの季節に割ける時間の幅（年間の何割か）
   D.DIRECT_LABOR_SPLIT = { spring: 0.2, summer: 0.1, autumn: 0.3, winter: 0.4 };
@@ -251,17 +251,20 @@
 
   // ---------- 作業 ----------
   // share: 総労働時間に占める割合 / mtype: 必要な機械 / fee: 委託料（円/10a）/ perBale: 委託料（円/俵。とれた量で決まる作業）
+  // 割合は農林水産省「米生産費統計」の作業別労働時間をもとにした：春（育苗・耕起整地・基肥・田植え）が約4割でいちばん多く、
+  // 夏の水管理は長い期間に少しずつ（見回り）なので、時間のわりに人手は集中しない
   // 委託料は市町村の標準料金をもとにした（例：新潟県村上市 R6・7 耕起6,000＋代かき7,000円/10a、田植え6,500円＋側条施肥1,500円、刈取り18,000円、乾燥調製 30kgあたり950円）
   D.OPS = {
-    till:    { name: '耕起・代かき', mtype: 'tractor', share: 0.18, season: 'spring', fee: 13000, on: 'planted' },
+    prep:    { name: '春の準備（畦塗り・水路の掃除・肥料まき）', mtype: null, share: 0.06, season: 'spring', fee: 0, on: 'planted' },
+    till:    { name: '耕起・代かき', mtype: 'tractor', share: 0.17, season: 'spring', fee: 13000, on: 'planted' },
     nursery: { name: '育苗', mtype: 'nursery', share: 0.12, season: 'spring', fee: 10000, on: 'transplant', feeName: '苗の購入' },
-    plant:   { name: '田植え', mtype: 'planter', share: 0.12, season: 'spring', fee: 8000, on: 'transplant' },
+    plant:   { name: '田植え', mtype: 'planter', share: 0.13, season: 'spring', fee: 8000, on: 'transplant' },
     seed:    { name: '直播（播種）', mtype: null, share: 0.05, season: 'spring', fee: 0, on: 'direct' },
-    manage:  { name: '水管理・除草・防除', mtype: null, share: 0.28, season: 'summer', fee: 0, on: 'planted' },
+    manage:  { name: '水管理・除草・防除', mtype: null, share: 0.22, season: 'summer', fee: 0, on: 'planted' },
     harvest: { name: '稲刈り', mtype: 'combine', share: 0.18, season: 'autumn', fee: 18000, on: 'planted' },
     dry:     { name: '乾燥・調製', mtype: 'dryer', share: 0.12, season: 'autumn', fee: 0, perBale: 1900, on: 'planted' },
   };
-  D.OP_ORDER = ['till', 'nursery', 'plant', 'seed', 'manage', 'harvest', 'dry'];
+  D.OP_ORDER = ['prep', 'till', 'nursery', 'plant', 'seed', 'manage', 'harvest', 'dry'];
 
   // 作業委託の受け皿（ha、作業ごと）＝ base + 地域の信頼 × perTrust
   D.CONTRACT_CAP = { base: 8, perTrust: 0.12 };

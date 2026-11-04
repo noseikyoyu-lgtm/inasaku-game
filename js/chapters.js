@@ -219,7 +219,7 @@
     let ids = E.POOL.filter((e) => e.mission && e.cond(st) && st.events.queue.indexOf(e.id) < 0).map((e) => e.id);
     // 品種の依頼は、1年に1つまで（引き受けている品種の依頼があるときは届かない）
     const isCrop = (id) => !!(CH.def(id.replace(/^mission_/, '')) || {}).crop;
-    const busy = CH.active(st).some((x) => CH.def(x.id).crop);
+    const busy = CH.active(st).some((x) => CH.def(x.id).crop) || st.events.queue.some(isCrop); // 届いてまだ返事をしていない依頼も数える
     const firstCrop = busy ? null : ids.find(isCrop);
     ids = ids.filter((id) => !isCrop(id) || id === firstCrop);
     st.events.queue = ids.concat(st.events.queue);

@@ -78,7 +78,7 @@
     { id: 'tv', icon: '📺', title: 'テレビで紹介された',
       apply: (st) => { const n = Math.max(20, Math.round(st.direct.customers * 0.3)); st.direct.customers += n; st.brand = Math.min(100, st.brand + 8);
         return '地元の番組で取り上げられ、直販の顧客が ' + n + '人 増え、ブランド力が上がった。'; } },
-    { id: 'good_land', icon: '🌾', title: '好条件の田んぼの話',
+    { id: 'good_land', icon: '🌾', title: '好条件の田んぼの話', cond: (st) => !RG.events.landBanned(st), // 農地を売ったあとの、話が来ない期間は引かない
       apply: (st) => { const r = RG.rng.make(st.seed, st.year, 'card_land'); const a = U.round(r.range(1, 2.5), 1); const p10 = r.int(D.LAND_PRICE.good[0], D.LAND_PRICE.good[1]) * 10000;
         st.offers.land.push({ id: 'L' + st.year + '_lucky', owner: r.pick(D.SURNAMES) + 'さん', reason: 'あなたなら安心して任せられると言ってくれた',
           place: r.pick(D.PLACES), area: a, soil: 'good', buy: false, rent: 7000, price: Math.round(a * 10 * p10), price10a: p10 });

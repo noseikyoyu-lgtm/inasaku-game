@@ -153,7 +153,7 @@
     } else if (pv.cash.minBalance < 500000) {
       out.push({ level: 'warn', text: pv.cash.minMonth + '月の資金残高が ' + U.man(pv.cash.minBalance) + ' まで下がる見込み。不作や値下がりがあると資金が足りなくなるかもしれません。' });
     }
-    const undone = D.OP_ORDER.filter((k) => pv.labor.ops[k].undone > 0.05);
+    const undone = D.OP_ORDER.filter((k) => pv.labor.ops[k] && pv.labor.ops[k].undone > 0.05);
     if (undone.length) out.push({ level: 'bad', text: undone.map((k) => pv.labor.ops[k].name + ' ' + U.ha(pv.labor.ops[k].undone)).join('、') +
       ' は自分の機械でも委託でもこなせません（委託先が引き受けられるのは作業ごとに約' + U.ha(RG.sim.contractCap(st)) + 'まで）。適期を逃して収量・品質が落ちます。機械を導入しましょう。' });
     pv.sales.contracts.forEach((c) => {
@@ -245,7 +245,7 @@
       const M = res.machines[t];
       if (M.count > 0 && M.util < 0.4) warn(D.MACHINE_TYPES[t].name + 'の稼働率が低い', '稼働率 ' + U.pct(M.util) + '。過剰投資の状態です。面積を増やすか、作業受託で機械を活かす方法もあります。');
     });
-    const und = D.OP_ORDER.filter((k) => res.labor.ops[k].undone > 0.05);
+    const und = D.OP_ORDER.filter((k) => res.labor.ops[k] && res.labor.ops[k].undone > 0.05);
     if (und.length) bad('作業が追いつかなかった', und.map((k) => res.labor.ops[k].name + ' ' + U.ha(res.labor.ops[k].undone)).join('、') + ' を適期に作業できず、収量 ' + U.pct(res.production.delayY - 1) + '・品質も低下しました。面積に見合った機械をそろえましょう。');
     res.broken.forEach((b) => warn('機械の故障', b.name + 'が故障しました。' + (b.why && b.why.length ? b.why.join('・') + 'で、故障しやすくなっていました。' : '') + '古い機械や、能力いっぱいで使う機械ほど故障しやすく、修理費もかさみます。'))
 
@@ -328,7 +328,7 @@
     }
 
     // 機械も委託先も足りなかった作業
-    const und = D.OP_ORDER.filter((k) => res.labor.ops[k].undone > 0.05);
+    const und = D.OP_ORDER.filter((k) => res.labor.ops[k] && res.labor.ops[k].undone > 0.05);
     if (und.length) {
       const k = und[0], need = res.labor.ops[k].undone, t = D.OPS[k].mtype;
       const model = Object.keys(D.MODELS).filter((x) => D.MODELS[x].type === t).sort((a, b) => D.MODELS[a].cap - D.MODELS[b].cap).find((x) => D.MODELS[x].cap >= need);

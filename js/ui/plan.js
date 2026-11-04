@@ -566,7 +566,7 @@
         UI.table([{ label: '機械' }, { label: '必要面積', num: true }, { label: '自分の能力', num: true }, { label: T('機械稼働率', '稼働率') }, { label: '委託する面積', num: true }, { label: '委託料', num: true }, { label: '全部委託なら', num: true }], capRows),
         h('p', { class: 'small muted' }, '能力を超えた分は自動的に', T('作業委託'), 'になります（委託先が引き受けられるのは作業ごとに約' + U.ha(SIM.contractCap(st)) + 'まで。', T('地域の信頼'), 'が高いほど増えます）。「全部委託なら」と、機械を買った場合の年間の', T('減価償却', '償却費'), '＋修理費を比べてみましょう。')),
       UI.card('🧑‍🌾 機械に乗れる人', 'トラクター・田植機・コンバインは、乗れる人の数まで',
-        h('div', { class: 'kpis' }, UI.kpi('乗れる人', S.operators(st) + '人', '自分・正社員・常雇用パート（季節パートは乗れない）'),
+        h('div', { class: 'kpis' }, UI.kpi('乗れる人', S.operators(st) + '人', '自分・後継者・正社員・常雇用パート（季節パートは乗れない）'),
           UI.kpi('トラクター', SIM.machinesOf(st, 'tractor').length + '台', pv.machines.tractor.idle ? '乗る人がいなくて ' + pv.machines.tractor.idle + '台が動かせない' : null, pv.machines.tractor.idle ? 'bad' : ''),
           UI.kpi('田植機', SIM.machinesOf(st, 'planter').length + '台', pv.machines.planter.idle ? '乗る人がいなくて ' + pv.machines.planter.idle + '台が動かせない' : null, pv.machines.planter.idle ? 'bad' : ''),
           UI.kpi('コンバイン', SIM.machinesOf(st, 'combine').length + '台', pv.machines.combine.idle ? '乗る人がいなくて ' + pv.machines.combine.idle + '台が動かせない' : null, pv.machines.combine.idle ? 'bad' : ''))),

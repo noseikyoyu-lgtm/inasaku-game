@@ -234,8 +234,11 @@
   // 常雇用パートの応募者（毎年3人）。1年を通して働き、トラクター・田植機・コンバインにも乗れる
   S.regularCandidates = (st) => [0, 1, 2].map((i) => Object.assign({ id: 'rc' + st.year + '_' + i }, S.personOf(st, 'rpart', i)))
     .filter((c) => !(st.regulars || []).some((x) => x.from === c.id));
-  // 機械（トラクター・田植機・コンバイン）に乗れる人：自分（経営主）・正社員・常雇用パート
-  S.operators = (st) => (S.operator(st) ? 1 : 0) + st.staff.length + (st.regulars || []).length;
+  // 機械（トラクター・田植機・コンバイン）に乗れる人：自分（経営主）・就農した後継者・正社員・常雇用パート
+  S.operators = (st) => {
+    const sc = S.successor(st);
+    return (S.operator(st) ? 1 : 0) + (sc && sc !== S.operator(st) && !(Number(sc.age) < 18) ? 1 : 0) + st.staff.length + (st.regulars || []).length;
+  };
 
   // パートを増やす（できごとなど）。季節ごとに決めているときは、どの季節も増やす
   S.addParts = function (st, n) {
@@ -450,6 +453,11 @@
     // モードがなかった古いセーブ：自分の経営はエンドレス、用意されたシナリオはそれまでどおり20年（章あり）
     if (!st.mode) st.mode = st.scenarioId === 'custom' ? 'endless' : 'story';
     if (RG.chapters) RG.chapters.state(st);
+    // 作業が増えた（春の準備）前のセーブ：決算の作業の表に、ない作業を0で足す
+    [st.lastResult].concat(st.history || []).forEach((r) => {
+      const ops = r && r.labor && r.labor.ops;
+      if (ops) D.OP_ORDER.forEach((k) => { if (!ops[k]) ops[k] = { name: D.OPS[k].name, hours: 0, contractArea: 0, undone: 0, fee: 0, season: D.OPS[k].season, mtype: D.OPS[k].mtype }; });
+    });
     if (!st.items) st.items = { omamori: 1, reroll: 1 };
     st.storePlan = 0; // 「米を保管して春に売る」はなくした
     if (st.stock === undefined) st.stock = null;

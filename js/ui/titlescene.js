@@ -377,16 +377,23 @@
       }
       raf = requestAnimationFrame(loop);
     }
-    function giveUp() { failed = true; cancelAnimationFrame(raf); free(); }
+    let pend = 0; // 描き直しを始める予定（1つだけにする）
+    function giveUp() { failed = true; cancelAnimationFrame(pend); cancelAnimationFrame(raf); raf = 0; free(); }
     // 絵に使っているメモリを手放す（下地の色が見える）
     function free() { canvas.width = 0; canvas.height = 0; carpet = levees = null; W = H = 0; }
     // スマホのChromeは、裏に回ったページの絵を消すことがある。また、ホーム画面のショートカットから開くと、
     // 前に開いたままのページがそのまま出てくる。そこで、裏に回ったら絵をやめてメモリを手放し、戻ってきたら描き直す
-    function pause() { cancelAnimationFrame(raf); raf = 0; free(); }
+    function pause() { cancelAnimationFrame(pend); pend = 0; cancelAnimationFrame(raf); raf = 0; free(); }
     function resume() {
-      if (failed || !canvas.isConnected) return;
-      cancelAnimationFrame(raf);
-      requestAnimationFrame(() => { try { resize(true); } catch (e) { giveUp(); return; } if (!reduce) raf = requestAnimationFrame(loop); });
+      if (failed) return;
+      cancelAnimationFrame(pend); cancelAnimationFrame(raf); raf = 0;
+      // 最初は DOM に入ってから大きさを測る（mount の時点では、まだ画面に入っていない）
+      pend = requestAnimationFrame(() => {
+        pend = 0;
+        if (!canvas.isConnected) { cleanup(); return; }
+        try { resize(true); } catch (e) { giveUp(); return; }
+        if (!reduce && !raf) raf = requestAnimationFrame(loop);
+      });
     }
     const onVis = () => { if (document.hidden) pause(); else resume(); };
     const onShow = (e) => { if (e.persisted) resume(); };
@@ -395,7 +402,7 @@
     let resizeTimer = 0;
     const onResize = () => { if (!canvas.isConnected) { cleanup(); return; } clearTimeout(resizeTimer); resizeTimer = setTimeout(() => resize(), 150); };
     function cleanup() {
-      canvas._alive = false; cancelAnimationFrame(raf); window.removeEventListener('pointermove', onMove); window.removeEventListener('resize', onResize);
+      canvas._alive = false; cancelAnimationFrame(pend); cancelAnimationFrame(raf); window.removeEventListener('pointermove', onMove); window.removeEventListener('resize', onResize);
       document.removeEventListener('visibilitychange', onVis); window.removeEventListener('pageshow', onShow);
     }
 
@@ -406,6 +413,6 @@
     canvas.addEventListener('contextrestored', resume);
     if (!reduce) window.addEventListener('pointermove', onMove);
     // DOM に入ってから大きさを測る
-    requestAnimationFrame(() => { try { resize(true); } catch (e) { giveUp(); return; } if (!reduce) raf = requestAnimationFrame(loop); });
+    resume();
   };
 })(window.RG = window.RG || {});

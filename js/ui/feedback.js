@@ -68,6 +68,53 @@
     return false;
   };
 
+  // ---------- プレイの記録を、経営が終わったとき（クリア・ゲームオーバー）に送る（送ってよいと選んだ人だけ） ----------
+  // アンケートに答えなくても、最後まで遊んだ人と破綻した人の記録が集まるので、どこで難しくなるかがわかる
+  const SHARE_KEY = 'inasaku.share';
+  // '1'＝送る・'0'＝送らない・null＝まだ聞いていない
+  FB.shareChoice = () => { try { return localStorage.getItem(SHARE_KEY); } catch (e) { return '0'; } };
+  FB.setShare = (on) => { try { localStorage.setItem(SHARE_KEY, on ? '1' : '0'); } catch (e) { /* 無視 */ } };
+  FB.sendLog = function (st) {
+    if (!st || !FB.canSend() || FB.shareChoice() !== '1') return;
+    const c = CFG(), data = pack('log', st, null, true);
+    let body = JSON.stringify(data);
+    if (body.length > 45000) body = JSON.stringify(Object.assign({}, data, { game: Object.assign({}, data.game, { plans: data.game.plans.slice(-3), omitted: '長すぎるため古い計画の記録を省略' }) }));
+    const fd = new FormData();
+    if (c.fields.kind) fd.append(c.fields.kind, data.kind);
+    if (c.fields.version) fd.append(c.fields.version, data.version);
+    fd.append(c.fields.body, body);
+    // 遊んでいる人の邪魔をしないよう、知らせずに送る（送れなくてもそのまま）
+    fetch(c.formAction, { method: 'POST', mode: 'no-cors', body: fd }).catch(() => { /* 無視 */ });
+  };
+  const shareNote = () => h('p', { class: 'small muted keep' }, '送るのは、クリアしたときとゲームオーバーになったときだけです。送るもの：始め方・シード番号・ゲームの版と、毎年の判断（作付・機械・人・販路・借入・できごとの選び方）と結果の数字（収量・売上・所得・資金・面積など）。農場名・名前・地名は送りません。セーブも送りません。あとからメニューの「プレイの記録を送る」で変えられます。');
+  // 経営が終わったとき：送ってよいと選んでいれば送る。まだ聞いていなければ、ここで聞く（同じ年の終わりは1回だけ送る）
+  FB.atEnd = function (app, st) {
+    if (!FB.canSend() || !st || st.logSent === st.year) return;
+    const send = () => { st.logSent = st.year; FB.sendLog(st); app.autosave(); };
+    const choice = FB.shareChoice();
+    if (choice === '1') { send(); return; }
+    if (choice != null) return;
+    UI.modal({ title: '📊 プレイの記録を送ってもいいですか？',
+      body: h('div', null,
+        h('p', null, 'この経営の毎年の判断と結果の数字を送ります。うまくいった経営も、うまくいかなかった経営も、ゲームのバランスを直す大事な手がかりになります。'),
+        shareNote()),
+      actions: [{ label: '送らない', onClick: () => FB.setShare(false) },
+        { label: '送ってよい', cls: 'primary', onClick: () => { FB.setShare(true); send(); UI.toast('送りました。ありがとうございます！'); } }] });
+  };
+  // メニューで、送る／送らないを切り替える
+  FB.shareMenu = function () {
+    if (!FB.canSend()) return null;
+    const on = FB.shareChoice() === '1';
+    return h('div', null,
+      h('div', { class: 'row' }, h('span', null, on ? '今は：送っています' : '今は：送っていません'),
+        UI.btn(on ? '送らないようにする' : '送るようにする', (e) => {
+          FB.setShare(!on);
+          UI.toast(!on ? 'クリアやゲームオーバーのときに記録を送ります。ありがとうございます！' : '記録を送らないようにしました');
+          const box = e.target.closest('.share-menu'); if (box) { box.innerHTML = ''; box.appendChild(FB.shareMenu()); }
+        }, 'sm')),
+      shareNote());
+  };
+
   FB.download = function (data) {
     const d = new Date();
     const name = (data.kind === 'survey' ? 'アンケート' : '気づき') + '_' + d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0') + '_' + String(d.getHours()).padStart(2, '0') + String(d.getMinutes()).padStart(2, '0') + '.json';

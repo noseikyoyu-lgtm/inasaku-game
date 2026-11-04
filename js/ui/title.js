@@ -171,6 +171,7 @@
     if (c.successor !== 'none' && !(n(c.succAge, -1) >= 10 && n(c.succAge, -1) <= 70)) return '後継者の年齢を10〜70歳で入れてください';
     if (c.successor === 'now' && n(c.succAge, 0) < 18) return '一緒に働いている後継者は18歳以上で入れてください（まだ学生なら「これから就農する予定」を選んでください）';
     if (c.successor === 'plan' && !(n(c.succYear, 0) >= 1 && n(c.succYear, 0) <= 19)) return '後継者が就農するまでの年数を1〜19年で入れてください';
+    if (c.successor === 'plan' && n(c.succAge, 0) + n(c.succYear, 0) < 18) return '就農するときに18歳以上になるように、後継者の年齢か就農までの年数を入れてください';
     if (n(c.rent, 0) < 0) return '地代にマイナスは入れられません';
     if (!c.crops.some((x) => n(x.pct, 0) > 0)) return '作付する品種の割合を入れてください';
     return null;

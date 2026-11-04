@@ -176,6 +176,7 @@
     RG.sound.play('fanfare');
     app.autosave();
     app.render();
+    RG.feedback.atEnd(app, st);
   };
   app.reopenGame = function () {
     const st = app.st;
@@ -191,6 +192,8 @@
     app.tab = 'overview';
     app.autosave();
     app.render();
+    // クリア・ゲームオーバー（引退も）で経営が終わったら、プレイの記録を送る（送ってよいと選んだ人だけ）
+    if (app.st.phase === 'end' || app.st.phase === 'gameover') RG.feedback.atEnd(app, app.st);
   };
 
   // ---------- 共通ヘッダー ----------
@@ -290,6 +293,10 @@
     body.appendChild(h('h3', null, '称号'));
     body.appendChild(h('div', { class: 'row' }, UI.btn('称号を見る', () => RG.screens.showTitles(app.st), 'sm'),
       app.st && app.st.featOpen ? UI.btn('🔓 解放の一覧', () => RG.screens.showUnlocks(app.st), 'sm') : null));
+    if (RG.feedback.canSend()) {
+      body.appendChild(h('h3', null, 'プレイの記録を送る'));
+      body.appendChild(h('div', { class: 'share-menu' }, RG.feedback.shareMenu()));
+    }
     body.appendChild(h('h3', null, '表示'));
     body.appendChild(h('div', { class: 'row' },
       UI.btn('ライト', () => app.setTheme('light'), 'sm'), UI.btn('ダーク', () => app.setTheme('dark'), 'sm'), UI.btn('自動', () => app.setTheme(''), 'sm')));
@@ -310,6 +317,7 @@
   app.importButton = function () {
     const inp = h('input', { type: 'file', accept: '.json,application/json', style: { display: 'none' },
       onchange: () => {
+        app.picking = 0;
         const f = inp.files[0];
         if (!f) return;
         const rd = new FileReader();
@@ -327,7 +335,8 @@
         };
         rd.readAsText(f);
       } });
-    return h('span', null, inp, UI.btn('ファイルから読み込む', () => inp.click(), 'sm'));
+    // ファイルを選んでいる間はほかのアプリ（ファイルの選択画面）に移るので、戻ったときに読み込み直さないよう印を付ける
+    return h('span', null, inp, UI.btn('ファイルから読み込む', () => { app.picking = Date.now(); inp.click(); }, 'sm'));
   };
 
   app.setTheme = function (t) {
@@ -338,24 +347,28 @@
   // ---------- 新しい版が出ていたら読み込み直す ----------
   // ホーム画面のショートカットから開くと、前に開いたままの古いページが出てくることがある。
   // タイトル画面のときに、公開されている版を確かめて、新しければ読み込み直す（同じ版では1回だけ）
+  // タイトルのメニューにいて、何かを入力している途中でもファイルを選んでいる途中でもないときだけ、読み込み直してよい
+  const canReload = () => !app.st && (app.titleView || 'menu') === 'menu' && !(app.picking && Date.now() - app.picking < 10 * 60 * 1000);
   app.checkUpdate = function () {
-    if (app.st || location.protocol === 'file:' || !window.fetch) return;
+    if (!canReload() || location.protocol === 'file:' || !window.fetch) return;
     fetch('js/config.js?check=' + Date.now(), { cache: 'no-store' }).then((r) => (r.ok ? r.text() : '')).then((t) => {
       const v = (t.match(/version:\s*'([^']+)'/) || [])[1];
-      if (!v || v === RG.CONFIG.version || app.st) return;
+      if (!v || v === RG.CONFIG.version || !canReload()) return;
       try { if (sessionStorage.getItem('inasaku.reloaded') === v) return; sessionStorage.setItem('inasaku.reloaded', v); } catch (e) { return; }
       location.reload();
     }).catch(() => { /* つながらないときはそのまま */ });
   };
   // スマホのChromeでは、ホーム画面のショートカットから2回目に開くと、裏に残っていたページが真っ黒のまま出てくることがある。
-  // そこで、しばらく裏に回っていたら：タイトル画面なら読み込み直し、遊んでいる途中なら画面を描き直す
+  // そこで、しばらく裏に回っていたら：タイトルのメニューなら読み込み直し、それ以外（遊んでいる途中・入力の途中・ファイルを選んだ後）は画面を描き直す
   const TOUCH = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
   let hiddenAt = 0;
   function onBack() {
     const away = hiddenAt ? Date.now() - hiddenAt : 0;
     hiddenAt = 0;
     if (TOUCH && away >= 2000) {
-      if (!app.st) { location.reload(); return; }
+      const picked = !!app.picking;
+      app.picking = 0;
+      if (!picked && canReload()) { location.reload(); return; }
       const b = document.body; b.style.display = 'none'; void b.offsetHeight; b.style.display = ''; // 画面全体を描き直させる
     }
     app.checkUpdate();

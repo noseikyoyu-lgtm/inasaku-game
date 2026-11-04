@@ -222,7 +222,7 @@
   // 田植機・コンバインは、大きな機械ほど平坦・大区画の田（条件良）で能力が上がり、中山間・小区画の田（条件不利）で落ちる。小さな機械はあまり変わらない
   const SIZE_FIELD = { good: [0, 0.05, 0.1, 0.2], poor: [0, -0.1, -0.2, -0.35] };
   SIM.FIELD_TYPES = ['planter', 'combine'];
-  // 人が乗って動かす機械：乗れる人（自分・正社員・常雇用パート）の数までしか同時に動かせない
+  // 人が乗って動かす機械：乗れる人（自分・後継者・正社員・常雇用パート）の数までしか同時に動かせない
   SIM.DRIVEN_TYPES = ['tractor', 'planter', 'combine'];
   SIM.sizeTier = (md) => (md.eff >= 1 ? 0 : md.eff >= 0.85 ? 1 : md.eff >= 0.72 ? 2 : 3);
   // 作業委託料（円/10a・物価の上昇は入れない）。乾燥・調製は平年作のとれる量（俵）で決まり、条件の悪い田は割高
@@ -362,6 +362,8 @@
         const M = mach[op.mtype];
         const frac = M.need > 0 ? M.own / M.need : 0;
         hours = weighted * frac * D.BASE_HOURS * op.share * M.eff;
+        // 苗を買っても、受け取り・苗箱の置き場づくり・水やり・田植え機への補給の手間は残る（自分で育てる手間の3割）
+        if (k === 'nursery') hours += weighted * (1 - frac) * D.BASE_HOURS * op.share * 0.3;
         // 苗は買えば済み、乾燥・調製はJAの施設（カントリーエレベーター）が引き受ける。ほかの作業の受託には地域の受け皿の限界がある
         contractArea = k === 'nursery' || k === 'dry' ? M.contract : Math.min(M.contract, contractCap);
         undone = M.contract - contractArea;

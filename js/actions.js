@@ -75,7 +75,7 @@
   // ストーリーでまだ使えない買い方・機種
   const locked = (st, id) => (RG.era && RG.era.featLocked(st, id) ? '🔒 まだ使えません（きっかけ：' + RG.era.FEATURES[id].hint + '）' : null);
   A.largeModel = (modelId) => /_l$/.test(modelId);
-  // トラクター・田植機・コンバインは、乗れる人（自分・正社員・常雇用パート）の数までしか持てない
+  // トラクター・田植機・コンバインは、乗れる人（自分・後継者・正社員・常雇用パート）の数までしか持てない
   A.operatorLock = function (st, modelId) {
     const md = D.MODELS[modelId];
     if (!md || SIM.DRIVEN_TYPES.indexOf(md.type) < 0) return null;

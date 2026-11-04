@@ -14,7 +14,7 @@
     return { land: genLand(st).concat(rv), contracts: genContracts(st), used: genUsed(st) };
   };
 
-  const landBanned = (st) => !!st.flags.landSoldYear && st.year > st.flags.landSoldYear && st.year - st.flags.landSoldYear <= (RG.actions ? RG.actions.LAND_SALE_BAN : 3);
+  const landBanned = E.landBanned = (st) => !!st.flags.landSoldYear && st.year > st.flags.landSoldYear && st.year - st.flags.landSoldYear <= (RG.actions ? RG.actions.LAND_SALE_BAN : 3);
   // 1件の農地の話の大きさの上限（ha）：最初は2haくらいまで。経営が広がり、年数がたつほど大きな話も来る
   // 例：3haの経営なら2ha、10haなら約3ha、20haなら約4.5ha、30ha以上なら6ha
   E.landCap = (st) => U.clamp(1.5 + U.sum(st.fields, (f) => f.area) * 0.15 + Math.max(0, st.year - 5) * 0.1, 2, 6);
@@ -164,7 +164,8 @@
     },
     {
       id: 'successor_join', once: true, sq: 0,
-      cond: (st) => !!RG.state.pendingSuccessor(st) && st.year >= RG.state.pendingSuccessor(st).joinYear,
+      // 就農は予定の年になってから。まだ18歳になっていなければ、18歳になるまで待つ
+      cond: (st) => !!RG.state.pendingSuccessor(st) && st.year >= RG.state.pendingSuccessor(st).joinYear && RG.state.pendingSuccessor(st).ageNow >= 18,
       weight: () => 100,
       title: '後継者の就農',
       text: (st) => '予定どおり、後継者（' + (RG.state.numOr(st.custom.succAge, 30) + (st.year - 1)) + '歳）が就農することになった。',
@@ -354,7 +355,7 @@
     },
     {
       id: 'boar',
-      cond: (st) => poorArea(st) > 0 && !st.flags.fence,
+      cond: (st) => st.scenarioId !== 'tanada' && poorArea(st) > 0 && !st.flags.fence,
       weight: () => 0.35,
       title: 'イノシシの出没',
       text: (st) => '山際の田んぼでイノシシの足跡が見つかった。電気柵を張らないと被害が出るかもしれない（条件不利の田 ' + U.ha(poorArea(st)) + '）。',

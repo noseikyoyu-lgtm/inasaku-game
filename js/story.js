@@ -55,7 +55,8 @@
         { label: '引き受ける', desc: '夏の作業 +40時間、縁が深まる、地域の信頼 +3', apply: (st) => { const L = SY.state(st).landlord; L.stage = 2; L.bond += 2; L.at = st.year; addLabor(st, 'summer', 40); st.trust = Math.min(100, st.trust + 3); return '草刈りを引き受けた。家族にとても感謝された。'; } },
         { label: 'シルバー人材センターを紹介する（2万円）', desc: '縁が少し深まる', apply: (st) => { const L = SY.state(st).landlord; L.stage = 2; L.bond += 1; L.at = st.year; addCost(st, 20000, '草刈りの手配'); return '草刈りを手配した。'; } },
         { label: '断る', desc: '縁が薄くなる', apply: (st) => { const L = SY.state(st).landlord; L.stage = 2; L.bond -= 1; L.at = st.year; return '忙しくて断った。'; } }] },
-    { id: 'sato_3', who: 'sato', cond: (st) => { const L = SY.state(st).landlord; return L.stage === 2 && st.year >= L.at + 2; }, weight: () => 100,
+    // 農地を売ったあとの、新しい農地の話が来ない期間は、明けるまで先に延ばす
+    { id: 'sato_3', who: 'sato', cond: (st) => { const L = SY.state(st).landlord; return L.stage === 2 && st.year >= L.at + 2 && !RG.events.landBanned(st); }, weight: () => 100,
       title: '佐藤さんの田んぼのこれから',
       text: (st) => SY.state(st).landlord.bond >= 2
         ? '退院した佐藤さんが訪ねてきた。「わしももう歳だ。あんたになら、田んぼを安く譲りたい」'
