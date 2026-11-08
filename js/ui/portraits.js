@@ -9,9 +9,12 @@
 
   // ---------- 人物の設定 ----------
   PT.PEOPLE = {
-    // 白髪頭で四角い顔。いつも目を細めて笑っている、話好きの先生。作業服に名札とペン
-    takahashi: { bg: ['#e8f1e4', '#cfe3c6'], skin: '#f2c9a0', shade: '#dba77d', head: 'square', hair: 'whiteSide', hairC: '#f1f1ee', hairS: '#bfbfb9',
-      brows: 'bushy', browC: '#e9e9e4', eyes: 'smile', mouth: 'talk', wrinkles: true, cheeks: true,
+    // 幼なじみの遥さん：黒髪のボブ、明るい笑顔。サーモン色のカーディガン
+    haruka: { bg: ['#f8eaf1', '#edd0df'], skin: '#f6d3b3', shade: '#e2b18b', head: 'oval', hair: 'bob', hairC: '#2b211c', hairS: '#16100c',
+      brows: 'thin', browC: '#2b211c', eyes: 'open', mouth: 'smile', cheeks: true, cloth: 'cardigan', clothC: '#e08e6d', clothS: '#c47456', shirt: '#fff7ee' },
+    // 30代後半の営農指導員。短い黒髪、目を細めて笑う、話好きの先生。作業服に名札とペン
+    takahashi: { bg: ['#e8f1e4', '#cfe3c6'], skin: '#f4cfa8', shade: '#dfac82', head: 'square', hair: 'short', hairC: '#2e2620', hairS: '#17120e',
+      brows: 'normal', browC: '#2e2620', eyes: 'smile', mouth: 'talk', cheeks: true,
       cloth: 'work', clothC: '#8f9f86', clothS: '#6f8066', shirt: '#ffffff', pen: true, badge: true },
     // 金融機関の木村さん：きちんと分けた黒髪、細い眉、黒ぶちめがね。紺のスーツ
     kimura: { bg: ['#e6ecf5', '#c9d6ea'], skin: '#f3cfab', shade: '#ddb08a', head: 'oval', hair: 'neat', hairC: '#2f2a2a', hairS: '#141111',
@@ -36,7 +39,7 @@
     jiichan: { bg: ['#fbf1d8', '#f1dca8'], skin: '#e8b88c', shade: '#cc966a', head: 'round', hair: 'baldSides', hairC: '#f0efea', hairS: '#c4c3bd',
       brows: 'bushy', browC: '#f4f3ee', eyes: 'smile', mouth: 'smile', mustache: '#f4f3ee', wrinkles: true, cheeks: true,
       cloth: 'work', clothC: '#3f5583', clothS: '#2f4268', shirt: '#e9e4d6', neckTowel: '#ffffff', straw: true },
-    // 区長の森さん：丸めがねの世話役。白髪まじりの短髪、ベスト姿
+    // 区長の中山さん：丸めがねの世話役。白髪まじりの短髪、ベスト姿
     kucho: { bg: ['#eef3e2', '#d7e4bd'], skin: '#efc39b', shade: '#d6a179', head: 'square', hair: 'grayShort', hairC: '#c9c8c2', hairS: '#9a9993',
       brows: 'thick', browC: '#8f8e88', eyes: 'smile', mouth: 'smile', wrinkles: true, cheeks: true, glasses: '#6a4a2a',
       cloth: 'vest', clothC: '#6f7f3f', clothS: '#56652f', shirt: '#f3efe3' },

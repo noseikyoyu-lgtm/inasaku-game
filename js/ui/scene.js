@@ -20,7 +20,7 @@
     if (keyOn) return;
     keyOn = true;
     document.addEventListener('keydown', (e) => {
-      if (!app.st || app.st.phase !== 'scene' || document.querySelector('.overlay')) return;
+      if (!app.st || app.st.phase !== 'scene' || document.querySelector('.overlay, .movie')) return;
       if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowRight') { e.preventDefault(); next(app); }
     });
   }
@@ -29,6 +29,15 @@
   RG.screens.promiseCard = function (st, opts) {
     opts = opts || {};
     const d = SC.def(st), p = SC.promise(st);
+    // 計画のホーム：年数のほかの条件（面積・黒字など）をもう満たしていたら、進み具合ではなく「達成中」の短い表示にする
+    // （条件を割ったら、また進み具合を出す。約束が果たせたかは最後の年に決まる）
+    const rest = p.conds.slice(1), left = Math.max(0, st.maxYear - st.history.length);
+    if (opts.progress && rest.length && rest.every((c) => c.ok) && left > 0) {
+      return h('div', { class: 'promise done' },
+        h('div', { class: 'pr-head' }, UI.face(d.giver, 2), h('b', null, d.goalName), h('span', { class: 'pr-done' }, '✅ 条件クリア')),
+        h('p', { class: 'pr-text' }, rest.map((c) => '「' + c.label + '」').join('') + 'はもう満たしています。あと' + left + '年、このまま続ければ約束を果たせます。'),
+        h('p', { class: 'small pr-sub' }, '最後の年の決算で、もう一度確かめます。それまでに条件を割ると、また進み具合を表示します。'));
+    }
     const pg = opts.progress ? d.progress(st) : null;
     return h('div', { class: 'promise' + (opts.big ? ' big' : '') },
       h('div', { class: 'pr-head' }, UI.face(d.giver, 2), h('b', null, d.goalName),
@@ -73,6 +82,9 @@
         person ? h('div', { class: 'vn-name' }, person.name) : null,
         h('p', { class: 'vn-text' }, ln.text),
         h('span', { class: 'vn-next', 'aria-hidden': 'true' }, last ? '■' : '▼'));
+    // 場面によっては、会話の前にムービーを流す（1回だけ）
+    const mv = SC.def(st).movies && SC.def(st).movies[st.scene.id];
+    if (mv && RG.movie && !st.scene.movieShown) { st.scene.movieShown = true; setTimeout(() => RG.movie.play(mv, st), 0); }
     return h('div', { class: 'scene-screen' }, canvas,
       h('div', { class: 'vn-top' },
         h('span', { class: 'vn-chip' }, st.scene.id === 'prologue' ? '📖 プロローグ' : '📖 ' + st.year + '年目の春'),

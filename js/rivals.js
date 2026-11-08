@@ -108,7 +108,7 @@
     if (taker) taker.area = U.round(taker.area + r.area - area, 1);
     r.area = 0;
     const what = reason === 'retire' ? r.age + '歳で引退した' : reason === 'dissolve' ? '組合員の高齢化で解散した' : '経営が立ち行かなくなり離農した';
-    notes.push(d.name + '（' + d.label + '）が' + what + '。' + (RG.events.landBanned(st)
+    notes.push(d.name + '（' + d.label + '）が' + what + '。' + (RG.events.landBannedAt(st, st.year + 1) // 田の話が届くのは翌年の初め
       ? '田んぼ ' + U.ha(area) + 'の行き先が決まっていない（農地を売ったうわさが消えたら、話が来る）。'
       : '田んぼ ' + U.ha(area) + 'を引き受けてほしいと話が来ている（「農地」タブ）。'));
   }

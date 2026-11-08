@@ -253,18 +253,22 @@
   // share: 総労働時間に占める割合 / mtype: 必要な機械 / fee: 委託料（円/10a）/ perBale: 委託料（円/俵。とれた量で決まる作業）
   // 割合は農林水産省「米生産費統計」の作業別労働時間をもとにした：春（育苗・耕起整地・基肥・田植え）が約4割でいちばん多く、
   // 夏の水管理は長い期間に少しずつ（見回り）なので、時間のわりに人手は集中しない
+  // crew: 同時に要る人数（田植え＝田植機に乗る人・苗を運ぶ人・苗を継ぐ人、稲刈り＝コンバインに乗る人ともみを運ぶ人）
+  // win: その作業をすませる適期の日数（短いほど、一度にたくさんの人が要る）
   // 委託料は市町村の標準料金をもとにした（例：新潟県村上市 R6・7 耕起6,000＋代かき7,000円/10a、田植え6,500円＋側条施肥1,500円、刈取り18,000円、乾燥調製 30kgあたり950円）
   D.OPS = {
-    prep:    { name: '春の準備（畦塗り・水路の掃除・肥料まき）', mtype: null, share: 0.06, season: 'spring', fee: 0, on: 'planted' },
-    till:    { name: '耕起・代かき', mtype: 'tractor', share: 0.17, season: 'spring', fee: 13000, on: 'planted' },
-    nursery: { name: '育苗', mtype: 'nursery', share: 0.12, season: 'spring', fee: 10000, on: 'transplant', feeName: '苗の購入' },
-    plant:   { name: '田植え', mtype: 'planter', share: 0.13, season: 'spring', fee: 8000, on: 'transplant' },
-    seed:    { name: '直播（播種）', mtype: null, share: 0.05, season: 'spring', fee: 0, on: 'direct' },
-    manage:  { name: '水管理・除草・防除', mtype: null, share: 0.22, season: 'summer', fee: 0, on: 'planted' },
-    harvest: { name: '稲刈り', mtype: 'combine', share: 0.18, season: 'autumn', fee: 18000, on: 'planted' },
-    dry:     { name: '乾燥・調製', mtype: 'dryer', share: 0.12, season: 'autumn', fee: 0, perBale: 1900, on: 'planted' },
+    prep:    { name: '春の準備（畦塗り・水路の掃除・肥料まき）', mtype: null, share: 0.06, season: 'spring', fee: 0, on: 'planted', crew: 1, win: 40 },
+    till:    { name: '耕起・代かき', mtype: 'tractor', share: 0.17, season: 'spring', fee: 13000, on: 'planted', crew: 1, win: 35 },
+    nursery: { name: '育苗', mtype: 'nursery', share: 0.12, season: 'spring', fee: 10000, on: 'transplant', feeName: '苗の購入', crew: 2, win: 25 },
+    plant:   { name: '田植え', mtype: 'planter', share: 0.13, season: 'spring', fee: 8000, on: 'transplant', crew: 3, win: 15 },
+    seed:    { name: '直播（播種）', mtype: null, share: 0.05, season: 'spring', fee: 0, on: 'direct', crew: 2, win: 15 },
+    manage:  { name: '水管理・除草・防除', mtype: null, share: 0.22, season: 'summer', fee: 0, on: 'planted', crew: 1, win: 80 },
+    harvest: { name: '稲刈り', mtype: 'combine', share: 0.18, season: 'autumn', fee: 18000, on: 'planted', crew: 2, win: 25 },
+    dry:     { name: '乾燥・調製', mtype: 'dryer', share: 0.12, season: 'autumn', fee: 0, perBale: 1900, on: 'planted', crew: 1, win: 30 },
   };
   D.OP_ORDER = ['prep', 'till', 'nursery', 'plant', 'seed', 'manage', 'harvest', 'dry'];
+  D.WORK_DAY = 8;          // 1日に作業する時間（適期のうちに終わらせるのに要る人数の計算）
+  D.PEOPLE_SHORT_W = 0.5;  // 人数が足りないときの影響（1人で何役もこなして作業は進むが、遅れて収量・品質が落ちる）
 
   // 作業委託の受け皿（ha、作業ごと）＝ base + 地域の信頼 × perTrust
   D.CONTRACT_CAP = { base: 8, perTrust: 0.12 };
@@ -289,28 +293,34 @@
   };
   D.MACHINE_TYPE_ORDER = ['tractor', 'nursery', 'planter', 'combine', 'dryer', 'drone', 'smart', 'mill'];
 
+  // 傷みやすさ（年数とともに修理費・故障が増える速さ。1が標準）
+  // 実際の使用期間の目安：トラクター15年前後、田植機・コンバイン10〜13年、乾燥機は動く部分が少なく20年以上もつ
+  D.WEAR = { tractor: 1.1, planter: 1.2, combine: 1.3, dryer: 0.75 };
+
   // cap: 1シーズンにこなせる面積(ha) / eff: 労働時間の倍率（小さいほど省力）
+  // price: 実際に買うときの値段の目安（メーカーの希望小売価格から、値引き後くらい）
+  // cap: 1台で1年にこなせる面積の目安（トラクター60馬力 約20ha・田植機6条 約20ha・コンバイン5条 約18ha。田の条件で上下する）
   D.MODELS = {
     // cap：1年に作業できる面積（ha）
-    tr_s: { type: 'tractor', name: 'トラクタ 25馬力', price: 3000000, cap: 4, eff: 1.0, life: 7, maxAge: 20 },
-    tr_40: { type: 'tractor', name: 'トラクタ 40馬力', price: 4500000, cap: 8, eff: 0.85, life: 7, maxAge: 20 },
-    tr_m: { type: 'tractor', name: 'トラクタ 60馬力', price: 6500000, cap: 12, eff: 0.72, life: 7, maxAge: 20 },
-    tr_l: { type: 'tractor', name: 'トラクタ 100馬力', price: 11000000, cap: 20, eff: 0.52, life: 7, maxAge: 20 },
+    tr_s: { type: 'tractor', name: 'トラクタ 25馬力', price: 3900000, cap: 7, eff: 1.0, life: 7, maxAge: 17 },
+    tr_40: { type: 'tractor', name: 'トラクタ 40馬力', price: 5800000, cap: 13, eff: 0.85, life: 7, maxAge: 17 },
+    tr_m: { type: 'tractor', name: 'トラクタ 60馬力', price: 8400000, cap: 20, eff: 0.72, life: 7, maxAge: 17 },
+    tr_l: { type: 'tractor', name: 'トラクタ 100馬力', price: 14300000, cap: 35, eff: 0.52, life: 7, maxAge: 17 },
     ns_s: { type: 'nursery', name: '育苗ハウス 小', price: 1200000, cap: 8, eff: 1.0, life: 14, maxAge: 25 },
     ns_m: { type: 'nursery', name: '育苗ハウス 中', price: 2300000, cap: 16, eff: 0.82, life: 14, maxAge: 25 },
     ns_l: { type: 'nursery', name: '育苗ハウス 大（自動播種機付）', price: 3800000, cap: 30, eff: 0.65, life: 14, maxAge: 25 },
-    pl_s: { type: 'planter', name: '田植機 4条', price: 1600000, cap: 6, eff: 1.0, life: 7, maxAge: 15 },
-    pl_5: { type: 'planter', name: '田植機 5条', price: 2400000, cap: 10, eff: 0.85, life: 7, maxAge: 15 },
-    pl_m: { type: 'planter', name: '田植機 6条', price: 3200000, cap: 15, eff: 0.72, life: 7, maxAge: 15 },
-    pl_l: { type: 'planter', name: '田植機 8条（密苗対応）', price: 6000000, cap: 32, eff: 0.52, life: 7, maxAge: 15 },
-    cb_s: { type: 'combine', name: 'コンバイン 3条', price: 4500000, cap: 5, eff: 1.0, life: 7, maxAge: 15 },
-    cb_4: { type: 'combine', name: 'コンバイン 4条', price: 6500000, cap: 7, eff: 0.85, life: 7, maxAge: 15 },
-    cb_m: { type: 'combine', name: 'コンバイン 5条', price: 9000000, cap: 10, eff: 0.72, life: 7, maxAge: 15 },
-    cb_l: { type: 'combine', name: 'コンバイン 6条', price: 13000000, cap: 15, eff: 0.52, life: 7, maxAge: 15 },
-    dr_s: { type: 'dryer', name: '乾燥機 小（30石）', price: 2500000, cap: 8, eff: 1.0, life: 7, maxAge: 20 },
-    dr_50: { type: 'dryer', name: '乾燥機 中（50石）', price: 4000000, cap: 13, eff: 0.85, life: 7, maxAge: 20 },
-    dr_m: { type: 'dryer', name: '乾燥調製施設 中', price: 7500000, cap: 22, eff: 0.72, life: 7, maxAge: 20 },
-    dr_l: { type: 'dryer', name: '乾燥調製施設 大', price: 16000000, cap: 50, eff: 0.5, life: 7, maxAge: 20 },
+    pl_s: { type: 'planter', name: '田植機 4条', price: 1900000, cap: 9, eff: 1.0, life: 7, maxAge: 13 },
+    pl_5: { type: 'planter', name: '田植機 5条', price: 2900000, cap: 14, eff: 0.85, life: 7, maxAge: 13 },
+    pl_m: { type: 'planter', name: '田植機 6条', price: 3800000, cap: 20, eff: 0.72, life: 7, maxAge: 13 },
+    pl_l: { type: 'planter', name: '田植機 8条（密苗対応）', price: 7200000, cap: 35, eff: 0.52, life: 7, maxAge: 13 },
+    cb_s: { type: 'combine', name: 'コンバイン 3条', price: 6300000, cap: 8, eff: 1.0, life: 7, maxAge: 13 },
+    cb_4: { type: 'combine', name: 'コンバイン 4条', price: 9100000, cap: 12, eff: 0.85, life: 7, maxAge: 13 },
+    cb_m: { type: 'combine', name: 'コンバイン 5条', price: 12600000, cap: 18, eff: 0.72, life: 7, maxAge: 13 },
+    cb_l: { type: 'combine', name: 'コンバイン 6条', price: 18200000, cap: 28, eff: 0.52, life: 7, maxAge: 13 },
+    dr_s: { type: 'dryer', name: '乾燥機 小（30石）', price: 3200000, cap: 8, eff: 1.0, life: 7, maxAge: 20 },
+    dr_50: { type: 'dryer', name: '乾燥機 中（50石）', price: 5200000, cap: 13, eff: 0.85, life: 7, maxAge: 20 },
+    dr_m: { type: 'dryer', name: '乾燥調製施設 中', price: 9800000, cap: 22, eff: 0.72, life: 7, maxAge: 20 },
+    dr_l: { type: 'dryer', name: '乾燥調製施設 大', price: 20800000, cap: 50, eff: 0.5, life: 7, maxAge: 20 },
     dn:   { type: 'drone', name: '防除用ドローン', price: 1800000, cap: 50, eff: 1, life: 5, maxAge: 8 },
     sm:   { type: 'smart', name: '自動操舵・水管理システム', price: 3000000, cap: 40, eff: 1, life: 7, maxAge: 12 },
     ml:   { type: 'mill', name: '精米・色彩選別設備', price: 2200000, cap: 0, eff: 1, life: 10, maxAge: 15 },
@@ -360,12 +370,14 @@
     bagsPerBale: 10.8,        // 玄米60kg → 精米5kg袋の数
     perCustomer: 0.5,         // 顧客1人あたり年間購入量（俵）
     elasticity: 1.8,
-    retailFactor: 0.147,      // 参考小売価格(5kg) = コシヒカリの米価 × この係数
+    retailFactor: 0.17,       // 参考小売価格(5kg) = コシヒカリの米価 × この係数（米価18,500円で 5kg 約3,150円）
     packaging: 1200,
+    shipping: 500,            // 送料と箱代（精米5kg 1袋あたり。お客さんと半分ずつ持つ）
     polish: 1000, polishMill: 100,
     platform: 0.08,
-    labor: 0.6, laborMill: 0.35,
-    cac: 8000,                // 新規顧客1人の獲得費用
+    labor: 1.0, laborMill: 0.6, // 1俵あたりの手間（精米・袋詰め・発送・問い合わせ）。精米設備があると短い
+    cac: 8000,                // 新規顧客1人の獲得費用（お客さんがいないとき）
+    cacGrow: 500,             // お客さんがこの人数ふえるごとに、獲得費用が +8,000円（集めやすい人から集まっていく）
     baseChurn: 0.18,
   };
   D.BRAND = { decay: 0.12, gain: 10 };
@@ -377,7 +389,8 @@
     noInterestTerm: 17, noInterestGrace: 5, // 青年等就農資金：17年以内（うち据置5年以内）
     noInterestYears: 5,   // 無利子資金を借りられるのは就農して5年以内（機械・施設を買うときだけ）
     loansPerYear: 1,      // 使い道を決めない長期の借入（運転資金）は1年に1件まで。機械・施設・農地を買うための借入は数えない
-    maxRepayYears: 20,    // 前年の債務償還年数がこれを超えると、新しい借入の審査に通らない
+    maxRepayYears: 15,    // 前年の債務償還年数がこれを超えると、新しい借入の審査に通らない
+    machineDown: 0.2,     // 機械を借入で買うときに、自分のお金で出す割合（頭金）
     livingMin: 1800000,
   };
 
@@ -516,7 +529,7 @@
       fields: [
         { area: 1.2, soil: 'normal', rent: 10000 }, { area: 0.9, soil: 'good', rent: 12000 }, { area: 0.9, soil: 'poor', rent: 6000 },
       ],
-      machines: [{ model: 'tr_s', age: 12 }, { model: 'pl_s', age: 10 }, { model: 'cb_s', age: 11 }],
+      machines: [{ model: 'tr_s', age: 9 }, { model: 'pl_s', age: 8 }, { model: 'cb_s', age: 9 }],
       loans: [],
       family: [{ name: 'あなた', role: '経営主', hours: 2000, age: 30, tag: 'operator' }, { name: '配偶者', role: '家族（手伝い）', hours: 600, age: 30 }],
       staff: 0, partTimers: 0,
@@ -533,7 +546,7 @@
         { area: 1.5, soil: 'normal', rent: 10000 }, { area: 1.2, soil: 'normal', rent: 11000 }, { area: 1.3, soil: 'poor', rent: 7000 },
       ],
       machines: [
-        { model: 'tr_m', age: 13 }, { model: 'pl_m', age: 11 }, { model: 'cb_m', age: 12 },
+        { model: 'tr_m', age: 10 }, { model: 'pl_m', age: 9 }, { model: 'cb_m', age: 10 },
         { model: 'dr_m', age: 16 }, { model: 'ns_s', age: 15 }, // 大きな経営は、乾燥施設と育苗ハウスも受け継ぐ
       ],
       loans: [{ kind: 'long', name: '設備資金（親から継承）', balance: 3000000, rate: 0.015, yearsLeft: 3 }],
@@ -547,12 +560,12 @@
     hojin: {
       name: '法人参入', sub: '異業種から農業法人を設立', difficulty: 'ふつう',
       desc: '資本金4,000万円で農業法人を設立。撤退する農家から12haの田と、中古のトラクタ・田植機・コンバインを引き継いで始めるが、地域の信頼は低い。社員を雇い、投資の回収を考えながら規模を拡大しよう。',
-      corp: true, cash: 34700000, execPay: 4000000, trust: 25, skill: 0.9, customers: 0, brand: 0,
+      corp: true, cash: 32900000, execPay: 4000000, trust: 25, skill: 0.9, customers: 0, brand: 0,
       fields: [
         { area: 3.0, soil: 'normal', rent: 12000 }, { area: 2.5, soil: 'normal', rent: 12000 }, { area: 2.5, soil: 'good', rent: 13000 },
         { area: 2.0, soil: 'normal', rent: 11000 }, { area: 2.0, soil: 'poor', rent: 7000 },
       ],
-      machines: [{ model: 'tr_m', age: 5 }, { model: 'pl_m', age: 5 }, { model: 'cb_m', age: 5 }], // 中古で買い取った（約530万円）
+      machines: [{ model: 'tr_m', age: 5 }, { model: 'pl_m', age: 5 }, { model: 'cb_m', age: 5 }], // 中古で買い取った（約710万円）
       loans: [],
       family: [{ name: 'あなた', role: '代表取締役', hours: 1800, age: 45, tag: 'operator' }],
       staff: 1, partTimers: 1,
@@ -571,7 +584,7 @@
     fields: [
       { area: 1.0, soil: 'normal', owned: true, name: '家の前の田' }, { area: 0.6, soil: 'good', owned: true, name: '川沿いの田' }, { area: 0.4, soil: 'poor', owned: true, name: '山の田' },
     ],
-    machines: [{ model: 'tr_s', age: 14 }, { model: 'pl_s', age: 12 }, { model: 'cb_s', age: 10 }],
+    machines: [{ model: 'tr_s', age: 11 }, { model: 'pl_s', age: 10 }, { model: 'cb_s', age: 8 }],
     loans: [],
     family: [{ name: 'あなた', role: '経営主', hours: 2000, age: 28, tag: 'operator' }, { name: 'じいちゃん', role: '相談役', hours: 400, age: 73, tag: 'grandpa' }],
     staff: 0, partTimers: 0,
@@ -585,9 +598,9 @@
     corp: false, cash: 4000000, living: 2000000, trust: 55, skill: 0.9, customers: 40, brand: 10,
     fields: [
       { area: 1.2, soil: 'poor', owned: true, name: '家の棚田' }, { area: 0.8, soil: 'poor', rent: 4000, name: '上の棚田' },
-      { area: 0.6, soil: 'poor', rent: 4000, name: '森さんの田' }, { area: 0.4, soil: 'normal', rent: 7000, name: '川べりの田' },
+      { area: 0.6, soil: 'poor', rent: 4000, name: '中山さんの田' }, { area: 0.4, soil: 'normal', rent: 7000, name: '川べりの田' },
     ],
-    machines: [{ model: 'tr_s', age: 10 }, { model: 'pl_s', age: 8 }, { model: 'cb_s', age: 12 }],
+    machines: [{ model: 'tr_s', age: 7 }, { model: 'pl_s', age: 6 }, { model: 'cb_s', age: 10 }],
     loans: [],
     family: [{ name: 'あなた', role: '経営主', hours: 2000, age: 32, tag: 'operator' }, { name: '母', role: '家族（手伝い）', hours: 900, age: 60 }],
     staff: 0, partTimers: 0,
@@ -605,8 +618,8 @@
       { area: 4.0, soil: 'normal', rent: 13000 }, { area: 4.0, soil: 'normal', rent: 13000 }, { area: 4.0, soil: 'poor', rent: 9000 }, { area: 4.0, soil: 'poor', rent: 9000 },
     ],
     machines: [
-      { model: 'tr_l', age: 13 }, { model: 'tr_m', age: 15 }, { model: 'pl_m', age: 12 }, { model: 'pl_m', age: 10 },
-      { model: 'cb_l', age: 6 }, { model: 'cb_l', age: 4 }, { model: 'cb_l', age: 9 }, { model: 'dr_l', age: 15 }, { model: 'ns_l', age: 12 }, { model: 'tr_m', age: 6 }, { model: 'dr_m', age: 9 }, // 大きな経営は、乾燥施設と育苗ハウスも
+      { model: 'tr_l', age: 10 }, { model: 'tr_m', age: 12 }, { model: 'pl_m', age: 10 }, { model: 'pl_m', age: 8 },
+      { model: 'cb_l', age: 4 }, { model: 'cb_l', age: 2 }, { model: 'cb_l', age: 7 }, { model: 'dr_l', age: 15 }, { model: 'ns_l', age: 12 }, { model: 'tr_m', age: 3 }, { model: 'dr_m', age: 9 }, // 大きな経営は、乾燥施設と育苗ハウスも
     ],
     loans: [
       { kind: 'long', name: '設備資金（前の経営から）', balance: 40000000, rate: 0.02, yearsLeft: 15 },
@@ -690,8 +703,8 @@
     '6次産業化': '農家が生産（1次）だけでなく、加工（2次）や販売（3次）まで手がけること。単価は上がるが、設備投資と手間がかかる。',
     '出荷契約金': '農協と米の出荷契約を結ぶと、契約数量1俵あたりの決まった額を田植え後（6月ごろ）に前もって受け取れるお金。秋の概算金と相殺して返す。受け取りから相殺・返還までの間は利息（年2%）がかかる。また、農協への出荷が契約数量より少ないと、その分は現金で返す。金額はJA・年によって異なる（例：JA黒部 令和8年産 1俵10,000円）。',
     '数量責任': '契約した数量を必ず納める義務。不作で足りないと、市場から高い米を買って納めることになる。契約は見込み収量の7〜8割までにとどめるのが安全。',
-    '直販': '消費者に直接売る方法。単価は高いが、精米・包装・発送の手間と経費がかかる。リピーターを増やすことが大切。',
-    '顧客獲得単価': '新しい顧客を1人増やすのにかかる販促費。顧客が毎年買ってくれれば、何年かで回収できる。',
+    '直販': '消費者に直接売る方法。単価は高いが、精米・袋・送料・通販の手数料などの経費と、精米・袋詰め・発送・問い合わせの手間がかかる。リピーターを増やすことが大切。',
+    '顧客獲得単価': '新しい顧客を1人増やすのにかかる販促費。顧客が毎年買ってくれれば、何年かで回収できる。お客さんが増えるほど、新しい人を見つけにくくなり、高くなる。',
     'リピート率': '翌年も買ってくれる顧客の割合。価格が高すぎる・品質が悪い・品切れが多いと下がる。',
     'ブランド力': '自分の米の知名度と信頼。直販の価格・新規顧客の増え方に効く。毎年投資しないと少しずつ下がる。',
     '特別栽培': '農薬・化学肥料を地域の慣行の半分以下にして育てる栽培方法。表示して高く売れるが、手間と病害虫リスクが増える。',
@@ -716,7 +729,7 @@
     '有効積算温度': '日平均気温から10℃を引いた値を毎日足し合わせたもの。稲はこれが一定に達すると実る。猛暑年は早く達して収穫が早まり、冷夏は遅れる。',
     '刈り遅れ': '刈り取りの適期を過ぎてから刈ること。胴割れ米や穂発芽が増え、品質（等級）が下がる。同じ時期に実る品種が多すぎると、機械が追いつかず起きやすい。',
     '等級': '米の検査で見た目の品質（整粒・白未熟粒・胴割れなど）から付けられる格付け。1等・2等・3等・規格外があり、等級が下がると販売単価が下がる。食味の良し悪しとは別。',
-    '機械の寿命': '機械は使い続けると、いずれ修理しても使えなくなる。ゲームではトラクタ・乾燥施設は約20年、コンバイン・田植機は約15年で使えなくなり、買い替えか委託が必要になる。同じ時期に買った機械は、同じ時期に寿命が来る。',
+    '機械の寿命': '機械は使い続けると、いずれ修理しても使えなくなる。ゲームでは乾燥施設は約20年、トラクタは約17年、コンバイン・田植機は約13年で使えなくなり、買い替えか委託が必要になる。動く部分の多いコンバインや田植機ほど、年数とともに修理費と故障が早く増える。同じ時期に買った機械は、同じ時期に寿命が来る。',
     '経営継承': '経営を次の世代に引き継ぐこと。後継者がいないと、経営主が働けなくなったときに経営をやめることになる。引き継ぐには、後継者が一緒に働きながら技術や取引先を覚えておくことが大切。',
     '生産費': '米を作るのにかかった費用。10aあたり・60kgあたりで比べる。家族労働費を含めた「全算入生産費」で見ると、本当にもうかっているかが分かる。',
   };

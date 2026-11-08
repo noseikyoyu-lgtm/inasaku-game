@@ -55,7 +55,9 @@
     const v = Math.max(md.price * 0.05, md.price * 0.8 * Math.pow(0.88, m.age)) * 0.85 * (m.subsidized && m.age < 7 ? 0.5 : 1);
     return Math.round(v / 10000) * 10000;
   };
-  SIM.repairCost = (m, infl) => (m.lease ? 0 : D.MODELS[m.model].price * Math.min(0.045, 0.006 + 0.0025 * m.age) * (infl || 1));
+  // 点検・修理費：年数とともに増える。傷みやすい機械（コンバインなど）ほど早く増え、上限も高い
+  SIM.wear = (m) => D.WEAR[D.MODELS[m.model].type] || 1;
+  SIM.repairCost = (m, infl) => { const w = SIM.wear(m); return m.lease ? 0 : D.MODELS[m.model].price * Math.min(0.045 * Math.max(1, w), 0.006 + 0.0025 * m.age * w) * (infl || 1); };
   // ---------- 家計費（生活費） ----------
   // ストーリー（個人経営）では、生活費は自分で決めず、季節と暮らしのできごとで毎月変わる。1年の平均は st.living のまま
   const LIVING_SEASON = [1.15, 0.95, 1.05, 1.05, 0.95, 0.95, 1.0, 1.1, 0.95, 0.95, 0.95, 1.15]; // 正月・新年度・お盆・年末は多め
@@ -100,7 +102,8 @@
 
   // ---------- 機械の故障 ----------
   // 年数で決まる基本の故障率に、その年の田んぼ・稲の状態（酷使・条件の悪い田・倒伏・ぬかるみ・水分の多いもみ）を掛ける
-  SIM.breakdownBase = (m) => (m.lease ? 0.02 : 0.03 + 0.02 * Math.max(0, m.age - 6));
+  // 傷みやすい機械ほど、故障が増え始めるのが早く（標準は6年目から）、増え方も大きい
+  SIM.breakdownBase = (m) => { const w = SIM.wear(m); return m.lease ? 0.02 : 0.03 + 0.02 * w * Math.max(0, m.age - 6 / w); };
   SIM.breakdownProb = (m) => SIM.breakdownBase(m);
   // その年の状態（events を省くと平年＝計画時の見込み）
   SIM.breakdownCtx = function (st, events) {
@@ -159,7 +162,7 @@
   SIM.loanCapacity = function (st) {
     const bs = ACC.bs(st);
     if (bs.equity < 0) return 0;
-    const cap = 5000000 + 0.7 * bs.land + 0.6 * bs.machines + 4 * Math.max(0, SIM.avgIncome(st, 3)) +
+    const cap = 5000000 + 0.7 * bs.land + 0.4 * bs.machines + 4 * Math.max(0, SIM.avgIncome(st, 3)) +
       (st.corp ? 0.3 * Math.max(0, bs.equity) : 0);
     // 無利子資金も借入には変わりないので、枠から引く
     const used = U.sum(st.loans.filter((l) => l.kind === 'long' || l.kind === 'nointerest'), (l) => l.balance);
@@ -224,17 +227,20 @@
   SIM.FIELD_TYPES = ['planter', 'combine'];
   // 人が乗って動かす機械：乗れる人（自分・後継者・正社員・常雇用パート）の数までしか同時に動かせない
   SIM.DRIVEN_TYPES = ['tractor', 'planter', 'combine'];
+  // 直販のお客さんを1人増やす費用（物価の上昇は入れない）
+  SIM.directCac = (st) => D.DIRECT.cac * (1 + (st.direct.customers || 0) / D.DIRECT.cacGrow);
   SIM.sizeTier = (md) => (md.eff >= 1 ? 0 : md.eff >= 0.85 ? 1 : md.eff >= 0.72 ? 2 : 3);
   // 作業委託料（円/10a・物価の上昇は入れない）。乾燥・調製は平年作のとれる量（俵）で決まり、条件の悪い田は割高
   SIM.opFee10a = function (st, k) {
     const op = D.OPS[k];
     let fee = op.fee || 0;
+    const coop = k === 'dry' && st.flags && st.flags.coopDryer ? 0.7 : 1; // 地域の共同乾燥施設に出資した（物語のできごと）
     if (op.perBale) {
       const units = SIM.planUnits(st), a10 = U.sum(units, (u) => u.area * 10);
       const bales = U.sum(units, (u) => (D.CROPS[u.crop].by * u.yieldMult * D.CULTS[u.cult].yield * D.SOWS[u.sow].yield * u.area * 10) / 60);
       fee = op.perBale * (a10 > 0 ? bales / a10 : 8.8);
     }
-    return k === 'nursery' ? fee : fee * (1 + (st.village ? D.CONTRACT_POOR_VILLAGE : D.CONTRACT_POOR) * SIM.soilShare(st).poor);
+    return (k === 'nursery' ? fee : fee * (1 + (st.village ? D.CONTRACT_POOR_VILLAGE : D.CONTRACT_POOR) * SIM.soilShare(st).poor)) * coop;
   };
   SIM.soilShare = function (st) {
     const total = U.sum(st.fields, (f) => f.area);
@@ -417,6 +423,35 @@
       seasons[s] = { need: n, family: fam, staff: stf, part: pc, useFam, useStaff, usePart, short, ratio: n > 0 ? short / n : 0 };
       partHours += usePart; famUsed += useFam;
     }
+    // ---------- 人手（同時に要る人数） ----------
+    // 田植えや稲刈りは、時間は短くても、機械に乗る人と苗やもみを運ぶ人が同時に要る。
+    // 作業ごとに「組の人数」と「適期のうちに終わらせるのに要る人数」の多いほうを、その作業に要る人数とし、季節でいちばん多い作業と、いる人数を比べる
+    const headsBase = st.family.filter((x) => RG.state.effHours(x) >= 100).length + st.staff.length + regs.length;
+    for (const s of D.SEASONS) {
+      const x = seasons[s];
+      let peak = 0, peakOp = null;
+      for (const k in ops) {
+        const o = ops[k], d = D.OPS[k];
+        if (o.season !== s || o.hours < 0.5) continue;
+        // 苗を買っているときの育苗（受け取り・置き場づくり・水やり）は1人でできる
+        const crew = k === 'nursery' && !(mach.nursery.own > 0) ? 1 : d.crew || 1;
+        o.people = Math.max(crew, o.hours / ((d.win || 30) * D.WORK_DAY));
+        // 機械の作業は、動かせる機械の台数ぶんの組までしか人を増やせない（それ以上は機械の能力の問題）
+        if (d.mtype && mach[d.mtype].count > 0) o.people = Math.min(o.people, crew * mach[d.mtype].count);
+        if (o.people > peak) { peak = o.people; peakOp = k; }
+      }
+      const parts = Math.min(RG.state.partsIn(st, s), sparts.length);
+      x.peopleNeed = peak; x.peakOp = peakOp; x.heads = headsBase + parts;
+      x.peopleShort = Math.max(0, peak - x.heads);
+      x.hourRatio = x.ratio;
+      x.peopleRatio = peak > 0 ? D.PEOPLE_SHORT_W * x.peopleShort / peak : 0;
+      x.ratio = Math.max(x.ratio, x.peopleRatio);
+      // 人手として来てもらったパートは、その作業のあいだ一緒に働く（時間が足りていても、その分の賃金がかかる）
+      let help = 0;
+      if (parts > 0) for (const k in ops) { const o = ops[k]; if (o.season === s && o.people && headsBase < o.people) help += o.hours * Math.min(parts, o.people - headsBase) / o.people; }
+      x.helpPart = Math.max(0, help - x.usePart);
+      partHours += x.helpPart;
+    }
     // 季節パートの時給：来てくれた人たちの時給の平均
     const nMax = Math.max(1, ...D.SEASONS.map((s) => RG.state.partsIn(st, s)));
     const avgWage = sparts.length ? U.sum(sparts.slice(0, nMax), (p) => p.wage) / Math.min(nMax, sparts.length) : D.LABOR.partWage;
@@ -528,7 +563,9 @@
     const direct = { product: st.direct.product, label: SIM.productLabel(st.direct.product), alloc: 0, demand: 0, sold: 0,
       unsold: 0, revenue: 0, cost: 0, price5: p5, ref5: 0, customers: st.direct.customers, available: dp ? dp.rem : 0,
       newCustomers: 0, churn: 0, unmet: 0, customersEnd: st.direct.customers, perBaleNet: 0 };
-    const newCust = (st.direct.marketing / (DD.cac * mInf)) * (1 + st.brand / 100);
+    // 新しいお客さん：お客さんが増えるほど、1人増やす費用が高くなる（集めやすい人から集まっていく）
+    const cacNow = SIM.directCac(st) * mInf;
+    const newCust = (st.direct.marketing / cacNow) * (1 + st.brand / 100);
     if (dp && dCrop && dCrop.directCoef) {
       const alloc = Math.max(0, Math.min(st.direct.alloc, dp.rem));
       dp.rem -= alloc;
@@ -537,7 +574,7 @@
       const deliverable = alloc * (1 - 0.7 * sh('winter'));
       const sold = Math.min(deliverable, demand);
       const revenue = sold * p5 * DD.bagsPerBale;
-      const cost = sold * (DD.packaging + (hasMill ? DD.polishMill : DD.polish)) * mInf + revenue * DD.platform;
+      const cost = sold * (DD.packaging + (hasMill ? DD.polishMill : DD.polish) + DD.shipping * DD.bagsPerBale) * mInf + revenue * DD.platform;
       const unmet = demand > 0 ? Math.max(0, demand - sold) / demand : 0;
       const churn = U.clamp(DD.baseChurn + Math.max(0, p5 / ref5 - 1) * 0.35 + unmet * 0.3 + (dp.r1 < 0.6 ? 0.08 : 0) - st.brand / 1000, 0.05, 0.6);
       const wom = st.direct.customers * 0.06 * dp.r1 * (sold > 0 ? 1 : 0);
@@ -668,7 +705,9 @@
     const jaEarlyRev = U.sum(sales.ja.filter((x) => D.CROPS[x.crop] && D.CROPS[x.crop].earlyPay), (x) => x.revenue); // 早生は概算金が9月に入る
     const jaBales = U.sum(sales.ja, (x) => x.bales);
     // 農協の出荷契約金（前渡金）：6月に受け取り、10月の概算金と相殺。出荷が契約数量に届かなければ11月に不足分を返す
-    const advQty = SIM.advanceQty(st, res.production.expectedJA), advUnit = SIM.advanceUnit(st);
+    // 数量は6月の時点で分かること（計画の見込み）で決める。秋の故障や刈り遅れで足りなければ、11月に返す
+    const planJA = preview ? res.production.expectedJA : opts.planExpJA != null ? opts.planExpJA : SIM.simulate(st, { preview: true }).production.expectedJA;
+    const advQty = SIM.advanceQty(st, planJA), advUnit = SIM.advanceUnit(st);
     const adv = { qty: advQty, unit: advUnit, amount: advQty * advUnit, shipped: jaBales, offset: Math.min(advQty, jaBales) * advUnit, ret: Math.max(0, advQty - jaBales) * advUnit };
     res.jaAdvance = adv;
     if (adv.amount > 0) {
@@ -782,7 +821,7 @@
     // 研修生の賃金（働いてもらう時間 × 時給）
     spend('wagePart', U.sum(st.family.filter((f) => f.tag === 'trainee'), (f) => f.hours * D.LABOR.traineeWage * wInf), MONTHLY, '研修生の賃金');
     const partMonths = { spring: { 4: 0.5, 5: 0.5 }, summer: { 7: 1 }, autumn: { 9: 0.5, 10: 0.5 }, winter: { 1: 0.33, 2: 0.33, 12: 0.34 } };
-    for (const s of D.SEASONS) spend('wagePart', seasons[s].usePart * partWage, partMonths[s], 'パート賃金');
+    for (const s of D.SEASONS) spend('wagePart', (seasons[s].usePart + (seasons[s].helpPart || 0)) * partWage, partMonths[s], 'パート賃金'); // 人手として来てもらった分も
     spend('recruit', st.partTimers * D.LABOR.partRecruit, { 3: 1 }, 'パート募集費');
     spend('salesCost', jaBales * D.COST.jaFee * mInf, { 10: 1 }, '農協出荷の手数料・袋代');
     spend('salesCost', feedBales * D.COST.feedFee * mInf, { 11: 1 }, '飼料用米の出荷経費');

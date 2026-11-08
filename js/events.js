@@ -14,6 +14,7 @@
     return { land: genLand(st).concat(rv), contracts: genContracts(st), used: genUsed(st) };
   };
 
+  E.landBannedAt = (st, y) => !!st.flags.landSoldYear && y > st.flags.landSoldYear && y - st.flags.landSoldYear <= (RG.actions ? RG.actions.LAND_SALE_BAN : 3);
   const landBanned = E.landBanned = (st) => !!st.flags.landSoldYear && st.year > st.flags.landSoldYear && st.year - st.flags.landSoldYear <= (RG.actions ? RG.actions.LAND_SALE_BAN : 3);
   // 1件の農地の話の大きさの上限（ha）：最初は2haくらいまで。経営が広がり、年数がたつほど大きな話も来る
   // 例：3haの経営なら2ha、10haなら約3ha、20haなら約4.5ha、30ha以上なら6ha
@@ -210,7 +211,7 @@
       title: '地域の共同作業',
       text: () => '集落の水路清掃と農道の草刈りへの参加を頼まれた。地域で農業を続けるには大切な活動だ。',
       choices: [
-        { label: '参加する', desc: '夏の労働 +60時間、地域の信頼 +4', apply: (st) => { st.yearFlags.extraLabor = { summer: 60 }; st.trust = Math.min(100, st.trust + 4); return '共同作業に参加し、地域の人たちと親しくなった。'; } },
+        { label: '参加する', desc: '夏の労働 +60時間、地域の信頼 +4', apply: (st) => { const x = st.yearFlags.extraLabor = st.yearFlags.extraLabor || {}; x.summer = (x.summer || 0) + 60; st.trust = Math.min(100, st.trust + 4); return '共同作業に参加し、地域の人たちと親しくなった。'; } },
         { label: '出不足金を払う（3万円）', desc: '信頼は変わらない', apply: (st) => { addCost(st, 30000, '共同作業の出不足金'); return '出不足金を払った。'; } },
         { label: '断る', desc: '地域の信頼 -4', apply: (st) => { st.trust = Math.max(0, st.trust - 4); return '共同作業を断った。少し気まずい。'; } },
       ],

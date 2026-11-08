@@ -315,7 +315,8 @@
     const rows = D.SEASONS.map((s) => {
       const x = L.seasons[s];
       return [D.SEASON_NAMES[s], { v: U.num(x.need) + 'h', cls: 'num' }, { v: U.num(x.useFam) + 'h', cls: 'num' }, { v: U.num(x.useStaff) + 'h', cls: 'num' }, { v: U.num(x.usePart) + 'h', cls: 'num' },
-        { v: x.short > 0.5 ? U.num(x.short) + 'h（' + U.pct(x.ratio) + '）' : '—', cls: 'num ' + (x.short > 0.5 ? 'neg' : '') }];
+        { v: x.short > 0.5 ? U.num(x.short) + 'h（' + U.pct(x.ratio) + '）' : '—', cls: 'num ' + (x.short > 0.5 ? 'neg' : '') },
+        { v: x.peopleNeed ? Math.ceil(x.peopleNeed - 1e-9) + '人 / ' + x.heads + '人' : '—', cls: 'num ' + (x.peopleShort > 0.05 ? 'neg' : '') }];
     });
     const mrows = ['tractor', 'nursery', 'planter', 'combine', 'dryer', 'drone', 'smart'].map((t) => {
       const M = res.machines[t];
@@ -323,7 +324,7 @@
     });
     return h('div', { class: 'stack' },
       UI.card('季節ごとの労働', '年間 ' + U.num(L.totalHours) + 'h（10aあたり ' + U.num(L.hoursPer10a, 1) + 'h）',
-        UI.table([{ label: '季節' }, { label: '必要', num: true }, { label: '家族', num: true }, { label: '社員', num: true }, { label: 'パート', num: true }, { label: '不足', num: true }], rows),
+        UI.table([{ label: '季節' }, { label: '必要', num: true }, { label: '家族', num: true }, { label: '社員', num: true }, { label: 'パート', num: true }, { label: '不足', num: true }, { label: '人手（要る/いる）', num: true }], rows),
         h('p', { class: 'small muted' }, 'パート ' + U.num(L.partHours) + 'h・賃金 ' + U.man(L.partCost) + '。労働力が不足すると作業が遅れ、収量と1等比率が下がります（今年の収量への影響 ' + U.pct(res.production.laborY - 1) + '）。')),
       UI.card('機械の稼働', null,
         UI.table([{ label: '機械' }, { label: '必要面積', num: true }, { label: '能力', num: true }, { label: T('機械稼働率', '稼働率'), num: true }, { label: '委託', num: true }], mrows),

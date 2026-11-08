@@ -116,7 +116,7 @@
     SFX[name](ctx.currentTime + 0.01);
   };
   // 会話の声（話す人ごとに高さを変えた「ぽぽぽ」）
-  const VOICE = { jiichan: 52, kucho: 55, takahashi: 60, kimura: 64, yamane: 50, sato: 57, aoki: 62, kenta: 67, oyama: 55, ogawa: 69, tamura: 58, narr: 0 };
+  const VOICE = { jiichan: 52, kucho: 55, takahashi: 64, kimura: 64, yamane: 50, sato: 57, aoki: 62, kenta: 67, oyama: 55, ogawa: 69, tamura: 58, haruka: 72, narr: 0 };
   SD.voice = function (who) {
     if (!SD.settings.sfx || !ensure()) return;
     if (ctx.state === 'suspended') ctx.resume();

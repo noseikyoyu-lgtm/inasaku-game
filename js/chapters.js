@@ -223,6 +223,9 @@
     const firstCrop = busy ? null : ids.find(isCrop);
     ids = ids.filter((id) => !isCrop(id) || id === firstCrop);
     st.events.queue = ids.concat(st.events.queue);
+    // 物語の場面のあとに選ぶできごとは、場面の続きとして先頭に出す
+    const beats = (RG.scenes && RG.scenes.BEATS) || [];
+    st.events.queue = st.events.queue.filter((id) => beats.indexOf(id) >= 0).concat(st.events.queue.filter((id) => beats.indexOf(id) < 0));
   };
 
   // ---------- 年の始まり・終わり ----------

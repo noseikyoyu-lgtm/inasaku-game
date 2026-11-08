@@ -144,7 +144,9 @@
     });
     const L = pv.labor.seasons;
     D.SEASONS.forEach((s) => {
-      if (L[s].ratio > 0.01) out.push({ level: 'bad', text: D.SEASON_SHORT[s] + 'の労働力が ' + U.num(L[s].short) + '時間 不足（' + U.pct(L[s].ratio) + '）。' +
+      if (L[s].ratio > 0.01 && L[s].peopleRatio > L[s].hourRatio) out.push({ level: 'bad', text: D.SEASON_SHORT[s] + 'の' + pv.labor.ops[L[s].peakOp].name + 'は、同時に' + Math.ceil(L[s].peopleNeed - 1e-9) + '人要りますが、いるのは' + L[s].heads + '人です。' +
+        '1人で何役もこなすと作業が遅れて、収量・品質が落ちます。' + D.SEASON_SHORT[s] + 'だけ季節パートを頼むか（「労働力」タブの「季節ごとの配分」）、作業を委託しましょう。' });
+      else if (L[s].ratio > 0.01) out.push({ level: 'bad', text: D.SEASON_SHORT[s] + 'の労働力が ' + U.num(L[s].short) + '時間 不足（' + U.pct(L[s].ratio) + '）。' +
         (s === 'winter' ? '直販の出荷が滞ります。' : '作業が遅れて収量・品質が落ちます。') + 'パートや社員の雇用、機械の能力アップを検討しましょう。' });
     });
     if (pv.cash.minBalance < 0) {
@@ -321,7 +323,11 @@
     // 人手不足
     const L = res.labor.seasons;
     const worst = D.SEASONS.reduce((a, s) => (L[s].short > L[a].short ? s : a), 'spring');
-    if (L[worst].ratio > 0.01) {
+    const pw = D.SEASONS.find((s) => L[s].peopleRatio > 0.01 && L[s].peopleRatio >= (L[s].hourRatio || 0));
+    if (pw && !(L[worst].short > 0.5 && L[worst].hourRatio > L[pw].peopleRatio)) {
+      add(9, D.SEASON_SHORT[pw] + 'の人手', D.SEASON_SHORT[pw] + 'の' + res.labor.ops[L[pw].peakOp].name + 'に同時に' + Math.ceil(L[pw].peopleNeed - 1e-9) + '人要るのに、' + L[pw].heads + '人しかいませんでした。時間が足りていても、同時にいる人が足りないと作業が遅れます。' +
+        D.SEASON_SHORT[pw] + 'だけ季節パートを頼みましょう（「労働力」タブの「季節ごとの配分」で季節ごとに人数を決められます）。', 'labor');
+    } else if (L[worst].ratio > 0.01) {
       const n = Math.ceil(L[worst].short / D.PART_CAP[worst]);
       add(9, D.SEASON_SHORT[worst] + 'の人手', D.SEASON_SHORT[worst] + 'の作業が' + U.num(L[worst].short) + '時間足りませんでした。パートを' + n + '人増やす（' + D.SEASON_SHORT[worst] + 'は1人' + D.PART_CAP[worst] + '時間まで）か、' +
         (worst === 'spring' ? '一部を直播にして春の作業を減らしましょう。' : worst === 'autumn' ? '大きなコンバインや乾燥施設で作業時間を減らしましょう。' : '正社員の採用も考えましょう。'), 'labor');

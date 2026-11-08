@@ -137,6 +137,7 @@
 
   app.toResult = function () {
     const st = app.st;
+    let movieNow = false, afterMovie = null;
     if (st.seasonPending) {
       RG.sim.apply(st, RG.sim.simulate(st));
       st.seasonPending = false;
@@ -146,12 +147,17 @@
       st.lastResult.newTitles = got.map((t) => t.id);
       RG.playlog.result(st, st.lastResult);
       RG.sound.play(got.length ? 'great' : 'fanfare');
-      got.forEach((t, i) => setTimeout(() => UI.toast('称号「' + t.name + '」を手に入れた！'), 1100 + i * 700));
+      // じいちゃんの田んぼの1年目は、初めての稲刈りのムービーのあとに知らせる
+      movieNow = st.scenarioId === 'story' && st.year === 1 && !st.flags.mvHarvest1 && !!RG.movie;
+      const toasts = () => got.forEach((t, i) => setTimeout(() => UI.toast('称号「' + t.name + '」を手に入れた！'), 1100 + i * 700));
+      if (movieNow) afterMovie = toasts; else toasts();
       // 新しく使えるようになったものがあれば、きらきらの音
       if ((st.lastResult.missionNotes || []).some((x) => x.indexOf('🔓') >= 0)) setTimeout(() => RG.sound.play('unlock'), 1100 + got.length * 700);
     }
     app.st.phase = 'result';
     app.resultTab = 'summary';
+    // じいちゃんの田んぼ：1年目の決算の前に、初めての稲刈りのムービー（先に出しておき、高橋さんの説明はムービーのあとに）
+    if (movieNow) { st.flags.mvHarvest1 = true; RG.movie.play('harvest1', st, () => { app.keepScroll = true; app.render(); if (afterMovie) afterMovie(); }); }
     app.autosave();
     app.render();
   };
@@ -193,7 +199,11 @@
     app.autosave();
     app.render();
     // クリア・ゲームオーバー（引退も）で経営が終わったら、プレイの記録を送る（送ってよいと選んだ人だけ）
-    if (app.st.phase === 'end' || app.st.phase === 'gameover') RG.feedback.atEnd(app, app.st);
+    if (app.st.phase === 'end' || app.st.phase === 'gameover') {
+      const st = app.st, go = () => RG.feedback.atEnd(app, st);
+      // じいちゃんの田んぼを20年続けたら、エンディングのムービーを流してから
+      if (st.phase === 'end' && st.scenarioId === 'story' && !st.gameOver && RG.movie) RG.movie.play('ending', st, go); else go();
+    }
   };
 
   // ---------- 共通ヘッダー ----------

@@ -60,7 +60,7 @@
       version: S.VERSION, seed: opts.seed, scenarioId: opts.scenarioId, farmName: opts.farmName || '稲穂ファーム',
       // mode：'story'＝ストーリー（20年・章と依頼と試練）、'endless'＝自分の経営（区切りなく続けられる）
       mode: S.modeOf(opts), year: 1, maxYear: sc.maxYear || D.MAX_YEAR, phase: 'event', nextId: 1, midterms: [], items: { omamori: 1, reroll: 1 },
-      storePlan: 0, stock: null, shops: {}, biz: { harvest: 0, drone: 0, proc: 0, droneLicense: false },
+      storePlan: 0, stock: null, wearV2: true, directV2: true, shops: {}, biz: { harvest: 0, drone: 0, proc: 0, droneLicense: false },
       titles: {}, stats: { sixes: 0, omamori: 0, gambles: 0, guards: 0, typhoonWin: 0, counted: 0 }, rivalLand: [],
       corp: !!sc.corp, cash: sc.cash, yearStartCash: sc.cash, ledger: [], receivables: [],
       taxPayable: 0, taxPayMonth: 3, lossCarry: 0, emergency: 0,
@@ -68,7 +68,7 @@
       family: sc.family.map((f, i) => Object.assign({ id: 'p' + i }, f)),
       staff: [], partTimers: sc.partTimers || 0,
       living: sc.living || 0, execPay: sc.execPay || 0,
-      direct: { customers: sc.customers, product: sc.defaultCrop + '|conv', alloc: 0, price5: 2400, marketing: 100000 },
+      direct: { customers: sc.customers, product: sc.defaultCrop + '|conv', alloc: 0, price5: 2900, marketing: 100000 },
       brand: sc.brand, brandInvest: 0,
       contracts: [], insurance: 'none', shortLoan: 0, jaAdvance: { on: true, auto: true, qty: 0 },
       trust: sc.trust, skill: sc.skill,
@@ -453,6 +453,16 @@
     // モードがなかった古いセーブ：自分の経営はエンドレス、用意されたシナリオはそれまでどおり20年（章あり）
     if (!st.mode) st.mode = st.scenarioId === 'custom' ? 'endless' : 'story';
     if (RG.chapters) RG.chapters.state(st);
+    // 田んぼに出なくなったじいちゃんは、働き手（家族）から外す（前の版のセーブ）
+    if (st.scenarioId === 'story' && (st.year >= 11 || (st.flags || {}).jiichanIll)) st.family = st.family.filter((f) => f.tag !== 'grandpa');
+    // 直販の参考価格を実際に近づけた（米価×0.147→×0.17）前のセーブ：決めていた値段も同じ割合で上げる
+    if (!st.directV2) { st.directV2 = true; if (st.direct && st.direct.price5) st.direct.price5 = Math.round(st.direct.price5 * 0.17 / 0.147 / 50) * 50; }
+    // 棚田の区長の名前を「森さん」から「中山さん」に変えた（前の版のセーブの田の名前も合わせる）
+    (st.fields || []).forEach((f) => { if (f.name === '森さんの田') f.name = '中山さんの田'; });
+    if (!st.wearV2) {
+      st.wearV2 = true;
+      (st.machines || []).forEach((m) => { const md = D.MODELS[m.model]; if (md && md.maxAge && !m.lease && m.age > md.maxAge - 2) m.age = Math.max(0, md.maxAge - 2); });
+    }
     // 作業が増えた（春の準備）前のセーブ：決算の作業の表に、ない作業を0で足す
     [st.lastResult].concat(st.history || []).forEach((r) => {
       const ops = r && r.labor && r.labor.ops;

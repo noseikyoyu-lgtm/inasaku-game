@@ -2,6 +2,9 @@
 (function (RG) {
   'use strict';
   const UI = RG.ui, h = UI.h, D = RG.data, U = RG.util, SIM = RG.sim, A = RG.actions, ACC = RG.accounting, S = RG.state, AG = RG.agro;
+  // 人数の表示と、足りないときの文（時間・人数）
+  const peopleTxt = (n) => Math.ceil(n - 1e-9) + '人'; // 人は1人ずつなので、1人きざみで切り上げる（高橋さんの注意・決算の表と同じ）
+  const shortTxt = (x) => '😓 ' + [x.short > 0.5 ? U.num(x.short) + 'h' : null, x.peopleShort > 0.05 ? Math.max(1, Math.ceil(x.peopleNeed - 1e-9) - x.heads) + '人' : null].filter(Boolean).join('・') + ' 不足';
   const T = UI.term;
 
   const TABS = [
@@ -127,7 +130,7 @@
         : planted < 0.05 ? { warn: true, text: '田んぼがまだ空っぽ！ 作る品種と面積を決めよう', sub: '「作付計画」の「作付の型」から選ぶと早いよ（' + U.ha(total) + '）', tab: 'crops', go: '作付計画へ' }
           : { text: '作る品種と面積を決める', sub: '作付 ' + U.ha(planted) + ' / ' + U.ha(total) + '。残りの田にも何か作ろう', tab: 'crops', go: '作付計画へ' },
       planted < 0.05 ? { text: '人手が足りるか確かめる', sub: '作付を決めると、季節ごとに必要な作業時間がわかる', tab: 'labor', go: '労働力へ' }
-        : short.length ? { warn: true, text: '人手が足りない季節があります', sub: short.map((s) => D.SEASON_SHORT[s]).join('・') + 'の作業時間が不足。パートを雇うか、作業を委託しよう', tab: 'labor', go: '労働力へ' }
+        : short.length ? { warn: true, text: '人手が足りない季節があります', sub: short.map((s) => D.SEASON_SHORT[s]).join('・') + 'の作業時間か、同時に要る人数が不足。パートを雇うか、作業を委託しよう', tab: 'labor', go: '労働力へ' }
           : { done: true, text: '人手は足りている', sub: '春・夏・秋・冬の作業時間に余裕あり', tab: 'labor', go: '労働力へ' },
       { done: !!seen.sales, text: '売り先を決める', sub: st.direct.customers > 0 && st.direct.alloc <= 0 ? '直販のお客さんが' + U.num(st.direct.customers) + '人いるのに、直販に回す米が0俵。農協・契約・直販の売り分けを決めよう' : '「販売計画」で、農協・契約・直販の売り分けを決めよう', tab: 'sales', go: '販売計画へ' },
       planted < 0.05 ? { text: 'お金が1年もつか確かめる', sub: '作付を決めると、月ごとの資金の見込みがわかる', tab: 'finance', go: '資金・保険へ' }
@@ -504,7 +507,10 @@
         h('div', { class: 'row', style: { flexWrap: 'nowrap' } }, UI.bar(Math.min(M.need, M.cap), M.need), h('span', { class: 'small' }, M.need > 0 ? 'カバー率 ' + U.pct(M.own / M.need) : '—')), '—', '—', '—']);
     });
     const bctx = SIM.breakdownCtx(st); // 平年の天候で、今の計画のときの故障の見込み
-    const owned = st.machines.map((m) => {
+    // 機械の種類の順（トラクター→育苗→田植機→コンバイン→乾燥…）に並べ、同じ種類は年数の古い順（寿命の近いものが上）
+    const tOrder = (m) => { const i = D.MACHINE_TYPE_ORDER.indexOf(D.MODELS[m.model].type); return i < 0 ? 99 : i; };
+    const sorted = st.machines.slice().sort((a, b) => tOrder(a) - tOrder(b) || b.age - a.age);
+    const owned = sorted.map((m) => {
       const md = D.MODELS[m.model];
       const risk = SIM.breakdownRisk(st, m, bctx);
       return [h('span', null, md.name, m.lease ? h('span', { class: 'badge info', style: { marginLeft: '4px' } }, 'リース') : m.used ? h('span', { class: 'badge', style: { marginLeft: '4px' } }, '中古') : null,
@@ -581,7 +587,7 @@
         RG.era && (RG.era.featLocked(st, 'lease') || RG.era.featLocked(st, 'large')) ? h('div', { class: 'notes' },
           RG.era.featLocked(st, 'lease') ? UI.note('info', null, '📄 リース：' + RG.era.lockText(st, 'lease')) : null,
           RG.era.featLocked(st, 'large') ? UI.note('info', null, '🚜 大型の機械：' + RG.era.lockText(st, 'large')) : null) : null,
-        h('p', { class: 'small muted' }, '借入で購入すると長期資金（10年）を借ります。', T('リース'), 'は修理費込みで7年契約です。', T('耐用年数'), 'は多くの機械で7年です。')));
+        h('p', { class: 'small muted' }, '借入で購入するときは、値段の' + U.pct(D.FIN.machineDown) + 'を頭金として自分のお金で出し、残りを長期資金（10年）で借ります。前の年の決算で、借入を返すのに' + D.FIN.maxRepayYears + '年より長くかかる見込みだと、新しい借入はできません。', T('リース'), 'は修理費込みで7年契約です。', T('耐用年数'), 'は多くの機械で7年です。')));
   }
 
   // ---------- 労働力 ----------
@@ -602,8 +608,8 @@
         perSeason ? UI.numInput({ value: st.partSeason[s], min: 0, max: 30, width: 52, label: D.SEASON_SHORT[s] + 'のパートの人数',
           onChange: (v) => app.update((t) => S.setPartSeason(t, s, v)) })
           : h('div', { class: 'ac-sub' }, st.partTimers + '人'),
-        h('div', { class: 'ac-need' }, '必要 ' + U.num(x.need) + 'h'),
-        h('div', { class: 'ac-res' }, ok ? '💪 足りる' : '😓 ' + U.num(x.short) + 'h 不足'));
+        h('div', { class: 'ac-need' }, '必要 ' + U.num(x.need) + 'h' + (x.peopleNeed ? '・' + peopleTxt(x.peopleNeed) : '')),
+        h('div', { class: 'ac-res' }, ok ? '💪 足りる' : shortTxt(x)));
     });
     return UI.card('🗓️ 季節ごとの配分', '家族・社員が働く時間の割り振りと、季節ごとのパートの人数',
       h('div', { class: 'alloc-grid' }, cols),
@@ -631,13 +637,14 @@
       const x = L.seasons[s];
       return [D.SEASON_ICON[s] + ' ' + D.SEASON_NAMES[s], { v: U.num(x.need) + 'h', cls: 'num' }, { v: U.num(x.family) + 'h', cls: 'num' }, { v: U.num(x.staff) + 'h', cls: 'num' },
         { v: U.num(x.part) + 'h', cls: 'num' }, { v: x.short > 0.5 ? U.num(x.short) + 'h' : '—', cls: 'num ' + (x.short > 0.5 ? 'neg' : '') },
+        { v: x.peopleNeed ? peopleTxt(x.peopleNeed) + ' / ' + x.heads + '人' : '—', cls: 'num ' + (x.peopleShort > 0.05 ? 'neg' : '') },
         x.ratio > 0.01 ? h('span', { class: 'badge bad' }, '不足 ' + U.pct(x.ratio)) : h('span', { class: 'badge good' }, '十分')];
     });
     const opRows = D.OP_ORDER.filter((k) => L.ops[k].hours > 0.5 || L.ops[k].contractArea > 0.01).map((k) => {
       const o = L.ops[k];
-      return [o.name, D.SEASON_SHORT[o.season], { v: U.num(o.hours) + 'h', cls: 'num' }, { v: o.contractArea > 0.01 ? U.ha(o.contractArea) : '—', cls: 'num' }];
+      return [o.name, D.SEASON_SHORT[o.season], { v: U.num(o.hours) + 'h', cls: 'num' }, { v: o.people ? peopleTxt(o.people) : '—', cls: 'num' }, { v: o.contractArea > 0.01 ? U.ha(o.contractArea) : '—', cls: 'num' }];
     });
-    if (L.directLabor > 0) opRows.push(['直販の精米・発送', '通年', { v: U.num(L.directLabor) + 'h', cls: 'num' }, '—']);
+    if (L.directLabor > 0) opRows.push(['直販の精米・発送', '通年', { v: U.num(L.directLabor) + 'h', cls: 'num' }, '—', '—']);
     const staffCost = D.LABOR.staffSalary * st.market.wageInfl * (1 + D.LABOR.staffSocial);
     return h('div', { class: 'stack' },
       UI.card('季節ごとの労働バランス', '必要な時間と働ける時間',
@@ -646,18 +653,21 @@
           return h('div', { class: 'sg ' + (ok ? 'good' : 'bad') },
             h('div', { class: 'sg-ic', 'aria-hidden': 'true' }, D.SEASON_ICON[s]), h('div', { class: 'sg-n' }, D.SEASON_SHORT[s]),
             h('div', { class: 'sg-bar' }, h('i', { style: { width: (x.need > 0 ? Math.min(100, have / x.need * 100) : 100) + '%' } })),
-            h('div', { class: 'sg-v' }, ok ? '💪 足りる' : '😓 ' + U.num(x.short) + 'h 不足'));
+            h('div', { class: 'sg-v' }, ok ? '💪 足りる' : shortTxt(x)),
+            x.peopleNeed ? h('div', { class: 'sg-p' + (x.peopleShort > 0.05 ? ' neg' : '') }, '👥 ' + peopleTxt(x.peopleNeed) + '要る・' + x.heads + '人いる') : null);
         })),
         L.villageHelp > 0.5 ? UI.note('good', null, '🤝 集落の人が、預かった田の夏の水管理・草刈りを手伝ってくれます（夏の作業 −' + U.num(L.villageHelp) + '時間）。') : null,
-        UI.table([{ label: '季節' }, { label: '必要', num: true }, { label: '家族', num: true }, { label: '社員', num: true }, { label: 'パート上限', num: true }, { label: '不足', num: true }, { label: '' }], seasonRows),
+        UI.table([{ label: '季節' }, { label: '必要', num: true }, { label: '家族', num: true }, { label: '社員', num: true }, { label: 'パート上限', num: true }, { label: '不足', num: true }, { label: '人手（要る/いる）', num: true }, { label: '' }], seasonRows),
+        h('p', { class: 'small muted keep' }, '人手：田植えは、田植機に乗る人・苗を運ぶ人・苗を継ぐ人の3人、稲刈りは、コンバインに乗る人ともみを運ぶ人の2人が、機械1台につき同時に要ります。時間が足りていても、同時にいる人が足りないと作業が遅れ、収量・品質が落ちます。いる人は、家族（年100時間以上働く人）・社員・常雇用パート・その季節の季節パートです。人手として来てもらった季節パートには、その作業のあいだの賃金がかかります。'),
         h('div', { class: 'kpis', style: { marginTop: '10px' } },
           UI.kpi('年間の労働時間', U.num(L.totalHours) + 'h'), UI.kpi('10aあたり', U.num(L.hoursPer10a, 1) + 'h', '機械が大きいほど短くなる'),
           UI.kpi('パートの見込み', U.num(L.partHours) + 'h', U.man(L.partCost) + '（時給 ' + U.yen(L.partWage) + '）'))),
       allocCard(app, st, L),
       RG.screens.workPlanCard(app, st),
-      UI.card('作業ごとの時間', null, UI.table([{ label: '作業' }, { label: '季節' }, { label: '時間', num: true }, { label: '委託面積', num: true }], opRows)),
+      UI.card('作業ごとの時間と人手', null, UI.table([{ label: '作業' }, { label: '季節' }, { label: '時間', num: true }, { label: '同時に要る人', num: true }, { label: '委託面積', num: true }], opRows)),
+      // 家族：引退した経営主は、働き手の一覧に出さない
       h('div', { class: 'grid2' },
-        UI.card('家族', null, UI.table(null, st.family.map((f) => [f.name, h('span', { class: 'muted' }, f.role + (f.age != null ? '・' + f.age + '歳' : '')),
+        UI.card('家族', null, UI.table(null, st.family.filter((f) => f.tag !== 'retired').map((f) => [f.name, h('span', { class: 'muted' }, f.role + (f.age != null ? '・' + f.age + '歳' : '')),
           { v: S.effHours(f) < f.hours - 0.5 ? h('span', null, U.num(S.effHours(f)) + 'h/年', h('div', { class: 'small muted' }, '年齢で減少（本来 ' + U.num(f.hours) + 'h）')) : U.num(f.hours) + 'h/年', cls: 'num' }])),
           h('p', { class: 'small muted' }, '家族の労働には給料を払いませんが、', T('機会費用'), 'があります。決算で「', T('時間当たり所得'), '」を確認しましょう。')),
         UI.card('季節パート', '忙しい季節だけ来てもらう・機械には乗れない',
@@ -708,6 +718,7 @@
           locked ? h('span', { class: 'small muted' }, crop.unlock && !st.flags[crop.unlock] ? '生産者登録をすると作付できます' : '🔒 この品種はまだ作れません') : null));
     });
     const d = S.direct;
+    const hasMill = SIM.hasType(st, 'mill'), mi = st.market.matInfl; // 直販の説明の経費（精米設備・物価の上がり分）
     const directProducts = pv.production.products.filter((p) => D.CROPS[p.crop].directCoef);
     const prodOpts = directProducts.map((p) => ({ value: p.key, label: p.label + '（' + U.bales(p.bales) + '）' }));
     if (!directProducts.find((p) => p.key === st.direct.product)) prodOpts.unshift({ value: st.direct.product, label: SIM.productLabel(st.direct.product) + '（今年は作付なし）' });
@@ -765,7 +776,7 @@
             UI.pvRow('新規顧客の見込み', '約' + U.num(d.newCustomers) + '人'),
             UI.pvRow(h('span', null, T('リピート率')), U.pct(1 - d.churn)),
             UI.pvRow('ブランド力', U.num(st.brand) + ' → ' + U.num(pv.brandEnd)),
-            h('p', { class: 'small muted' }, '1人のお客さんは年に約30kg（0.5俵）買います。参考価格より高いと需要が減り、リピート率も下がります。', T('顧客獲得単価'), 'は約' + U.yen(D.DIRECT.cac) + '。直販の代金は45%が年内、残りは翌年にかけて入金されます。')))));
+            h('p', { class: 'small muted' }, '1人のお客さんは年に約30kg（0.5俵）買います。参考価格より高いと需要が減り、リピート率も下がります。', T('顧客獲得単価'), 'は今 約' + U.yen(SIM.directCac(st) * mi) + '（お客さんが' + D.DIRECT.cacGrow + '人増えるごとに +' + U.yen(D.DIRECT.cac * mi) + '）。1俵あたりの経費は、袋 ' + U.yen(D.DIRECT.packaging * mi) + '・精米 ' + U.yen((hasMill ? D.DIRECT.polishMill : D.DIRECT.polish) * mi) + (hasMill ? '（精米設備あり）' : '') + '・送料と箱代 ' + U.yen(D.DIRECT.shipping * D.DIRECT.bagsPerBale * mi) + '（1袋' + U.yen(D.DIRECT.shipping * mi) + '・お客さんと半分ずつ）・通販の手数料 売上の' + U.pct(D.DIRECT.platform) + '。手間は1俵あたり' + (hasMill ? D.DIRECT.laborMill : D.DIRECT.labor) + '時間です。直販の代金は45%が年内、残りは翌年にかけて入金されます。')))));
   }
 
   // ---------- 地元の米屋・商店への出荷 ----------
@@ -809,7 +820,7 @@
       const I = D.INSURANCE[k];
       const insLock = k === 'income' && RG.era && RG.era.featLocked(st, 'incomeIns');
       const disabled = k === 'income' && (!incomeBase.eligible || insLock);
-      const prem = insLock ? RG.era.lockText(st, 'incomeIns') : k === 'kyosai' ? '保険料 ' + U.man(kyosaiPrem) : k === 'income' ? (incomeBase.eligible ? '基準収入 ' + U.man(incomeBase.base) + '・保険料 ' + U.man(incomeBase.base * I.rate) : '来年から加入できます') : '保険料 0円';
+      const prem = insLock ? RG.era.lockText(st, 'incomeIns') : k === 'kyosai' ? '保険料 ' + U.man(kyosaiPrem) : k === 'income' ? (incomeBase.eligible ? '基準収入 ' + U.man(incomeBase.base) + '・保険料 ' + U.man(incomeBase.base * I.rate * (st.flags.incomeInsCheap ? 0.75 : 1)) : '来年から加入できます') : '保険料 0円';
       return h('button', { class: 'radio-card' + (st.insurance === k ? ' on' : ''), type: 'button', disabled, 'aria-pressed': st.insurance === k ? 'true' : 'false',
         onclick: (e) => { if (e.target.closest && e.target.closest('.term')) return; app.update((s) => { s.insurance = k; }); } },
         h('div', { class: 't' }, k === 'none' ? I.name : T(I.name)), h('div', { class: 'small' }, prem), h('div', { class: 'small muted' }, I.desc));

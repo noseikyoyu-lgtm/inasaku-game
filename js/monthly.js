@@ -12,6 +12,12 @@
   const totalArea = (st) => U.sum(st.fields, (f) => f.area);
   // その年にサイコロ勝負（台風・カメムシなど）が来るか（同じ題の毎月のできごとと重ならないように）
   const crisisYear = (st, id) => !!(RG.dice && RG.dice.crises(st).some((c) => c.id === id));
+  // 人のできごと（自分・社員・パートのけがや病気）で使う：作付の面積（10a）と、作業を頼んだときの委託料
+  const plantedA10 = (st) => U.sum(st.plan, (r) => r.area) * 10;
+  const transA10 = (st) => U.sum(st.plan.filter((r) => r.sow === 'transplant'), (r) => r.area) * 10;
+  const feeFor = (k, a10, frac) => (st) => Math.max(10000, Math.round(a10(st) * frac * RG.sim.opFee10a(st, k) / 1000) * 1000);
+  const hasCrew = (st) => st.staff.length + (st.regulars || []).length > 0; // 社員か常雇用パートがいる
+  const partIn = (s) => (st) => RG.state.partsIn(st, s) > 0;
   // e：y=収量（+0.01で+1%）q=品質（1等米の割合に効く点数）cost=出費 income=収入 trust brand cust=直販のお客さん skill bd=今年の機械の故障しやすさ（×） h=作業時間 { season: 時間 }
   const o = (t, e) => ({ t, e: e || {} });
   ME.EVENTS = [
@@ -459,6 +465,61 @@
         { label: '機械を持って参加する', pre: { h: { summer: 8 } }, out: [o('機械が泥にはまってしまった。', { trust: 1, cost: 20000 }), o('作業がはかどり、感謝された。', { trust: 3 }), o('「頼りになる」と、田を預けたいという話が出た。', { trust: 5 })] },
         { label: '出不足金を払う', pre: { cost: 10000 }, out: [o('「金で済ませるのか」と言われた。', { trust: -2 }), o('ふつうに済んだ。'), o('事情をわかってもらえた。', { trust: 1 })] },
       ] },
+    // ---------- 人のできごと（自分・社員・パートのけがや病気） ----------
+    { id: 'kega_haru', w: 0.35, months: [4, 5], from: 2, who: 'narr', icon: '🩹', title: '自分がけがをした', cond: (st) => transA10(st) > 0,
+      text: '畦の草刈り中に足をくじいてしまった。医者には「2週間は無理をしないように」と言われた。田植えはこれからだ。',
+      choices: [
+        { label: '田植えの半分を委託する', pre: { cost: feeFor('plant', transA10, 0.5) }, out: [o('委託先が混んでいて、田植えが少し遅れた。', { y: -0.005 }), o('予定どおり田植えが終わった。'), o('委託先の腕がよく、苗がきれいに植わった。', { q: 1 })] },
+        { label: '家族と近所の人に手伝ってもらう', pre: { cost: 20000, h: (st) => ({ spring: Math.round(transA10(st) * 0.6) }) }, out: [o('慣れない人が多く、植えむらが出た。', { y: -0.01 }), o('みんなのおかげで乗り切れた。', { trust: 2 }), o('集落のつながりが深まった。', { trust: 4 })] },
+        { label: '痛みをこらえて自分でやる', out: [o('けがが悪化して通院が長引き、田植えも遅れた。', { cost: 50000, y: -0.015, h: { spring: 30 } }), o('痛みで作業がはかどらなかった。', { y: -0.005, h: { spring: 20 } }), o('思ったより早く治り、なんとかやりきった。')] },
+      ] },
+    { id: 'necchu', w: 0.35, months: [7, 8], from: 2, who: 'narr', icon: '🤒', title: '熱中症で寝込んだ', cond: (st) => plantedA10(st) > 0,
+      text: '暑さの中で見回りを続けていたら、熱中症で倒れてしまった。何日かは田んぼに出られない。',
+      choices: [
+        { label: '近所の人に見回りを頼む', pre: { cost: 30000 }, out: [o('水の入れ方がいつもと違い、一部の田が干上がった。', { y: -0.005 }), o('快く見回ってくれた。', { trust: 1 }), o('ついでに草刈りまでしてくれた。', { trust: 2, h: { summer: -10 } })] },
+        { label: '家族に水管理を頼む', pre: { h: { summer: 20 } }, out: [o('水の管理がうまくいかず、稲の育ちが落ちた。', { y: -0.008 }), o('家族が見回ってくれて助かった。'), o('家族も田んぼの様子がわかるようになった。', { skill: 0.003 })] },
+        { label: '点滴を受けて、すぐ田んぼに戻る', pre: { cost: 10000 }, out: [o('ぶり返して1週間寝込んだ。', { cost: 20000, y: -0.01, h: { summer: 30 } }), o('体がだるいまま作業した。', { h: { summer: 10 } }), o('大事にいたらなかった。')] },
+      ] },
+    { id: 'gikkuri', w: 0.35, months: [9, 10], from: 2, who: 'narr', icon: '🩹', title: '稲刈りの最中に腰を痛めた', cond: (st) => plantedA10(st) > 0,
+      text: '重いもみ袋を運んでいて、ぎっくり腰になってしまった。稲刈りはまだ半分残っている。',
+      choices: [
+        { label: '残りの稲刈りを委託する', pre: { cost: feeFor('harvest', plantedA10, 0.4) }, out: [o('委託先が混んでいて、刈り取りが遅れた。', { q: -1 }), o('無事に刈り終えた。'), o('早めに刈ってもらえて、品質もよかった。', { q: 1 })] },
+        { label: '季節パートを急いで頼む', pre: { cost: 60000, h: { autumn: 20 } }, out: [o('人が見つかるまで、刈り取りが止まった。', { q: -1, y: -0.005 }), o('来てもらえて、なんとか刈り終えた。'), o('手際のいい人が来てくれた。', { h: { autumn: -10 } })] },
+        { label: 'コルセットを巻いて自分で刈る', out: [o('悪化して2週間寝込み、刈り遅れた。', { cost: 40000, q: -2, y: -0.01 }), o('痛みで作業がはかどらなかった。', { h: { autumn: 20 } }), o('大事にいたらなかった。')] },
+      ] },
+    { id: 'datsurin', w: 0.5, months: [4, 5], from: 2, who: 'narr', icon: '🚜', title: 'トラクターが脱輪した', cond: (st) => hasM(st, 'tractor'),
+      text: '農道でトラクターが脱輪し、横転しかけた。けがはなかったが、ひやりとした。',
+      choices: [
+        { label: 'レッカーを呼ぶ', pre: { cost: 50000 }, out: [o('機械も少し傷んでいた。', { bd: 1.15 }), o('無事に引き上げてもらった。'), o('ついでに点検もしてもらえた。', { bd: 0.9 })] },
+        { label: '近所の人に引き上げてもらう', pre: { h: { spring: 4 } }, out: [o('引き上げるときに機械を傷めてしまった。', { cost: 80000, bd: 1.1 }), o('みんなで引き上げた。', { trust: 1 }), o('お礼に田んぼを手伝う約束をして、仲が深まった。', { trust: 3, h: { summer: 6 } })] },
+      ] },
+    { id: 'staff_kega', w: 0.5, months: [5], who: 'narr', icon: '🩹', title: '社員がけがをした', cond: hasCrew,
+      text: '田植えの準備中に、社員が手をけがして、2週間ほど休むことになった（治療費は労災保険から出る）。いちばん忙しい時期に人手が減る。',
+      choices: [
+        { label: '季節パートを急いで頼む', pre: { cost: 80000 }, out: [o('なかなか人が見つからず、作業が遅れた。', { y: -0.005 }), o('すぐに来てもらえた。'), o('手際のいい人が来てくれた。', { q: 1 })] },
+        { label: 'みんなで残業して乗り切る', pre: { h: { spring: 40 } }, out: [o('みんな疲れて、ミスが続いた。', { y: -0.008 }), o('なんとか乗り切った。'), o('チームの結束が強まった。', { skill: 0.003 })] },
+        { label: '田植えの一部を委託する', pre: { cost: feeFor('plant', transA10, 0.25) }, out: [o('委託先との日程が合わず、少し遅れた。', { y: -0.003 }), o('予定どおり植え終えた。'), o('空いた時間で、ほかの作業も進んだ。', { h: { spring: -10 } })] },
+      ] },
+    { id: 'staff_kyuka', w: 0.4, months: [6, 7], who: 'narr', icon: '🏥', title: '社員の子どもが入院した', cond: hasCrew,
+      text: '社員の子どもが入院し、しばらく看病で休みたいと相談された。',
+      choices: [
+        { label: '休んでもらい、自分が穴を埋める', pre: { h: { summer: 30 } }, out: [o('自分が疲れてしまった。', { h: { summer: 10 } }), o('社員にとても感謝された。'), o('「この会社でずっと働きたい」と言ってくれた。', { skill: 0.004 })] },
+        { label: '休んでもらい、季節パートで穴を埋める', pre: { cost: 60000 }, out: [o('来てくれた人が慣れておらず、手間どった。', { h: { summer: 10 } }), o('問題なく夏を越せた。'), o('来てくれた人が、秋も手伝いたいと言ってくれた。', { h: { autumn: -10 } })] },
+        { label: '休みを短くしてほしいと頼む', out: [o('社員の気持ちが離れ、仕事に身が入らなくなった。', { y: -0.008 }), o('しぶしぶ受け入れてもらった。'), o('家族と相談して、うまく都合をつけてくれた。')] },
+      ] },
+    { id: 'part_kyuu', w: 0.5, months: [5], who: 'narr', icon: '📵', title: '季節パートさんが来られなくなった', cond: (st) => partIn('spring')(st) && transA10(st) > 0,
+      text: '田植えの手伝いを頼んでいたパートさんが、家族の都合で急に来られなくなった。',
+      choices: [
+        { label: '知り合いに急いで頼む', pre: { cost: 30000 }, out: [o('見つからず、家族でなんとかした。', { h: { spring: 30 } }), o('代わりの人が来てくれた。'), o('来てくれた人が手際よく、作業が早く進んだ。', { h: { spring: -10 } })] },
+        { label: '田植えの一部を委託する', pre: { cost: feeFor('plant', transA10, 0.25) }, out: [o('委託先との日程が合わず、少し遅れた。', { y: -0.003 }), o('予定どおり植え終えた。'), o('空いた時間で、ほかの作業も進んだ。', { h: { spring: -10 } })] },
+        { label: '家族でがんばる', pre: { h: { spring: 40 } }, out: [o('手が足りず、植えるのが遅れた。', { y: -0.01 }), o('なんとか植え終えた。'), o('家族の息がぴったり合った。', { trust: 1 })] },
+      ] },
+    { id: 'part_kega', w: 0.5, months: [9, 10], who: 'narr', icon: '🩹', title: 'パートさんが作業中にけがをした', cond: partIn('autumn'),
+      text: 'もみ袋を運んでいたパートさんが、足を痛めてしまった。',
+      choices: [
+        { label: 'お見舞いに行き、労災の手続きをする', pre: { cost: 30000, h: { autumn: 6 } }, out: [o('治るまで来られず、人手が足りなくなった。', { h: { autumn: 30 } }), o('大事にいたらず、すぐに戻ってきてくれた。'), o('ていねいな対応が評判になり、「来年も来たい」と言ってくれた。', { trust: 2 })] },
+        { label: '作業の手順を見直し、安全講習をする', pre: { cost: 20000, h: { autumn: 10 } }, out: [o('講習の日に作業が止まった。', { h: { autumn: 10 } }), o('みんなが気をつけるようになった。', { bd: 0.95 }), o('運び方を変えたら、作業がかえって早くなった。', { h: { autumn: -15 } })] },
+      ] },
   ];
   ME.def = (id) => ME.EVENTS.find((e) => e.id === id);
   ['sake_kura', 'mochi_order', 'shin_check', 'chokuha_tori', 'jakuso', 'smart_demo', 'staff_shikaku', 'part_sashiire', 'drone_kaze', 'bank_mendan', 'feed_taihi', 'proc_bussan', 'stand_shinmai', 'review', 'shuraku_kyoudou']
@@ -470,14 +531,14 @@
     for (let m = 1; m < month; m++) { const e = pick(st, m, used); if (e) used[e.id] = true; }
     return pick(st, month, used);
   };
-  // 経営に合わせたできごと（ctx）は、ふつうのできごとの3倍出やすい
+  // 経営に合わせたできごと（ctx）は、ふつうのできごとの3倍出やすい。w があるできごとは、その倍率で出やすさを変える（人のけが・病気は出にくく）
   function pick(st, month, used) {
     const list = ME.EVENTS.filter((e) => e.months.indexOf(month) >= 0 && !used[e.id] && (!e.from || st.year >= e.from) && (!e.cond || e.cond(st)));
     if (!list.length) return null;
     // 最近の年に出たできごとは出にくくする（去年・おととし：とても出にくい、3〜4年前：少し出にくい）
     const seen = st.mevSeen || {};
     const fresh = (e) => { const y = seen[e.id]; if (!y) return 1; const ago = st.year - y; return ago <= 2 ? 0.1 : ago <= 4 ? 0.4 : 1; };
-    const w = list.map((e) => Math.max(1, Math.round((e.ctx ? 3 : 1) * fresh(e) * 20))), total = U.sum(w, (x) => x);
+    const w = list.map((e) => Math.max(1, Math.round((e.ctx ? 3 : 1) * (e.w || 1) * fresh(e) * 20))), total = U.sum(w, (x) => x);
     let k = RG.rng.hash(st.seed, st.year, 'mev', month) % total;
     for (let i = 0; i < list.length; i++) { if (k < w[i]) return list[i]; k -= w[i]; }
     return list[list.length - 1];

@@ -84,6 +84,13 @@
     return n >= S.operators(st) ? '🚜 乗れる人が足りません（' + D.MACHINE_TYPES[t].name + ' ' + n + '台・乗れる人 ' + S.operators(st) + '人）。正社員か常雇用パートを雇うと増やせます' : null;
   };
   A.machineLock = (st, modelId, mode) => (mode === 'lease' && locked(st, 'lease')) || (A.largeModel(modelId) && locked(st, 'large')) || A.operatorLock(st, modelId) || null;
+  // 機械を借入で買う：頭金（値段の2割）は自分のお金で出し、残りを長期資金（10年）で借りる
+  A.downPayment = (price) => Math.round(price * D.FIN.machineDown / 10000) * 10000;
+  A.loanWithDown = function (st, price) {
+    const down = A.downPayment(price);
+    if (st.cash < down) return '頭金が足りません（借入で買うときは、値段の' + U.pct(D.FIN.machineDown) + '＝' + U.man(down) + 'を自分のお金で出します。今の資金 ' + U.man(st.cash) + '）';
+    return A.takeLoan(st, 'long10', price - down, true);
+  };
   A.buyMachine = function (st, modelId, mode) {
     const md = D.MODELS[modelId];
     const lk = A.machineLock(st, modelId, mode);
@@ -97,9 +104,9 @@
     const subsidized = !!st.yearFlags.machineSubsidy;
     const price = Math.round(A.newPrice(st, modelId));
     if (mode === 'loan') {
-      const err = A.takeLoan(st, 'long10', price, true);
+      const err = A.loanWithDown(st, price);
       if (err) return err;
-    } else if (st.cash < price) return '資金が足りません（借入で購入することもできます）';
+    } else if (st.cash < price) return '資金が足りません（借入で購入することもできます。頭金として値段の' + U.pct(D.FIN.machineDown) + 'を自分のお金で出します）';
     ledger(st, -price, 'asset', md.name + ' を購入' + (subsidized ? '（補助 1/2）' : ''));
     const nm = S.makeMachine(st, modelId, { cost: price });
     if (subsidized) nm.subsidized = true;
@@ -115,7 +122,7 @@
     const o = st.offers.used.find((x) => x.id === offerId);
     if (!o) return 'この中古機械はもうありません';
     if (mode === 'loan') {
-      const err = A.takeLoan(st, 'long10', o.price, true);
+      const err = A.loanWithDown(st, o.price);
       if (err) return err;
     } else if (st.cash < o.price) return '資金が足りません';
     const md = D.MODELS[o.model];

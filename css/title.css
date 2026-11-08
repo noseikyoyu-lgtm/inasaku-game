@@ -225,3 +225,46 @@
   .px-window { background: rgba(20, 15, 11, .82); }
   .title-foot { background: rgba(14, 10, 7, .8); }
 }
+
+/* ---------- ストーリーのムービー ---------- */
+.movie { position: fixed; inset: 0; z-index: 1000; background: #000; overflow: hidden; opacity: 0; transition: opacity .5s ease; cursor: pointer; color: #fff; font-family: var(--t-font); }
+.movie.on { opacity: 1; }
+.mv-cam { position: absolute; inset: -6%; }
+.mv-bg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; opacity: 0; transition: opacity .6s ease; }
+.mv-cam.bg-farm .mv-farm, .mv-cam.bg-dusk .mv-dusk { opacity: 1; }
+/* カメラの動き（ゆっくり寄る・引く・横に流れる） */
+.mv-cam.pan-in { animation: mv-in 7s ease-out both; }
+.mv-cam.pan-out { animation: mv-out 7s ease-out both; }
+.mv-cam.pan-left { animation: mv-left 7s ease-in-out both; }
+.mv-cam.pan-right { animation: mv-right 7s ease-in-out both; }
+@keyframes mv-in { from { transform: scale(1); } to { transform: scale(1.1); } }
+@keyframes mv-out { from { transform: scale(1.12); } to { transform: scale(1); } }
+@keyframes mv-left { from { transform: translateX(3%) scale(1.05); } to { transform: translateX(-3%) scale(1.05); } }
+@keyframes mv-right { from { transform: translateX(-3%) scale(1.05); } to { transform: translateX(3%) scale(1.05); } }
+/* 上下の黒い帯 */
+.mv-bar { position: absolute; left: 0; right: 0; height: 11vh; background: #000; z-index: 3; transition: transform .8s cubic-bezier(.2, .7, .2, 1); }
+.mv-bar.top { top: 0; transform: translateY(-100%); }
+.mv-bar.bottom { bottom: 0; transform: translateY(100%); }
+.movie.on .mv-bar { transform: none; }
+/* 字幕 */
+.mv-cap { position: absolute; left: 0; right: 0; bottom: calc(11vh + 6px); z-index: 4; text-align: center; padding: 26px 20px 14px; text-shadow: 0 2px 10px rgba(0, 0, 0, .85), 0 0 2px rgba(0, 0, 0, .9);
+  background: linear-gradient(rgba(0, 0, 0, 0), rgba(0, 0, 0, .5)); } /* 雪など明るい絵の上でも字幕が読めるように */
+.mv-text { font-size: clamp(20px, 3.4vw, 30px); font-weight: 700; letter-spacing: .08em; animation: mv-cap 1.2s ease .25s both; }
+.mv-sub { margin-top: 8px; font-size: clamp(14px, 2.2vw, 18px); opacity: .92; animation: mv-cap 1.2s ease .9s both; }
+.mv-cap.card { bottom: auto; top: 50%; transform: translateY(-50%); background: radial-gradient(ellipse at center, rgba(0, 0, 0, .45), rgba(0, 0, 0, 0) 70%); }
+.mv-cap.card .mv-text { font-family: var(--t-brush); font-weight: 400; font-size: clamp(64px, 14vw, 140px); letter-spacing: .06em; color: #f6d68a; }
+.mv-cap.card .mv-sub { font-size: clamp(15px, 2.6vw, 22px); letter-spacing: .2em; }
+@keyframes mv-cap { from { opacity: 0; transform: translateY(10px); filter: blur(4px); } to { opacity: 1; transform: none; filter: none; } }
+/* 場面の切り替え（暗転） */
+.mv-fade { position: absolute; inset: 0; background: #000; z-index: 5; opacity: 0; pointer-events: none; transition: opacity .45s ease; }
+.mv-fade.dark { opacity: 1; }
+.mv-skip { position: absolute; top: calc(11vh + 10px); right: 14px; z-index: 6; background: rgba(0, 0, 0, .45); color: #fff; border: 1px solid rgba(255, 255, 255, .45); border-radius: 999px; padding: 6px 14px; font-size: 14px; cursor: pointer; }
+/* 花びら・ホタル */
+.mv-fxbox, .mv-fx { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+.mv-fx i { position: absolute; display: block; }
+.mv-petal i { width: 9px; height: 6px; border-radius: 60% 0 60% 0; background: #f8c7d4; opacity: .9; animation: mv-petal linear infinite; }
+@keyframes mv-petal { from { transform: translate(0, 0) rotate(0); } to { transform: translate(-18vw, 115vh) rotate(540deg); } }
+.mv-firefly i { width: 5px; height: 5px; border-radius: 50%; background: #e9ff9a; box-shadow: 0 0 10px 4px rgba(214, 255, 120, .55); animation: mv-fly ease-in-out infinite alternate; }
+@keyframes mv-fly { 0% { opacity: 0; transform: translate(0, 0); } 50% { opacity: 1; } 100% { opacity: .2; transform: translate(4vw, -5vh); } }
+.movie.still .mv-cam { animation: none !important; }
+@media (prefers-reduced-motion: reduce) { .mv-text, .mv-sub { animation: none; } }

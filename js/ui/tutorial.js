@@ -81,6 +81,7 @@
     if (!st || TU.active) return;
     st.tutorial = st.tutorial || { seen: {} };
     if (st.tutorial.off) return;
+    if (document.querySelector('.movie')) return; // ムービーが終わってから（終わったときに画面を描き直して、もう一度ここを通る）
     const name = TU.current(app);
     if (!name || st.tutorial.seen[name]) return;
     if (name === 'plan' && st.year > 1) { st.tutorial.seen.plan = true; return; } // 途中から読み込んだゲームでは出さない

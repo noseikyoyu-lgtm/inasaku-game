@@ -86,7 +86,7 @@
     RG.events.autoSeason(st, (id) => RG.events.statusQuoChoice(id));
     (st.scrapped || []).forEach((model) => {
       const price = A.newPrice(st, model);
-      if (SIM.loanCapacity(st) >= price) A.buyMachine(st, model, 'loan');
+      if (SIM.loanCapacity(st) >= price - A.downPayment(price) && st.cash >= A.downPayment(price)) A.buyMachine(st, model, 'loan'); // 頭金を出し、残りを借りる
     });
     st.scrapped = [];
     for (let i = 0; i < 12; i++) {

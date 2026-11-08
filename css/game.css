@@ -365,6 +365,12 @@ h2, h3 { font-weight: 900; letter-spacing: .04em; }
 /* ---------- じいちゃんとの約束 ---------- */
 .promise { background: linear-gradient(135deg, #fff7e2, #fbe9c0); color: #3a2a12; border: 1px solid #ecd39a; border-radius: 14px; padding: 12px 16px; box-shadow: var(--shadow); }
 .promise.big { max-width: 620px; margin: 0 auto; }
+.sg-p { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.sg-p.neg { color: var(--bad, #c0392b); font-weight: 700; }
+.promise.done { background: linear-gradient(135deg, #f1f8e6, #dcefc4); border-color: #b9d99a; padding: 10px 14px; }
+.pr-done { margin-left: auto; font-weight: 700; color: #2f6a1e; font-size: 14px; }
+.promise.done .pr-text { font-weight: 500; font-size: 14px; }
+.pr-sub { margin: 4px 0 0; color: rgba(58, 42, 18, .7); }
 .pr-head { display: flex; align-items: center; gap: 8px; font-size: 16px; }
 .pr-ic { font-size: 22px; }
 .pr-stars { margin-left: auto; font-size: 22px; letter-spacing: 2px; }
