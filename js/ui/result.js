@@ -4,7 +4,7 @@
   const UI = RG.ui, h = UI.h, D = RG.data, U = RG.util;
   const T = UI.term;
 
-  const TABS = [['summary', 'サマリーと講評', '📋'], ['pl', '損益計算書', '🧾'], ['bs', '貸借対照表', '⚖️'], ['cash', '資金繰り', '💴'], ['cost', '原価・損益分岐', '🧮'], ['prod', '生産と販売', '🌾'], ['work', '労働と機械', '🚜']];
+  const TABS = [['summary', 'サマリーと講評', '📋'], ['pl', '損益計算書', '🧾'], ['bs', '貸借対照表', '⚖️'], ['cash', '資金繰り', '💴'], ['cost', '原価・損益分岐', '🧮'], ['prod', '生産と販売', '🌾'], ['work', '労働と機械', '🚜'], ['whatif', 'もしも', '🔮']];
 
   RG.screens.showLastResult = function (app) { app.viewingLast = true; app.resultTab = 'summary'; app.render(); };
 
@@ -249,6 +249,7 @@
     const variable = pl.lines.expense.filter((x) => x.group === 'var');
     const fmtA = (v) => (isFinite(v) ? U.ha(v) : '黒字にならない');
     return h('div', { class: 'stack' },
+      benchCard(st, res),
       UI.card(T('生産費'), null, h('div', { class: 'kpis' },
         UI.kpi('10aあたり経営費', U.yen(an.costPer10a), '家族労働費込み ' + U.yen(an.fullCostPer10a)),
         UI.kpi('販売用米60kgあたり', U.yen(an.costPer60), '家族労働費込み ' + U.yen(an.fullCostPer60), an.costPer60 > res.price ? 'bad' : ''),
@@ -331,5 +332,68 @@
         res.broken.length ? h('div', { class: 'notes', style: { marginTop: '8px' } }, res.broken.map((b) => UI.note('bad', b.name + 'が故障', (b.why && b.why.length ? '故障しやすくなっていた理由：' + b.why.join('・') + '（' + b.age + '年使用）。' : b.age != null ? b.age + '年使った機械でした。' : '') + (b.lease ? 'リースのため修理費はかかりませんでした。' : '修理費がかかり、作業能力が下がりました。')))) : null));
   }
 
-  const FNS = { summary, pl: plTab, bs: bsTab, cash: cashTab, cost: costTab, prod: prodTab, work: workTab };
+  // ---------- もしも：その年の天気・米価・できごとはそのままで、判断だけ変えて計算し直す ----------
+  function whatIfCases(st0) {
+    const cs = [];
+    const P = (s) => U.sum(s.plan, (r) => r.area);
+    if (st0.insurance === 'none') cs.push({ label: '収量共済に入っていたら', mod: (s) => { s.insurance = 'kyosai'; } });
+    else cs.push({ label: '保険に入っていなかったら', mod: (s) => { s.insurance = 'none'; } });
+    if (st0.direct.alloc > 0) cs.push({ label: '直販をやめて、農協に出していたら', mod: (s) => { s.direct.alloc = 0; s.direct.marketing = 0; } });
+    else if (st0.direct.customers >= 10) cs.push({ label: '直販に ' + Math.round(st0.direct.customers * 0.5) + '俵回していたら', mod: (s) => { s.direct.alloc = Math.round(s.direct.customers * 0.5); } });
+    cs.push({ label: '季節パートを1人増やしていたら', mod: (s) => { if (s.partSeason) D.SEASONS.forEach((x) => { s.partSeason[x] += 1; }); s.partTimers += 1; } });
+    if (st0.partTimers > 0) cs.push({ label: '季節パートを1人減らしていたら', mod: (s) => { if (s.partSeason) D.SEASONS.forEach((x) => { s.partSeason[x] = Math.max(0, s.partSeason[x] - 1); }); s.partTimers = Math.max(0, s.partTimers - 1); } });
+    cs.push(st0.jaAdvance && st0.jaAdvance.on
+      ? { label: '出荷契約金（前渡金）を使わなかったら', mod: (s) => { s.jaAdvance.on = false; } }
+      : { label: '出荷契約金（前渡金）を使っていたら', mod: (s) => { s.jaAdvance = { on: true, auto: true, qty: 0 }; } });
+    if (st0.plan.some((r) => r.area > 0 && (r.crop !== 'koshiBL' || r.cult !== 'conv' || r.sow !== 'transplant')) && P(st0) > 0)
+      cs.push({ label: '全部をコシヒカリBL（慣行・移植）にしていたら', mod: (s) => { s.plan = [RG.state.makeRow(s, 'koshiBL', 'conv', 'transplant', P(s))]; } });
+    if ((st0.shortLoan || 0) > 0) cs.push({ label: '運転資金を借りていなかったら', mod: (s) => { s.shortLoan = 0; } });
+    return cs;
+  }
+  function runWhatIf(json, mod) {
+    const s = RG.state.fromJSON(json);
+    if (mod) mod(s);
+    const r = RG.sim.simulate(s);
+    RG.sim.apply(s, r);
+    return { income: r.analysis.income, cash: s.cash, sales: r.pl.sales, over: !!s.gameOver };
+  }
+  function whatIfTab(app, st, res) {
+    const W = app.whatIf;
+    if (!W || W.year !== res.year) return UI.card('もしも', null, UI.note('info', null, '「もしも」は、決算に進んだときにだけ計算できます（ゲームを読み込み直したり、前の年の決算を見たりしているときは出ません）。'));
+    if (!app.whatIfCache) {
+      try {
+        const st0 = RG.state.fromJSON(W.base), base = runWhatIf(W.base, null);
+        app.whatIfCache = { base, rows: whatIfCases(st0).map((c) => Object.assign({ label: c.label }, runWhatIf(W.base, c.mod))) };
+      } catch (e) { console.error(e); app.whatIfCache = { error: true }; }
+    }
+    const C = app.whatIfCache;
+    if (C.error) return UI.card('もしも', null, UI.note('warn', null, 'この年は「もしも」を計算できませんでした。'));
+    const diff = (v) => h('span', { class: v > 5000 ? 'pos' : v < -5000 ? 'neg' : 'muted' }, (v >= 0 ? '+' : '−') + U.man(Math.abs(v)));
+    const word = (d) => (d > 300000 ? '👍 だいぶ得だった' : d > 50000 ? '🙂 少し得だった' : d < -300000 ? '👎 だいぶ損だった' : d < -50000 ? '😐 少し損だった' : '➖ ほとんど同じ');
+    const rows = C.rows.map((r) => [r.label + (r.over ? '（経営が続けられなくなる）' : ''), { v: U.man(r.income), cls: 'num' }, { v: diff(r.income - C.base.income), cls: 'num' },
+      { v: diff(r.cash - C.base.cash), cls: 'num' }, word(r.income - C.base.income)]);
+    return h('div', { class: 'stack' },
+      UI.card('🔮 もしも、別の判断をしていたら', '今年の天気・米価・できごとはそのまま',
+        h('p', { class: 'small' }, '実際の今年：所得 ' + U.man(C.base.income) + '・年末の資金 ' + U.man(C.base.cash) + '。ひとつだけ判断を変えて、同じ1年を計算し直しました。'),
+        UI.table([{ label: 'もしも' }, { label: '所得', num: true }, { label: '所得の差', num: true }, { label: '年末の資金の差', num: true }, { label: '' }], rows),
+        h('p', { class: 'small muted keep' }, '「得だった」判断が、来年も得とはかぎりません。保険や前渡金は、悪い年や資金が苦しい年に効くものです。どの判断が、どんな年に効くのかを考えてみましょう。')));
+  }
+
+  // 同じ規模の経営の目安と比べる
+  function benchCard(st, res) {
+    const an = res.analysis, a = res.area.planted;
+    if (!(a > 0) || !(res.production.marketBales > 0)) return null;
+    const B = D.BENCH.find((b) => a <= b.max) || D.BENCH[D.BENCH.length - 1];
+    const judge = (mine, avg, lowGood) => { const r = mine / avg - 1, good = lowGood ? r < -0.05 : r > 0.05, bad = lowGood ? r > 0.05 : r < -0.05;
+      return h('span', { class: 'badge ' + (good ? 'good' : bad ? 'bad' : '') }, good ? '目安より良い' : bad ? '目安より悪い' : '目安くらい'); };
+    return UI.card('📏 同じ規模の経営と比べる（目安）', '作付 ' + U.ha(a) + '（' + B.label + '）',
+      UI.table([{ label: '項目' }, { label: 'あなた', num: true }, { label: '同じ規模の目安', num: true }, { label: '' }], [
+        ['60kgあたりの生産費（家族の労働も含む）', { v: U.yen(an.fullCostPer60), cls: 'num' }, { v: U.yen(B.cost60), cls: 'num' }, judge(an.fullCostPer60, B.cost60, true)],
+        ['10aあたりの労働時間', { v: U.num(res.labor.hoursPer10a, 1) + 'h', cls: 'num' }, { v: B.hours + 'h', cls: 'num' }, judge(res.labor.hoursPer10a, B.hours, true)],
+        ['10aあたりの収量', { v: U.num(res.production.yieldPer10a) + 'kg', cls: 'num' }, { v: B.yield + 'kg', cls: 'num' }, judge(res.production.yieldPer10a, B.yield, false)],
+      ]),
+      h('p', { class: 'small muted keep' }, '目安は、農林水産省「米生産費統計」（個別経営・作付規模別）をもとにした概数です。ゲームの数字は学習用に単純化しているので、おおまかな比べとして見てください。生産費が高いときは、機械が面積に対して大きすぎないか、作業を委託したほうが安くないかを見直しましょう。'));
+  }
+
+  const FNS = { summary, pl: plTab, bs: bsTab, cash: cashTab, cost: costTab, prod: prodTab, work: workTab, whatif: whatIfTab };
 })(window.RG = window.RG || {});

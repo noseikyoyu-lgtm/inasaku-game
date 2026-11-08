@@ -86,7 +86,7 @@
     // 遊んでいる人の邪魔をしないよう、知らせずに送る（送れなくてもそのまま）
     fetch(c.formAction, { method: 'POST', mode: 'no-cors', body: fd }).catch(() => { /* 無視 */ });
   };
-  const shareNote = () => h('p', { class: 'small muted keep' }, '送るのは、クリアしたときとゲームオーバーになったときだけです。送るもの：始め方・シード番号・ゲームの版と、毎年の判断（作付・機械・人・販路・借入・できごとの選び方）と結果の数字（収量・売上・所得・資金・面積など）。農場名・名前・地名は送りません。セーブも送りません。あとからメニューの「プレイの記録を送る」で変えられます。');
+  const shareNote = () => h('p', { class: 'small muted keep' }, '送るのは、クリアしたときとゲームオーバーになったときだけです。送るもの：送信日時、このブラウザ用の仮の識別番号、始め方・シード番号・ゲームの版と、毎年の判断（作付・機械・人・販路・借入・できごとの選び方）と結果の数字（収量・売上・所得・資金・面積など）。農場名・名前・地名・メールアドレスは送りません。セーブは送りません。ここで「送ってよい」を選ぶと、以後このブラウザでは毎回の確認なしに送ります。メニューの「プレイの記録を送る」でいつでも止められます。');
   // 経営が終わったとき：送ってよいと選んでいれば送る。まだ聞いていなければ、ここで聞く（同じ年の終わりは1回だけ送る）
   FB.atEnd = function (app, st) {
     if (!FB.canSend() || !st || st.logSent === st.year) return;
@@ -125,9 +125,13 @@
     UI.toast('「' + name + '」を書き出しました。' + (to ? to + ' に送ってください。' : ''));
   };
 
-  const privacyNote = () => h('p', { class: 'small muted keep' },
-    '送るもの：書いた内容、ゲームの状況（年・画面・シード番号）' + '、「プレイの記録」にチェックしたときは毎年の判断と結果の数字。農場名・名前・地名は送りません。「自分の経営で始める」で遊んだ場合も、面積や金額などの数字だけが送られます。' +
-    (FB.canSend() ? '' : '（このゲームは送信先が設定されていないため、ファイルに書き出します）'));
+  const privacyNote = (withSave, hasGame) => h('div', { class: 'small muted keep' },
+    h('p', null, '送信すると、書いた内容に加えて、送信日時、このブラウザに保存される仮の識別番号、ゲームの版' + (hasGame ? '・始め方・シード番号・年や画面が送られます' : 'が送られます。タイトル画面から送る場合、ゲーム内の状況情報は付きません') + '。識別番号は名前やメールアドレスではありませんが、同じブラウザからの送信をまとめるために使います。'),
+    hasGame ? h('p', null, withSave
+      ? '「プレイの記録とセーブを添付」を選ぶと、毎年の判断と結果（作付、機械、人、販路、借入、収量、売上、所得、資金など）と、場面を再現するセーブを添付します。セーブには入力した家族の年齢、農地、機械、資金、借入などが含まれます。農場名は「農場」に置き換えます。'
+      : '「プレイの記録（毎年の判断と結果の数字）も付ける」を選ぶと、毎年の判断と結果（作付、機械、人、販路、借入、収量、売上、所得、資金など）も添付します。このアンケートにはセーブは添付しません。') : null,
+    h('p', null, '名前・地名・メールアドレスはゲームから自動送信しません。自由記述には、個人や経営を特定できる情報を書かないでください。送信しない場合、内容はこの画面から送られません。'),
+    !FB.canSend() ? h('p', null, '（このゲームは送信先が設定されていないため、ファイルに書き出します）') : null);
 
   // ---------- その場の気づき ----------
   const CATS = [['fun', '😊 おもしろい'], ['hard', '🤔 わかりにくい'], ['bug', '🐞 おかしい・不具合'], ['idea', '💡 こうしてほしい']];
@@ -138,13 +142,13 @@
     const drawChips = () => { chips.innerHTML = ''; CATS.forEach(([k, l]) => chips.appendChild(UI.btn(l, () => { cat = k; drawChips(); }, 'sm ' + (cat === k ? 'primary' : '')))); };
     drawChips();
     const ta = h('textarea', { rows: 5, placeholder: '気づいたこと、困ったこと、こうなったらおもしろい、など自由に', style: { width: '100%' }, 'aria-label': '気づき' });
-    const withLog = h('input', { type: 'checkbox', checked: true, id: 'fb-log' });
+    const withLog = h('input', { type: 'checkbox', checked: false, id: 'fb-log' });
     const where = st ? st.year + '年目・' + ({ dice: '運だめし', event: '年初のできごと', plan: '経営計画（' + (RG.advisor.TAB_NAMES[app.tab] || app.tab) + '）', season: 'シーズン ' + (st.seasonMonth || '') + '月', result: '決算', midterm: '中間評価', end: '経営終了', gameover: '経営終了' }[st.phase] || st.phase) : 'タイトル画面';
     const body = h('div', { class: 'stack' },
       h('p', { class: 'small' }, '今の場面：', h('b', null, where)),
       chips, ta,
-      st ? h('label', { class: 'row small', for: 'fb-log' }, withLog, 'プレイの記録とセーブも付ける（同じ場面を再現して確かめるため）') : null,
-      privacyNote());
+      st ? h('label', { class: 'row small', for: 'fb-log' }, withLog, 'プレイの記録とセーブを添付（任意・家族年齢、農地、機械、資金などを含む）') : null,
+      privacyNote(!!st, !!st));
     UI.modal({ title: '💬 気づきを書く', body, actions: [
       { label: 'やめる' },
       { label: FB.canSend() ? '送る' : 'ファイルに書き出す', cls: 'primary', onClick: () => {
@@ -187,14 +191,14 @@
     const role = UI.select([{ value: '', label: '選んでください' }].concat(ROLES.map((r) => ({ value: r, label: r }))), '', () => {}, { 'aria-label': 'あなたの立場' });
     const good = h('textarea', { rows: 3, style: { width: '100%' }, placeholder: 'よかったところ、おもしろかった場面', 'aria-label': 'よかったところ' });
     const change = h('textarea', { rows: 3, style: { width: '100%' }, placeholder: '変えてほしいところ、わかりにくかったところ、足してほしいもの', 'aria-label': '変えてほしいところ' });
-    const withLog = h('input', { type: 'checkbox', checked: true, id: 'sv-log' });
+    const withLog = h('input', { type: 'checkbox', checked: false, id: 'sv-log' });
     return UI.card('アンケートにご協力ください', 'ゲームをよりよくするために使います',
       h('div', { class: 'survey' }, rows,
         h('div', { class: 'q' }, h('div', { class: 'ql' }, 'あなたの立場'), role),
         h('div', { class: 'q' }, h('div', { class: 'ql' }, 'よかったところ'), good),
         h('div', { class: 'q' }, h('div', { class: 'ql' }, '変えてほしいところ'), change),
         h('label', { class: 'row small', for: 'sv-log' }, withLog, 'プレイの記録（毎年の判断と結果の数字）も付ける'),
-        privacyNote(),
+        privacyNote(false, true),
         h('div', { class: 'row' }, h('span', { class: 'spacer' }), UI.btn(FB.canSend() ? 'アンケートを送る' : 'アンケートをファイルに書き出す', async () => {
           if (Object.keys(ans).length < Q.length) { UI.toast('5つの質問すべてに答えてください', 'bad'); return; }
           const content = Object.assign({}, ans, { role: role.value, good: good.value.trim(), change: change.value.trim() });

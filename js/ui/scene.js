@@ -68,11 +68,17 @@
     const lines = SC.lines(st);
     const i = Math.min(st.scene ? st.scene.i : 0, lines.length - 1);
     const ln = lines[i] || { who: 'narr', text: '' };
-    let canvas = app.titleCanvas;
+    // 背景：会話の季節に合わせた月の田んぼ（夕暮れの場面は色をかぶせる）
+    const bg = SC.bgOf(st);
+    app.sceneMonth = bg.m; app.sceneTrain = !!bg.train; app.sceneDusk = !!bg.dusk;
+    let canvas = app.sceneCanvas;
     if (!canvas || !canvas._alive) {
-      canvas = app.titleCanvas = h('canvas', { class: 'title-canvas', role: 'img', 'aria-label': '夕暮れの田んぼ' });
-      RG.titleScene.mount(canvas);
+      canvas = app.sceneCanvas = h('canvas', { class: 'title-canvas scene-bg', role: 'img' });
+      RG.farmScene.mount(canvas, () => app.sceneMonth || 4, { train: () => !!app.sceneTrain, lit: () => !!app.sceneDusk, dusk: () => !!app.sceneDusk }); // 田んぼの向こうのローカル線
     }
+    canvas.setAttribute('aria-label', '田んぼの様子：' + RG.farmScene.label(bg.m));
+    if (canvas._redraw) canvas._redraw();
+    const season = bg.m <= 2 || bg.m === 12 ? '冬' : bg.m <= 5 ? '春' : bg.m <= 8 ? '夏' : '秋';
     const person = ln.who !== 'narr' && ln.who !== 'goal' ? D.PEOPLE[ln.who] : null;
     const last = i >= lines.length - 1;
     const box = ln.who === 'goal'
@@ -85,9 +91,9 @@
     // 場面によっては、会話の前にムービーを流す（1回だけ）
     const mv = SC.def(st).movies && SC.def(st).movies[st.scene.id];
     if (mv && RG.movie && !st.scene.movieShown) { st.scene.movieShown = true; setTimeout(() => RG.movie.play(mv, st), 0); }
-    return h('div', { class: 'scene-screen' }, canvas,
+    return h('div', { class: 'scene-screen' }, canvas, bg.dusk ? h('div', { class: 'dusk-tint', 'aria-hidden': 'true' }) : null,
       h('div', { class: 'vn-top' },
-        h('span', { class: 'vn-chip' }, st.scene.id === 'prologue' ? '📖 プロローグ' : '📖 ' + st.year + '年目の春'),
+        h('span', { class: 'vn-chip' }, st.scene.id === 'prologue' ? '📖 プロローグ' : '📖 ' + st.year + '年目の' + season),
         h('span', { class: 'spacer' }),
         h('span', { class: 'vn-count' }, (i + 1) + ' / ' + lines.length),
         UI.btn('とばす ⏭', () => skip(app), 'sm vn-skip')),

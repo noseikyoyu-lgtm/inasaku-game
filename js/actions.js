@@ -10,6 +10,8 @@
   A.acceptLand = function (st, offerId, mode) {
     const o = st.offers.land.find((x) => x.id === offerId);
     if (!o) return 'この話はもうありません';
+    const cl = RG.challenge && RG.challenge.blockLand(st, o.area); // チャレンジ「10ha以下で所得500万円」
+    if (cl) return cl;
     if (o.buy) {
       if (mode === 'loan') {
         const err = A.takeLoan(st, 'long20', o.price, true);
@@ -208,6 +210,8 @@
     return null;
   };
   A.takeLoan = function (st, kindKey, amount, forPurchase) {
+    const cb = RG.challenge && RG.challenge.blockLoan(st); // チャレンジ「借入なしで20ha」
+    if (cb) return cb;
     amount = Math.round(amount);
     if (!(amount > 0)) return '金額を入力してください';
     const lk = A.loanLock(st, forPurchase);

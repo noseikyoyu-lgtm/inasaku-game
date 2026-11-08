@@ -488,13 +488,16 @@ h2, h3 { font-weight: 900; letter-spacing: .04em; }
 }
 
 /* 更新履歴 */
-.changelog { display: grid; gap: 12px; max-height: 70vh; overflow-y: auto; }
-.cl-ver { border-left: 3px solid var(--line); padding: 2px 0 2px 12px; }
-.cl-ver.latest { border-left-color: var(--gold); }
+.changelog { display: grid; gap: 16px; max-height: 70vh; overflow-y: auto; }
+.cl-day { border-left: 3px solid var(--line); padding: 2px 0 2px 12px; }
+.cl-day.latest { border-left-color: var(--gold); }
 .cl-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
-.cl-date { font-size: 12px; opacity: .75; }
+.cl-date { font-size: 16px; }
+.cl-count { font-size: 12px; opacity: .7; }
+.cl-ver { margin-top: 8px; }
+.cl-no { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .04em; opacity: .75; border: 1px solid currentColor; border-radius: 999px; padding: 0 8px; }
 .cl-new { font-size: 11px; font-weight: 700; color: #2a1b08; background: var(--gold, #e0b44a); border-radius: 999px; padding: 1px 8px; }
-.cl-ver ul { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 3px; font-size: 14px; line-height: 1.6; }
+.cl-ver ul { margin: 4px 0 0; padding-left: 18px; display: grid; gap: 3px; font-size: 14px; line-height: 1.6; }
 .title-screen .changelog { max-height: 55vh; }
 
 /* 作付の表：スマホでは品種の欄を細くして、面積の －＋ が画面に収まるように */
@@ -570,3 +573,20 @@ h2, h3 { font-weight: 900; letter-spacing: .04em; }
 .crop-pc li::before { position: absolute; left: 0; top: 0; font-weight: 900; }
 .crop-pc li.pro::before { content: '＋'; color: var(--good); }
 .crop-pc li.con::before { content: '−'; color: var(--bad); }
+
+/* チャレンジ（しばり）のカード */
+.challenge-card { background: linear-gradient(135deg, #eef3ff, #dde7fb); color: #1f2c4a; border: 1px solid #b9c9ee; border-radius: 14px; padding: 10px 14px; box-shadow: var(--shadow); }
+.challenge-card.done { background: linear-gradient(135deg, #f1f8e6, #dcefc4); border-color: #b9d99a; color: #23401a; }
+.challenge-card.failed { background: linear-gradient(135deg, #f6f1ee, #e9e0da); border-color: #d6c7bd; color: #4a3a30; }
+.cc-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cc-state { margin-left: auto; font-weight: 700; font-size: 13px; }
+.challenge-card p { margin: 6px 0 0; }
+.cc-prog { font-weight: 700; }
+
+/* 1週間の天気予報 */
+.fc-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 4px 0 10px; }
+.fc-day { display: grid; justify-items: center; gap: 2px; min-width: 34px; padding: 4px 2px; border-radius: 10px; background: var(--panel2, rgba(0, 0, 0, .04)); border: 1px solid var(--line); }
+.fc-d { font-size: 11px; opacity: .7; }
+.fc-ic { font-size: 20px; line-height: 1; }
+.fc-p { margin-left: 6px; font-size: 14px; }
+.fc-p small { margin-left: 4px; opacity: .7; }

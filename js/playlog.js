@@ -63,7 +63,7 @@
   PL.summary = function (st) {
     const L = PL.get(st);
     return {
-      gid: L.gid, scenario: st.scenarioId, custom: st.scenarioId === 'custom', seed: st.seed, year: st.year, maxYear: st.maxYear, phase: st.phase, mode: st.mode, closed: !!st.closed,
+      gid: L.gid, challenge: st.challenge ? st.challenge.id + (st.challenge.done ? ':done' : st.challenge.failed ? ':failed' : '') : null, scenario: st.scenarioId, custom: st.scenarioId === 'custom', seed: st.seed, year: st.year, maxYear: st.maxYear, phase: st.phase, mode: st.mode, closed: !!st.closed,
       corp: !!st.corp, gameOver: st.gameOver ? { reason: st.gameOver.reason, year: st.gameOver.year } : null,
       score: st.history.length && RG.score ? { rank: RG.score(st).rank, total: r1(RG.score(st).total) } : null,
       midterms: (st.midterms || []).map((m) => m.year + ':' + m.rank + r0(m.total)),

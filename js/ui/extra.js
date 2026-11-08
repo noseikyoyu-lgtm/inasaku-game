@@ -129,13 +129,18 @@
 
   // ---------- 田植えのあとの作業 ----------
   // シーズン中の判断のカード（その月で止まって、やり方を選ぶ）
+  // 1週間の天気予報（月〜日）
+  const forecastRow = (f) => h('div', { class: 'fc-row', role: 'img', 'aria-label': '1週間の天気予報。降水確率 ' + f.p + '%' },
+    ['月', '火', '水', '木', '金', '土', '日'].map((d, i) => h('div', { class: 'fc-day' }, h('span', { class: 'fc-d' }, d), h('span', { class: 'fc-ic', 'aria-hidden': 'true' }, f.days[i]))),
+    h('div', { class: 'fc-p' }, '降水確率 ', h('b', null, f.p + '%'), h('small', null, '（予報は外れることもある）')));
   RG.screens.workCard = function (app, w) {
     const st = app.st, FW = RG.fieldwork;
     const cur = FW.keyOf(st, w.id, true);
     let remember = false;
     const W = D.WEATHER[st.world.yearType];
     return UI.card(w.icon + ' ' + w.title, w.month + '月の田んぼの作業',
-      h('p', null, w.text),
+      h('p', null, typeof w.text === 'function' ? w.text(st) : w.text),
+      w.forecast ? forecastRow(FW.forecast(st, w.id)) : null,
       w.month >= 7 && W ? h('p', { class: 'small' }, '今年の天候：' + W.icon + ' ' + W.name) : null,
       h('div', { class: 'work-choices' }, FW.options(st, w).map((o) => h('button', { type: 'button', class: 'btn choice' + (o.key === cur ? ' last' : ''),
         onclick: () => { FW.choose(st, w.id, o.key, remember); app.autosave(); app.keepScroll = true; app.render(); } },

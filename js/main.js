@@ -112,6 +112,8 @@
 
   app.startSeason = async function () {
     const st = app.st;
+    const cp = RG.challenge && RG.challenge.blockPlan(st); // チャレンジの守ること
+    if (cp) { UI.toast(cp, 'bad'); app.tab = 'crops'; app.render(); return; }
     if (S.plannedArea(st) < S.totalArea(st) * 0.5) {
       const go = await UI.confirm('田んぼの半分以上が空いています',
         h('div', { class: 'notes' }, UI.note('warn', null, '作付 ' + U.ha(S.plannedArea(st)) + ' / ' + U.ha(S.totalArea(st)) + '。何も作らない田にも地代や水利費はかかります。「作付計画」で作る品種と面積を決めましょう。')), '作付計画へ');
@@ -139,6 +141,9 @@
     const st = app.st;
     let movieNow = false, afterMovie = null;
     if (st.seasonPending) {
+      // 「もしも」の振り返りのために、決算の前の状態を覚えておく（保存はしない）
+      try { app.whatIf = { year: st.year, base: JSON.stringify(st) }; } catch (e) { app.whatIf = null; }
+      app.whatIfCache = null;
       RG.sim.apply(st, RG.sim.simulate(st));
       st.seasonPending = false;
       app.seasonRes = null;
@@ -299,7 +304,7 @@
     }
     body.appendChild(h('h3', null, '更新履歴'));
     body.appendChild(h('div', { class: 'row' }, UI.btn((RG.changelogUnseen() ? '🆕 ' : '') + '更新履歴を見る', () => { close(); UI.showChangelog(); }, 'sm'),
-      h('span', { class: 'muted small' }, '最新：版 ' + RG.CHANGELOG[0].ver + '（' + RG.CHANGELOG[0].date + '）')));
+      h('span', { class: 'muted small' }, '最新：' + UI.latestVer())));
     body.appendChild(h('h3', null, '称号'));
     body.appendChild(h('div', { class: 'row' }, UI.btn('称号を見る', () => RG.screens.showTitles(app.st), 'sm'),
       app.st && app.st.featOpen ? UI.btn('🔓 解放の一覧', () => RG.screens.showUnlocks(app.st), 'sm') : null));

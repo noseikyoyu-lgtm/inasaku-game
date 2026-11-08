@@ -61,8 +61,9 @@
     const sx = (X, Z) => VX() + X * S() / Z;
 
     // ---------- 山の稜線 ----------
+    // 新潟の田んぼの向こうに見える、なだらかな里山（細かいギザギザは入れない）
     function ridge(x, base, amp, seed) {
-      const n = 0.55 * Math.sin(x * 0.0062 + seed) + 0.3 * Math.sin(x * 0.017 + seed * 2.3) + 0.15 * Math.sin(x * 0.047 + seed * 4.1) + 0.06 * Math.sin(x * 0.13 + seed * 7);
+      const n = 0.62 * Math.sin(x * 0.0045 + seed) + 0.28 * Math.sin(x * 0.0115 + seed * 2.3) + 0.1 * Math.sin(x * 0.026 + seed * 4.1);
       return base - amp * (0.5 + 0.5 * n);
     }
     function mountainPath(c, base, amp, seed) {
@@ -93,28 +94,36 @@
         g.fillStyle = '#fffbe8'; g.beginPath(); g.arc(sxp, syp, 9, 0, 7); g.fill();
       }
 
-      // 遠くの山（青くかすむ。冬〜5月は頂に雪）
-      const farBase = h0 - 6, farAmp = H * 0.25;
-      g.fillStyle = M.mtn === 'winter' ? '#8e9db0' : mix('#7f95ad', haze, 0.35);
-      mountainPath(g, farBase, farAmp, 1.7); g.fill();
+      // 遠くの山（青くかすむ。冬〜5月は頂に雪）。夕暮れの場面は、タイトル画面と同じ夕焼けの色
+      const dusk = !!(opts.dusk && opts.dusk());
+      const farBase = h0 - 6, farAmp = H * 0.19;
+      gr = g.createLinearGradient(0, farBase - farAmp, 0, farBase);
+      if (dusk) { gr.addColorStop(0, '#9b7a8c'); gr.addColorStop(1, '#d7a07e'); }
+      else { const fc = M.mtn === 'winter' ? '#8e9db0' : mix('#7f95ad', haze, 0.35); gr.addColorStop(0, shade(fc, -0.08)); gr.addColorStop(1, mix(fc, haze, 0.45)); }
+      g.fillStyle = gr; mountainPath(g, farBase, farAmp, 1.7); g.fill();
       if (m <= 5 || m === 12) {
         const deep = m <= 2 || m === 12 ? 0.42 : m <= 4 ? 0.3 : 0.16;
         g.fillStyle = 'rgba(250,252,255,.92)'; g.beginPath();
         for (let x = 0; x <= W + 6; x += 4) g.lineTo(x, ridge(x, farBase, farAmp, 1.7));
-        for (let x = W + 6; x >= 0; x -= 4) g.lineTo(x, Math.max(ridge(x, farBase, farAmp, 1.7), farBase - farAmp * (1 - deep) + 3 * Math.sin(x * 0.09) + 2 * Math.sin(x * 0.31)));
+        for (let x = W + 6; x >= 0; x -= 4) g.lineTo(x, Math.max(ridge(x, farBase, farAmp, 1.7), farBase - farAmp * (1 - deep) + 2.5 * Math.sin(x * 0.035) + 1.2 * Math.sin(x * 0.08)));
         g.closePath(); g.fill();
       }
       // 手前の山（季節の色と、木の粒々）
-      const midBase = h0 - 2, midAmp = H * 0.13;
-      const mtnCol = { winter: '#b7c1cc', early: '#8a8f72', spring: '#86ad6c', summer: '#4d7d47', late: '#5f7d45', autumn: '#8a6b3f' }[M.mtn];
-      g.fillStyle = mtnCol; mountainPath(g, midBase, midAmp, 4.2); g.fill();
+      const midBase = h0 - 2, midAmp = H * 0.1;
+      const mtnCol = { winter: '#b7c1cc', early: '#7f927a', spring: '#86ad6c', summer: '#4d7d47', late: '#5f7d45', autumn: '#8a6b3f' }[M.mtn];
+      // 上は濃く、ふもとはかすんで明るく（岩のように見えないよう、なめらかな色の移り変わりに）
+      gr = g.createLinearGradient(0, midBase - midAmp, 0, midBase);
+      if (dusk) { gr.addColorStop(0, '#6d5670'); gr.addColorStop(1, '#b9846f'); }
+      else { gr.addColorStop(0, shade(mtnCol, -0.12)); gr.addColorStop(1, mix(mtnCol, haze, 0.4)); }
+      g.fillStyle = gr; mountainPath(g, midBase, midAmp, 4.2); g.fill();
       g.save(); mountainPath(g, midBase, midAmp, 4.2); g.clip();
       const dots = M.mtn === 'winter' ? ['#6f7b86', '#8d98a3', '#f4f7fa', '#ffffff'] : M.mtn === 'autumn' ? ['#b5532c', '#c98a2e', '#6d5a32', '#9b3c24', '#7a6a3a']
         : M.mtn === 'late' ? ['#4f6f3a', '#7a8a3e', '#a8862e'] : M.mtn === 'early' ? ['#6f7558', '#a2a088', '#e9ecef'] : M.mtn === 'spring' ? ['#a6c97f', '#6e9a55', '#c9dc9a'] : ['#3f6c3a', '#5e8e4f', '#2f5a2c'];
-      for (let i = 0; i < W * 1.4; i++) {
-        const x = R() * W, top = ridge(x, midBase, midAmp, 4.2), y = top + R() * (midBase - top + 2);
-        g.fillStyle = dots[(R() * dots.length) | 0]; g.globalAlpha = 0.55;
-        g.beginPath(); g.arc(x, y, 1 + R() * 1.8, 0, 7); g.fill();
+      // 木々のこんもりした重なり（やわらかく、うすく）
+      for (let i = 0; i < (dusk ? 0 : W * 0.9); i++) { // 夕暮れは山がシルエットになるので、木の粒は描かない
+        const x = R() * W, top = ridge(x, midBase, midAmp, 4.2), y = top + 2 + R() * (midBase - top);
+        g.fillStyle = dots[(R() * dots.length) | 0]; g.globalAlpha = 0.28;
+        g.beginPath(); g.arc(x, y, 2 + R() * 3, 0, 7); g.fill();
       }
       g.globalAlpha = 1; g.restore();
       // 山すそのかすみ
@@ -383,25 +392,70 @@
     function machine(t, m) {
       const kind = m === 4 ? 'tractor' : m === 5 ? 'planter' : m === 9 || m === 10 ? 'combine' : null;
       if (!kind) return;
-      const Z = 1.9, y = sy(Z) + (sy(1.22) - sy(Z)) * 0.55, s = 1.1;
-      const span = W + 140, x = (t * 0.025) % span - 70;
+      // 大きさは、田んぼの区画と同じ遠近で決める（区画の幅の1割くらい。画面が大きいほど大きく描く）
+      const Z = 1.9, y = sy(Z) + (sy(1.22) - sy(Z)) * 0.55, Zm = 1.5;
+      const s = Math.max(0.6, Math.min(2.4, (0.13 * S() / Zm) / 50));
+      const span = W + 140 * s, x = (t * 0.02 * s) % span - 70 * s;
       ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
       ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.beginPath(); ctx.ellipse(2, 1, 24, 3, 0, 0, 7); ctx.fill();
       if (kind === 'tractor') {
-        ctx.fillStyle = '#8a8a8a'; ctx.fillRect(-26, -9, 12, 8); // ロータリー
-        ctx.fillStyle = 'rgba(110,80,50,.5)'; ctx.beginPath(); ctx.ellipse(-24, -1, 9, 3, 0, 0, 7); ctx.fill();
-        ctx.fillStyle = '#e0602a'; ctx.beginPath(); ctx.moveTo(-12, -6); ctx.lineTo(14, -6); ctx.lineTo(16, -14); ctx.lineTo(2, -16); ctx.lineTo(-12, -16); ctx.closePath(); ctx.fill();
-        ctx.fillStyle = '#c24c1c'; ctx.fillRect(2, -14, 14, 3);
-        ctx.strokeStyle = '#333'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(-10, -16); ctx.lineTo(-10, -30); ctx.lineTo(-1, -30); ctx.lineTo(-1, -16); ctx.stroke(); // 安全フレーム
-        driver(-6, -16);
-        wheel(-8, -4, 8); wheel(11, -3, 4.5);
+        // 稲作のトラクター（30馬力くらい）を横から：前は長いボンネット、後ろは大きな後輪と泥よけ、運転席の後ろに安全フレーム、
+        // いちばん後ろに代かき・耕うんのロータリー。全長（ロータリー込み）約4m・安全フレームまで約2.4m・後輪の直径は前輪の約1.6倍
+        const body = '#e8641f', bodyD = '#b84a14';
+        // ロータリー（後ろ）と、はね上げた泥
+        ctx.fillStyle = 'rgba(120,88,58,.55)'; ctx.beginPath(); ctx.ellipse(-33, -1.5, 9, 3, 0, 0, 7); ctx.fill();
+        ctx.strokeStyle = '#555'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(-17, -9); ctx.lineTo(-25, -11); ctx.moveTo(-17, -13); ctx.lineTo(-25, -15); ctx.stroke(); // 3点リンク
+        ctx.fillStyle = '#7d7d78'; ctx.beginPath(); ctx.moveTo(-38, -2); ctx.lineTo(-38, -10); ctx.quadraticCurveTo(-37, -16, -30, -16); ctx.lineTo(-24, -16); ctx.lineTo(-24, -2); ctx.closePath(); ctx.fill(); // カバー
+        ctx.fillStyle = body; ctx.fillRect(-36, -16, 12, 2.5); // カバーの上の帯
+        ctx.strokeStyle = '#4a4a46'; ctx.lineWidth = 1; for (let k = -36; k <= -26; k += 3) { ctx.beginPath(); ctx.moveTo(k, -2); ctx.lineTo(k + 1.5, 0.5); ctx.stroke(); } // 爪
+        // 後輪と泥よけ
+        lugWheel(-10, -10, 10);
+        ctx.fillStyle = body; ctx.beginPath(); ctx.moveTo(-22, -11); ctx.quadraticCurveTo(-21, -23, -10, -23); ctx.quadraticCurveTo(1, -23, 2, -11); ctx.lineTo(-1, -11); ctx.quadraticCurveTo(-2, -20, -10, -20); ctx.quadraticCurveTo(-18, -20, -19, -11); ctx.closePath(); ctx.fill();
+        // 車体の下まわり（エンジンとミッション）
+        ctx.fillStyle = '#4b4b48'; ctx.fillRect(-6, -10, 27, 4);
+        // ボンネット（前に向かって少し下がる）と、前のグリル・ライト
+        ctx.fillStyle = body; ctx.beginPath(); ctx.moveTo(-2, -9); ctx.lineTo(-2, -18); ctx.lineTo(18, -17); ctx.quadraticCurveTo(24, -16.5, 24, -12); ctx.lineTo(24, -9); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = bodyD; ctx.fillRect(-2, -12, 26, 1.6); // 側面の線
+        ctx.fillStyle = '#2b2b2b'; ctx.fillRect(21.5, -15, 2.5, 5); // グリル
+        ctx.fillStyle = '#fff7d6'; ctx.beginPath(); ctx.arc(22.5, -16.2, 1.1, 0, 7); ctx.fill(); // ライト
+        ctx.strokeStyle = '#333'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(10, -18); ctx.lineTo(10, -25); ctx.stroke(); // マフラー
+        // 前輪
+        lugWheel(17, -6, 6);
+        // ハンドルと座席
+        ctx.strokeStyle = '#333'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(-1, -18); ctx.lineTo(-3, -23); ctx.stroke();
+        ctx.beginPath(); ctx.ellipse(-3.5, -23.5, 3, 1, -0.3, 0, 7); ctx.stroke();
+        ctx.fillStyle = '#2d2d2d'; ctx.fillRect(-13, -25, 6, 2.5); ctx.fillRect(-14, -30, 2, 6); // 座席
+        driver(-9, -25);
+        // 安全フレーム（2本の柱を立てた状態）
+        ctx.strokeStyle = '#2f2f2f'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(-16, -21); ctx.lineTo(-16, -40); ctx.lineTo(-11, -40); ctx.lineTo(-11, -23); ctx.stroke();
       } else if (kind === 'planter') {
-        ctx.fillStyle = '#5a9a3a'; ctx.save(); ctx.translate(-16, -18); ctx.rotate(-0.35); ctx.fillRect(-10, 0, 14, 10); ctx.fillStyle = '#3f7a2a'; for (let i = 0; i < 4; i++) ctx.fillRect(-9 + i * 3.4, 0, 1.2, 10); ctx.restore(); // 苗の箱
-        ctx.fillStyle = '#ededea'; ctx.beginPath(); ctx.moveTo(-14, -6); ctx.lineTo(12, -6); ctx.lineTo(14, -13); ctx.lineTo(-6, -15); ctx.closePath(); ctx.fill();
-        ctx.fillStyle = '#d8462e'; ctx.fillRect(-6, -12, 18, 3);
-        driver(-2, -15);
-        wheel(-7, -3, 5.5); wheel(9, -3, 4);
-        ctx.strokeStyle = 'rgba(255,255,255,.6)'; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(-26, 0); ctx.lineTo(-14, 0); ctx.stroke();
+        // 乗用田植機（6条植え）を横から：前に小さなエンジンのボンネット、細い車輪（後輪が大きい）、真ん中に運転席、
+        // 後ろに斜めに立ち上がる苗載せ台（緑の苗のマット）、いちばん下に植え付け部とフロート。植えたあとに苗の列が残る
+        const bd = '#f2f0ea', st2 = '#d23c2a';
+        // 植えたあとの苗の列
+        ctx.fillStyle = 'rgba(70,140,60,.8)'; for (let k = 0; k < 7; k++) { ctx.fillRect(-30 - k * 5, -2.5, 1.2, 2.5); ctx.fillRect(-32 - k * 5, -1.6, 1, 1.6); }
+        // 植え付け部とフロート（水面をすべる板）
+        ctx.fillStyle = '#9a9a94'; ctx.fillRect(-27, -3.5, 20, 2.5);
+        ctx.strokeStyle = '#555'; ctx.lineWidth = 1; for (let k = -25; k <= -11; k += 4.5) { ctx.beginPath(); ctx.moveTo(k, -4); ctx.lineTo(k - 1.5, 0); ctx.stroke(); } // 植え付けの爪
+        // 苗載せ台（後ろに斜めに立ち上がる）と苗のマット
+        ctx.fillStyle = '#c9c7bf'; ctx.beginPath(); ctx.moveTo(-6, -6); ctx.lineTo(-21, -29); ctx.lineTo(-29, -25); ctx.lineTo(-14, -3); ctx.closePath(); ctx.fill(); // 台の枠
+        ctx.fillStyle = '#4f9a37'; ctx.beginPath(); ctx.moveTo(-7.5, -8); ctx.lineTo(-21, -27.5); ctx.lineTo(-27, -24.5); ctx.lineTo(-13.5, -5); ctx.closePath(); ctx.fill(); // 苗のマット
+        ctx.strokeStyle = '#86d35c'; ctx.lineWidth = 0.9; for (let k = 0; k < 7; k++) { const px = -9 - k * 2, py = -9 - k * 2.9; ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px - 5, py + 2.6); ctx.stroke(); } // 苗の列
+        ctx.strokeStyle = '#3a7a28'; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(-14, -18); ctx.lineTo(-20, -15); ctx.stroke();
+        // 後輪（細くて大きい）と前輪
+        thinWheel(-4, -7, 7); 
+        // 車体（運転席のまわりの床と、前のボンネット）
+        ctx.fillStyle = bd; ctx.beginPath(); ctx.moveTo(-9, -9); ctx.lineTo(6, -9); ctx.lineTo(8, -15); ctx.lineTo(20, -14); ctx.quadraticCurveTo(24, -13, 24, -9); ctx.lineTo(24, -6); ctx.lineTo(-9, -6); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = st2; ctx.fillRect(8, -12, 16, 2); // ボンネットの赤い帯
+        ctx.fillStyle = '#2b2b2b'; ctx.fillRect(22.5, -12.5, 1.8, 3.5); // 前のグリル
+        ctx.fillStyle = '#9bbcd4'; ctx.fillRect(18, -18, 5, 3); // 予備の苗を置く台（前）
+        ctx.fillStyle = '#5aa63e'; ctx.fillRect(18, -20, 5, 2);
+        thinWheel(16, -5, 5);
+        // 運転席とハンドル
+        ctx.fillStyle = '#2d2d2d'; ctx.fillRect(-5, -14, 6, 2.5); ctx.fillRect(-6, -19, 2, 6);
+        ctx.strokeStyle = '#333'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(6, -14); ctx.lineTo(4, -19); ctx.stroke();
+        ctx.beginPath(); ctx.ellipse(3.6, -19.5, 3, 1, -0.3, 0, 7); ctx.stroke();
+        driver(-1, -14);
       } else {
         ctx.fillStyle = '#2f2f2f'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(-22, -7, 38, 8, 4) : ctx.rect(-22, -7, 38, 8); ctx.fill(); // クローラー
         ctx.strokeStyle = '#555'; ctx.lineWidth = 0.8; for (let i = -18; i < 14; i += 4) { ctx.beginPath(); ctx.moveTo(i, -6); ctx.lineTo(i, 0); ctx.stroke(); }
@@ -414,6 +468,19 @@
         ctx.fillStyle = 'rgba(230,200,120,.6)'; ctx.beginPath(); ctx.ellipse(-28, -2, 8, 2.5, 0, 0, 7); ctx.fill(); // わらくず
       }
       ctx.restore();
+      // 田植機の細い車輪（ぬかるみで沈みにくい、細くて背の高い車輪）
+      function thinWheel(cx, cy, r) {
+        ctx.strokeStyle = '#1f1f1f'; ctx.lineWidth = Math.max(1.4, r * 0.32); ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.stroke();
+        ctx.strokeStyle = '#d8d3c4'; ctx.lineWidth = 0.9; for (let k = 0; k < 4; k++) { const a = k / 4 * Math.PI + x * 0.05; ctx.beginPath(); ctx.moveTo(cx - Math.cos(a) * r * 0.8, cy - Math.sin(a) * r * 0.8); ctx.lineTo(cx + Math.cos(a) * r * 0.8, cy + Math.sin(a) * r * 0.8); ctx.stroke(); }
+        ctx.fillStyle = '#d8d3c4'; ctx.beginPath(); ctx.arc(cx, cy, r * 0.22, 0, 7); ctx.fill();
+      }
+      // ぬかるんだ田を走る、ラグ（突起）の付いたタイヤ
+      function lugWheel(cx, cy, r) {
+        ctx.fillStyle = '#1f1f1f'; ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.fill();
+        for (let k = 0; k < 12; k++) { const a = k / 12 * Math.PI * 2 + (x * 0.05); ctx.save(); ctx.translate(cx + Math.cos(a) * r, cy + Math.sin(a) * r); ctx.rotate(a); ctx.fillRect(-0.6, -1.2, 1.6, 2.4); ctx.restore(); }
+        ctx.fillStyle = '#d8d3c4'; ctx.beginPath(); ctx.arc(cx, cy, r * 0.5, 0, 7); ctx.fill(); // ホイール
+        ctx.fillStyle = '#8f8a7c'; ctx.beginPath(); ctx.arc(cx, cy, r * 0.18, 0, 7); ctx.fill();
+      }
       function wheel(cx, cy, r) { ctx.fillStyle = '#222'; ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.fill(); ctx.fillStyle = '#d9b52a'; ctx.beginPath(); ctx.arc(cx, cy, r * 0.42, 0, 7); ctx.fill(); }
       function driver(cx, cy) { ctx.fillStyle = '#3d5f8a'; ctx.fillRect(cx - 2.5, cy - 8, 5, 8); ctx.fillStyle = '#f0c8a0'; ctx.beginPath(); ctx.arc(cx, cy - 10, 2.4, 0, 7); ctx.fill(); ctx.fillStyle = '#f4f4f0'; ctx.fillRect(cx - 3, cy - 13, 6, 2); }
     }
@@ -427,14 +494,43 @@
       }
     }
 
+    // ---------- 田んぼの向こうを走るローカル線（opts.train のときだけ。物語の場面・ムービー） ----------
+    // 2両の気動車が、ときどき田んぼの向こうの土手を横切る。夕暮れ（opts.lit）は窓に明かりがともる
+    function train(t) {
+      const y = hz() + 4, L = Math.max(34, W * 0.06), hg = L * 0.25, gap = 2, n = 2, total = n * L + gap;
+      // 土手とレール
+      ctx.fillStyle = 'rgba(92,80,62,.55)'; ctx.fillRect(0, y, W, 2.2);
+      ctx.fillStyle = 'rgba(40,36,32,.65)'; ctx.fillRect(0, y - 0.4, W, 0.8);
+      const cross = 16000, rest = 9000, cyc = cross + rest, ph = t % cyc; // 16秒で横切り、9秒あいだをあける
+      if (ph > cross) return;
+      const x0 = -total + (W + total) * (ph / cross), lit = !!(opts.lit && opts.lit()), top = y - hg - 1;
+      for (let k = 0; k < n; k++) {
+        const x = x0 + k * (L + gap), r = hg * 0.3;
+        ctx.fillStyle = '#ece6d6'; // 車体（クリーム色）
+        ctx.beginPath(); ctx.moveTo(x + r, top); ctx.lineTo(x + L - r, top); ctx.quadraticCurveTo(x + L, top, x + L, top + r); ctx.lineTo(x + L, y - 1);
+        ctx.lineTo(x, y - 1); ctx.lineTo(x, top + r); ctx.quadraticCurveTo(x, top, x + r, top); ctx.fill();
+        ctx.fillStyle = '#3f7f4a'; ctx.fillRect(x, top + hg * 0.66, L, hg * 0.16); // 緑の帯
+        ctx.fillStyle = lit ? 'rgba(255,212,120,.95)' : 'rgba(64,86,108,.85)'; // 窓
+        for (let i = 0; i < 6; i++) ctx.fillRect(x + L * 0.07 + i * L * 0.148, top + hg * 0.2, L * 0.1, hg * 0.32);
+        ctx.fillStyle = 'rgba(45,42,40,.7)'; ctx.fillRect(x + 2, y - 1.5, L - 4, 1.5); // 床下
+      }
+      if (lit) { // 先頭のライト
+        const fx = x0 + total;
+        const g = ctx.createRadialGradient(fx, top + hg * 0.55, 0, fx, top + hg * 0.55, hg * 1.6);
+        g.addColorStop(0, 'rgba(255,240,190,.9)'); g.addColorStop(1, 'rgba(255,240,190,0)');
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(fx, top + hg * 0.55, hg * 1.6, 0, 7); ctx.fill();
+      }
+    }
+
     function draw(t) {
       if (!W || !H) { if (canvas.clientWidth) size(); if (!W || !H) return; }
       const m = getMonth(), M = MONTH[m];
-      const key = m + '/' + W + 'x' + H + '@' + dpr;
+      const key = m + '/' + W + 'x' + H + '@' + dpr + (opts.dusk && opts.dusk() ? '/dusk' : '');
       if (key !== bgKey) { bg = buildBg(m); bgKey = key; }
       ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(bg, 0, 0); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.save(); ctx.beginPath(); ctx.rect(0, 0, W, hz()); ctx.clip(); clouds(t, M, m); ctx.restore();
       if (m === 11) geese(t);
+      if (opts.train && opts.train()) train(t);
       // 水面のきらめき
       if (M.ground === 'till' || M.ground === 'plant') {
         ctx.fillStyle = 'rgba(255,255,255,.4)';

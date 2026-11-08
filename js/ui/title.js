@@ -21,6 +21,25 @@
     return svg;
   };
 
+  // くわしい設定（ふだんは閉じておく）：シード番号は、授業で全員の条件をそろえるときだけ使う
+  function seedSettings(app, seedInp) {
+    return h('details', { class: 'px-adv', open: !!app.titleAdvOpen, ontoggle: (e) => { app.titleAdvOpen = e.target.open; } },
+      h('summary', null, '⚙️ くわしい設定（授業・研修で使うとき）'),
+      h('div', { class: 'px-fields' },
+        h('label', null, h('span', null, 'シード番号（条件をそろえる番号）'), seedInp,
+          h('small', null, 'ふだんは空のままで大丈夫です。同じ番号を入れた人どうしは、天気・米価・できごとの流れが同じになります。授業で全員の条件をそろえて比べるときに使います'))));
+  }
+
+  // チャレンジ（しばり）を選ぶ欄
+  function challengeField(app) {
+    const L = (RG.challenge && RG.challenge.LIST) || [];
+    const opts = [{ value: '', label: 'なし（ふつうに遊ぶ）' }].concat(L.map((c) => ({ value: c.id, label: c.icon + ' ' + c.name })));
+    const d = app.titleChallenge && RG.challenge.def(app.titleChallenge);
+    return h('label', null, h('span', null, '🎯 チャレンジ（しばり）'),
+      UI.select(opts, app.titleChallenge || '', (v) => { app.titleChallenge = v || null; app.keepScroll = true; app.render(); }, { 'aria-label': 'チャレンジ' }),
+      h('small', null, d ? d.desc : '決まりを守って目標を達成すると、称号がもらえます'));
+  }
+
   RG.screens.title = function (app) {
     const view = app.titleView || 'menu';
     // 風景は1つの canvas を使い回す（画面を切り替えてもアニメーションが途切れない）
@@ -64,7 +83,7 @@
         item('🏡 自分の経営モード', '自分の経営を入れて、区切りなく続ける', () => go('new')),
         item('データをよみこむ', 'セーブスロット・ファイル', () => go('load')),
         item('あそびかた', 'JAの営農指導員・高橋さんが説明します', () => go('howto')),
-        item((RG.changelogUnseen() ? '🆕 ' : '') + '更新履歴', '最新：版 ' + RG.CHANGELOG[0].ver + '（' + RG.CHANGELOG[0].date + '）', () => { RG.changelogSeen(); go('changelog'); })));
+        item((RG.changelogUnseen() ? '🆕 ' : '') + '更新履歴', '最新：' + UI.latestVer(), () => { RG.changelogSeen(); go('changelog'); })));
   }
 
   // ---------- ストーリーモード：3つの物語から選ぶ ----------
@@ -85,7 +104,7 @@
     const start = () => {
       const s = parseInt(app.titleSeed, 10);
       app.titleView = 'menu';
-      app.newGame({ scenarioId: pick, farmName: (app.titleFarm || '').trim() || '稲穂ファーム', seed: isFinite(s) && s > 0 ? s : RG.rng.randomSeed() });
+      app.newGame({ scenarioId: pick, farmName: (app.titleFarm || '').trim() || '稲穂ファーム', seed: isFinite(s) && s > 0 ? s : RG.rng.randomSeed(), challenge: app.titleChallenge || null });
     };
     const cards = h('div', { class: 'story-cards', role: 'radiogroup', 'aria-label': '物語' }, D.STORY_ORDER.map((k, i) => {
       const sc = D.SCENARIOS[k], inf = STORY_INFO[k], on = k === pick;
@@ -110,7 +129,8 @@
             h('li', null, '📖 章と依頼、1年前に予告される試練の年。結果でエンディングが変わる')))),
       h('div', { class: 'px-fields' },
         h('label', null, h('span', null, sc.corp ? '法人の名前' : '農場の名前'), nameInp),
-        h('label', null, h('span', null, 'シード番号'), seedInp, h('small', null, '同じ番号なら天候・米価の流れが同じに。授業で条件をそろえるときに'))),
+        challengeField(app)),
+      seedSettings(app, seedInp),
       h('div', { class: 'px-actions' },
         h('button', { class: 'px-btn plain', type: 'button', onclick: () => go('menu') }, 'もどる'),
         h('button', { class: 'px-btn green', type: 'button', onclick: start }, '物語をはじめる →')));
@@ -145,7 +165,7 @@
       }
       app.titleView = 'menu';
       app.newGame({ scenarioId: scenario, custom: scenario === 'custom' ? app.customDraft : null,
-        farmName: (app.titleFarm || '').trim() || '稲穂ファーム', seed: isFinite(s) && s > 0 ? s : RG.rng.randomSeed() });
+        farmName: (app.titleFarm || '').trim() || '稲穂ファーム', seed: isFinite(s) && s > 0 ? s : RG.rng.randomSeed(), challenge: app.titleChallenge || null });
     };
     return h('div', { class: 'px-window' },
       h('h2', null, '🏡 自分の経営モード'),
@@ -154,7 +174,8 @@
       scenario === 'custom' ? customForm(app) : null,
       h('div', { class: 'px-fields' },
         h('label', null, h('span', null, '農場の名前'), nameInp),
-        h('label', null, h('span', null, 'シード番号'), seedInp, h('small', null, '同じ番号なら天候・米価の流れが同じに。授業で条件をそろえるときに'))),
+        challengeField(app)),
+      seedSettings(app, seedInp),
       h('div', { class: 'px-actions' },
         h('button', { class: 'px-btn plain', type: 'button', onclick: () => go('menu') }, 'もどる'),
         h('button', { class: 'px-btn green', type: 'button', onclick: start }, 'この経営ではじめる →')));

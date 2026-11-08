@@ -64,7 +64,7 @@
     }
 
     return h('div', null, app.topbar(), h('div', { class: 'layout one' }, h('main', { class: 'stack' },
-      RG.screens.storyEnding(st), head, insightCard(app), RG.screens.pathEnding(st), RG.chapters.on(st) ? RG.screens.chapterRecap(st, RG.chapters.of(st.year, st).n) : null, RG.screens.rivalsCard(st, '地域の農家との比較'), RG.screens.titlesCard(st), RG.screens.surveyCard(app), charts, UI.card('年ごとの記録', null, table), buttons)));
+      RG.screens.storyEnding(st), head, RG.screens.challengeCard(st), insightCard(app), RG.screens.pathEnding(st), RG.chapters.on(st) ? RG.screens.chapterRecap(st, RG.chapters.of(st.year, st).n) : null, RG.screens.rivalsCard(st, '地域の農家との比較'), RG.screens.titlesCard(st), RG.screens.surveyCard(app), charts, UI.card('年ごとの記録', null, table), buttons)));
   };
 
   // 高橋さんの見立て：「今のやり方のまま続けたら」を裏で試算して、あなたの結果と並べる

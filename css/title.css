@@ -129,6 +129,10 @@
 .px-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin-top: 18px; }
 .px-fields label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--t-muted); letter-spacing: .04em; }
 .px-fields small { font-size: 11px; color: rgba(251, 243, 226, .5); }
+/* くわしい設定（シード番号など） */
+.px-adv { margin-top: 14px; border-top: 1px dashed rgba(251, 243, 226, .2); padding-top: 10px; }
+.px-adv summary { cursor: pointer; font-size: 13px; color: var(--t-muted); letter-spacing: .04em; }
+.px-adv .px-fields { margin-top: 10px; }
 
 /* ---------- あそびかた ---------- */
 .speech { display: flex; gap: 16px; align-items: flex-start; }
@@ -268,3 +272,9 @@
 @keyframes mv-fly { 0% { opacity: 0; transform: translate(0, 0); } 50% { opacity: 1; } 100% { opacity: .2; transform: translate(4vw, -5vh); } }
 .movie.still .mv-cam { animation: none !important; }
 @media (prefers-reduced-motion: reduce) { .mv-text, .mv-sub { animation: none; } }
+
+/* 夕暮れの色（会話の場面とムービーで、月の田んぼの絵にかぶせる） */
+.dusk-tint { position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background: linear-gradient(rgba(58, 40, 96, .55) 0%, rgba(214, 118, 82, .38) 38%, rgba(246, 170, 90, .22) 55%, rgba(40, 24, 18, .42) 100%); }
+.mv-tint { position: absolute; z-index: 1; opacity: 0; transition: opacity .6s ease; }
+.mv-tint.on { opacity: 1; }

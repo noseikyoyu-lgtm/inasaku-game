@@ -68,9 +68,22 @@
   };
 
   // 更新履歴の一覧
-  UI.changelogList = () => h('div', { class: 'changelog' }, RG.CHANGELOG.map((c, i) => h('section', { class: 'cl-ver' + (i === 0 ? ' latest' : '') },
-    h('div', { class: 'cl-head' }, h('b', null, '版 ' + c.ver), h('span', { class: 'cl-date' }, c.date), i === 0 ? h('span', { class: 'cl-new' }, '最新') : null),
-    h('ul', null, c.items.map((t) => h('li', null, t))))));
+  // 更新履歴：同じ日の更新を1つにまとめ、日付を大きく出す。版は「第○版」（古い順の通し番号）で小さく出す
+  UI.verNo = (i) => '第' + (RG.CHANGELOG.length - i) + '版';
+  UI.latestVer = () => RG.CHANGELOG[0].date + '・' + UI.verNo(0);
+  UI.changelogList = function () {
+    const days = [];
+    RG.CHANGELOG.forEach((c, i) => {
+      const d = days[days.length - 1];
+      if (d && d.date === c.date) d.list.push({ c, i }); else days.push({ date: c.date, list: [{ c, i }] });
+    });
+    return h('div', { class: 'changelog' }, days.map((d, di) => h('section', { class: 'cl-day' + (di === 0 ? ' latest' : '') },
+      h('div', { class: 'cl-head' }, h('b', { class: 'cl-date' }, d.date + 'の更新'), h('span', { class: 'cl-count' }, d.list.length > 1 ? d.list.length + '回' : ''),
+        di === 0 ? h('span', { class: 'cl-new' }, '最新') : null),
+      d.list.map(({ c, i }) => h('div', { class: 'cl-ver' },
+        h('div', { class: 'cl-no' }, UI.verNo(i)),
+        h('ul', null, c.items.map((t) => h('li', null, t))))))));
+  };
   UI.showChangelog = function () {
     RG.changelogSeen();
     UI.modal({ title: '📰 更新履歴', body: UI.changelogList(), actions: [{ label: '閉じる', cls: 'primary' }] });

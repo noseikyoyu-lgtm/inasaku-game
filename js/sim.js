@@ -1125,6 +1125,7 @@
     if (RG.scenes && !st.gameOver) RG.scenes.afterYear(st, res).forEach((t) => { res.notes.push(t); (res.missionNotes = res.missionNotes || []).push(t); });
     // 期限つきの危機（6年目から）：達成できなければ経営終了
     if (RG.pressure && !st.gameOver) RG.pressure.afterYear(st, res).forEach((t) => { res.notes.push(t); (res.missionNotes = res.missionNotes || []).push(t); });
+    if (RG.challenge) RG.challenge.afterYear(st, res).forEach((t) => { res.notes.push(t); (res.missionNotes = res.missionNotes || []).push(t); });
     st.phase = 'season';
   };
 })(window.RG = window.RG || {});

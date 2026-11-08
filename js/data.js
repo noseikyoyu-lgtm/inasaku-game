@@ -267,6 +267,17 @@
     dry:     { name: '乾燥・調製', mtype: 'dryer', share: 0.12, season: 'autumn', fee: 0, perBale: 1900, on: 'planted', crew: 1, win: 30 },
   };
   D.OP_ORDER = ['prep', 'till', 'nursery', 'plant', 'seed', 'manage', 'harvest', 'dry'];
+  // 同じ規模の経営の目安（農林水産省「米生産費統計」個別経営の作付規模別の値をもとにした概数）
+  // max：作付面積（ha）の上限。cost60：60kgあたり全算入生産費（家族の労働も含む）、hours：10aあたり労働時間、yield：10aあたり収量（kg）
+  D.BENCH = [
+    { max: 1, label: '1ha未満', cost60: 21000, hours: 32, yield: 510 },
+    { max: 2, label: '1〜2ha', cost60: 16500, hours: 27, yield: 520 },
+    { max: 3, label: '2〜3ha', cost60: 14400, hours: 23, yield: 525 },
+    { max: 5, label: '3〜5ha', cost60: 13500, hours: 19, yield: 530 },
+    { max: 10, label: '5〜10ha', cost60: 12200, hours: 15, yield: 535 },
+    { max: 15, label: '10〜15ha', cost60: 11400, hours: 13, yield: 540 },
+    { max: 1e9, label: '15ha以上', cost60: 10900, hours: 12, yield: 540 },
+  ];
   D.WORK_DAY = 8;          // 1日に作業する時間（適期のうちに終わらせるのに要る人数の計算）
   D.PEOPLE_SHORT_W = 0.5;  // 人数が足りないときの影響（1人で何役もこなして作業は進むが、遅れて収量・品質が落ちる）
 

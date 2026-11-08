@@ -109,6 +109,7 @@
     // 「今のやり方のまま続けたら」を後で試算するための、始めたときの状態
     st.initialSnapshot = JSON.stringify(st);
     st.playlog = { plans: [], events: [], results: [], notes: [] }; // プレイの記録（試算用の初期状態には入れない）
+    st.challenge = RG.challenge && opts.challenge ? RG.challenge.make(opts.challenge) : null; // チャレンジ（しばり）
     // 用意されたシナリオでは、1年目の大事な決めごと（作付・パート・直販・出荷契約金）を空けておき、自分で決めてもらう。
     // 「今のまま続けたら」の試算は、上の初期状態（高橋さんのおすすめの計画）で行う
     if (opts.scenarioId !== 'custom') {

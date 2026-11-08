@@ -11,7 +11,7 @@
   const hasDrone = (st) => st.machines.some((m) => D.MODELS[m.model].type === 'drone');
   // 天候：w = { hot, cold, storm }（見通しでは平年とみなす）
   FW.weather = function (st, preview, yearType, events) {
-    if (preview) return { hot: false, cold: false, storm: false };
+    if (preview) return { hot: false, cold: false, storm: false, preview: true };
     const hit = (id) => (events || []).some((e) => e.id === id && e.hit);
     return {
       hot: yearType === 'hot' || hit('heat') || hit('foehn'),
@@ -41,6 +41,19 @@
           eff: (st) => ({ h: { winter: 80 / a10(st) }, inc: 250000, bd: 1.05, note: '町から頼まれ、トラクタで道の除雪をした。' }) },
         { key: 'arbeit', label: '町でアルバイトをする', desc: '冬の作業 +150時間・収入 約30万円', eff: (st) => ({ h: { winter: 150 / a10(st) }, inc: 300000, note: '冬のあいだ、町の工場でアルバイトをした。' }) },
         { key: 'sales', label: '直販のお客さんへ営業に回る', desc: '冬の作業 +40時間・2万円・直販のお客さん +10人', eff: (st) => ({ h: { winter: 40 / a10(st) }, c: 20000 / a10(st), cust: 10, note: 'お客さんの家や店を回って、新米の予約を取った。' }) },
+      ] },
+    // ---- 天気予報を見て、作業の日を決める（予報は外れることもある） ----
+    // 雨や冷え込みの被害は、もともと年の天候に入っている。ここでは、うまく選ぶと被害を少しへらせる・読みが外れると少し損をする
+    { id: 'taue_fc', month: 5, icon: '🌦️', title: '田植えの日と天気予報', season: 'spring', forecast: true,
+      text: (st) => '田植えの予定の週。週の後半に、強い雨と冷え込みの予報が出ている（降水確率 ' + FW.forecast(st, 'taue_fc').p + '%）。植えたばかりの苗は、雨と寒さに弱い。',
+      options: [
+        { key: 'std', label: '予定どおり植える（標準）', desc: '手間もお金も増えない。雨と冷え込みが来ると、苗が少し傷む（収量 −0.3%）',
+          eff: (st, w) => (w.preview || !FW.forecast(st, 'taue_fc').hit ? { note: '予報は外れ、予定どおり植え終えた。' }
+            : { y: 0.997, note: '雨と冷え込みで、植えたばかりの苗が少し傷んだ。' }) },
+        { key: 'rush', label: '雨の前に急いで植える', desc: '春の作業 10aあたり +0.5時間・800円（残業と燃料）。雨が来たら、苗はしっかり根づく（収量 +0.5%）',
+          eff: (st, w) => Object.assign({ h: { spring: 0.5 }, c: 800 }, w.preview ? {} : FW.forecast(st, 'taue_fc').hit ? { y: 1.005, note: '雨の前に植え終え、苗はしっかり根づいた。' } : { note: '雨は来なかった。急いだぶん、少し疲れた。' }) },
+        { key: 'wait', label: '雨が過ぎるのを待つ', desc: '手間もお金も増えない。雨が来なかったら、田植えが遅れただけになる（収量 −0.7%）',
+          eff: (st, w) => (w.preview ? { y: 0.997 } : FW.forecast(st, 'taue_fc').hit ? { note: '雨が過ぎてから植えた。苗は無事だった。' } : { y: 0.993, note: '雨は来なかった。待ったぶん、田植えが遅れた。' }) },
       ] },
     { id: 'weed', month: 6, icon: '🌿', title: '雑草（ヒエ）対策', season: 'summer',
       text: '田植えから1か月。田んぼのところどころにヒエが伸びてきた。放っておくと稲の養分を取られる。',
@@ -95,6 +108,17 @@
         { key: 'early', label: '早めに抜く', desc: '秋の作業 10aあたり −0.4時間（田が乾いて刈りやすい）・品質 −5・収量 −1%', eff: () => ({ q: -5, y: 0.99, h: { autumn: -0.4 }, note: '早めに水を抜いた。稲刈りは楽だったが、実の入りが悪い米が出た。' }) },
         { key: 'late', label: '遅めに抜く', desc: '秋の作業 10aあたり +0.3時間（ぬかるむ）・品質 +2（胴割れが減る）', eff: () => ({ q: 2, h: { autumn: 0.3 }, note: '遅めに水を抜き、実がしっかり入った。' }) },
       ] },
+    { id: 'kari_fc', month: 9, icon: '🌧️', title: '稲刈りの日と天気予報', season: 'autumn', forecast: true,
+      text: (st) => '刈り取りの適期。週の後半から雨が続く予報が出ている（降水確率 ' + FW.forecast(st, 'kari_fc').p + '%）。実った稲は、雨で倒れたり、穂から芽が出たりする。',
+      options: [
+        { key: 'std', label: '予定どおり刈る（標準）', desc: '手間もお金も増えない。雨が続くと、刈り残した田の品質が少し落ちる（品質 −1）',
+          eff: (st, w) => (w.preview || !FW.forecast(st, 'kari_fc').hit ? { note: '予報は外れ、予定どおり刈り終えた。' }
+            : { y: 0.997, q: -1, note: '雨が続き、刈り残した田の稲が一部倒れた。' }) },
+        { key: 'rush', label: '雨の前に急いで刈る（少し早刈り）', desc: '秋の作業 10aあたり +0.6時間・1,200円（残業と乾燥機の燃料）。雨が来たら被害をへらせる（品質 +1.5）。来なければ早刈りで少し青い米がまじる（品質 −0.5）',
+          eff: (st, w) => Object.assign({ h: { autumn: 0.6 }, c: 1200 }, w.preview ? {} : FW.forecast(st, 'kari_fc').hit ? { q: 1.5, y: 1.003, note: '雨の前に刈り終え、倒れた稲はなかった。' } : { q: -0.5, note: '雨は来なかった。早刈りで少し青い米がまじった。' }) },
+        { key: 'wait', label: '雨が上がるのを待つ', desc: '手間もお金も増えない。雨が来たら刈り残しの被害はさけられる。来なければ刈り遅れ気味になる（品質 −1）',
+          eff: (st, w) => (w.preview ? { q: -0.5 } : FW.forecast(st, 'kari_fc').hit ? { note: '雨が上がるのを待って刈った。刈り残しの被害はなかった。' } : { q: -1, note: '雨は来なかった。待ったぶん、刈り遅れ気味になった。' }) },
+      ] },
     { id: 'soil', month: 12, icon: '🍂', title: '秋起こし・土づくり', season: 'winter',
       text: '稲刈りが終わった田んぼ。冬のうちに土を起こしたり堆肥を入れたりしておくと、来年の稲がよく育つ。',
       options: [
@@ -128,6 +152,22 @@
     return null;
   };
 
+  // 天気予報：降水確率（%）と、実際に降るか。稲刈りは、その年に台風・秋雨・大雨があると降りやすい
+  FW.forecast = function (st, id) {
+    const r = RG.rng.make(st.seed, st.year, 'forecast_' + id);
+    const a = r.next(), b = r.next();
+    const ev = (st.world && st.world.events) || [], yt = st.world ? st.world.yearType : 'normal';
+    const wet = ev.some((e) => e.hit && (e.id === 'typh' || e.id === 'akisa' || e.id === 'flood'));
+    let p;
+    if (id === 'kari_fc') p = wet || yt === 'rain' || yt === 'typh' ? 55 + a * 30 : 20 + a * 35;
+    else p = (yt === 'cold' ? 45 : 25) + a * 40;
+    p = Math.round(p / 10) * 10;
+    const hit = b < p / 100; // 予報の降水確率どおりに当たる（外れることもある）
+    // 7日間の予報（雨の日は、確率が高いほど多い）
+    const rainy = p >= 60 ? [3, 4, 5] : p >= 40 ? [4, 5] : [5];
+    const days = [0, 1, 2, 3, 4, 5, 6].map((i) => (rainy.indexOf(i) >= 0 ? '🌧️' : i === rainy[0] - 1 ? '☁️' : i < 2 ? '☀️' : '🌤️'));
+    return { p, hit, days };
+  };
   FW.def = (id) => FW.WORKS.find((w) => w.id === id);
   FW.state = (st) => st.work || (st.work = { choice: {}, auto: {} });
   FW.options = (st, w) => w.options.filter((o) => !o.need || o.need(st));
@@ -160,7 +200,7 @@
     if (sp) { dfx.y *= sp.y; dfx.q += sp.q; if (!preview) dfx.logs.push({ month: 5, text: '🍂 去年の秋の土づくりのおかげで、田んぼの土がふかふかだ。', kind: 'good' }); }
     FW.WORKS.forEach((wk) => {
       const o = FW.option(st, wk.id, preview);
-      if (o.key === 'std') return;
+      if (o.key === 'std' && !wk.forecast) return; // 天気予報の作業は、標準でも天気しだいで結果が変わる
       const e = o.eff(st, w) || {};
       if (e.y) dfx.y *= e.y;
       if (e.q) dfx.q += e.q;
@@ -207,7 +247,7 @@
   // 計画画面の見通し：やり方ごとの手間と費用（今の作付面積で）
   FW.cost = function (st, id, key) {
     const o = FW.def(id).options.find((x) => x.key === key);
-    const e = o.eff(st, { hot: false, cold: false, storm: false }) || {};
+    const e = o.eff(st, { hot: false, cold: false, storm: false, preview: true }) || {};
     const a10 = planted(st) * 10;
     return { hours: U.sum(Object.keys(e.h || {}), (s) => e.h[s]) * a10, cost: (e.c || 0) * a10 };
   };

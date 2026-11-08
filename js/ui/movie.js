@@ -11,9 +11,9 @@
   MV.MOVIES = {
     // じいちゃんの田んぼ：はじまり
     prologue: () => [
-      { bg: 'dusk', pan: 'right', dur: 5200, text: '春の夕暮れ。', sub: '久しぶりに、じいちゃんの家に帰ってきた。' },
+      { bg: 3, tint: 'dusk', train: true, pan: 'right', dur: 6000, text: '春の夕暮れ。', sub: '久しぶりに、じいちゃんの家に帰ってきた。' },
       { bg: 3, pan: 'in', dur: 5200, text: 'ご先祖さんから受け継いだ、2haの田んぼ。', sub: '雪がとけて、黒い土が顔を出している。' },
-      { bg: 5, pan: 'left', fx: 'petal', dur: 5200, text: 'この田んぼを、今年から自分が作る。', sub: '機械の動かし方も、お金のことも、まだ何もわからない。' },
+      { bg: 4, pan: 'left', fx: 'petal', dur: 5200, text: 'この田んぼを、今年から自分が作る。', sub: '機械の動かし方も、お金のことも、まだ何もわからない。' },
       { bg: 'black', card: true, dur: 3600, text: '米道', sub: '第1話　じいちゃんの田んぼ' },
     ],
     // じいちゃんの田んぼ：初めての稲刈り（1年目の決算の前）
@@ -62,21 +62,24 @@
     const dusk = h('canvas', { class: 'mv-bg mv-dusk', 'aria-hidden': 'true' });
     const cam = h('div', { class: 'mv-cam' }, farm, dusk);
     const fx = h('div', { class: 'mv-fxbox' });
+    const tint = h('div', { class: 'dusk-tint mv-tint', 'aria-hidden': 'true' });
     const cap = h('div', { class: 'mv-cap', role: 'status', 'aria-live': 'polite' });
     const fade = h('div', { class: 'mv-fade' });
     const skip = h('button', { type: 'button', class: 'mv-skip', onclick: (e) => { e.stopPropagation(); end(); } }, 'とばす ⏭');
     const root = h('div', { class: 'movie' + (reduce ? ' still' : ''), role: 'dialog', 'aria-label': 'ムービー', onclick: () => next() },
-      cam, fx, h('div', { class: 'mv-bar top' }), h('div', { class: 'mv-bar bottom' }), cap, fade, skip);
+      cam, tint, fx, h('div', { class: 'mv-bar top' }), h('div', { class: 'mv-bar bottom' }), cap, fade, skip);
     document.body.appendChild(root);
-    if (shots.some((s) => typeof s.bg === 'number')) RG.farmScene.mount(farm, () => month);
+    let cur = shots[0];
+    if (shots.some((s) => typeof s.bg === 'number')) RG.farmScene.mount(farm, () => month, { train: () => !!cur.train, lit: () => cur.tint === 'dusk', dusk: () => cur.tint === 'dusk' });
     if (shots.some((s) => s.bg === 'dusk')) RG.titleScene.mount(dusk);
     requestAnimationFrame(() => root.classList.add('on'));
 
     function show(i) {
-      const s = shots[i];
+      const s = cur = shots[i];
       if (typeof s.bg === 'number') { month = s.bg; if (farm._redraw) farm._redraw(); } // 動きを控える設定でも、その月の絵にする
       cam.className = 'mv-cam bg-' + (s.bg === 'dusk' ? 'dusk' : s.bg === 'black' ? 'black' : 'farm') + (s.pan && !reduce ? ' pan-' + s.pan : '');
       void cam.offsetWidth; // カメラの動きを最初から
+      tint.classList.toggle('on', s.tint === 'dusk'); // 夕暮れの色
       fx.innerHTML = '';
       if (s.fx && !reduce) fx.appendChild(particles(s.fx));
       cap.innerHTML = '';

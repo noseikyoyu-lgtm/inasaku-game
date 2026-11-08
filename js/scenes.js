@@ -375,6 +375,13 @@
       { who: 'yamane', text: '最初は、よそから来た人に何がわかると思ってました。でも、ここまで立て直してくれた。感謝してますよ。' }],
   });
 
+  // 場面の背景：会話の季節に合わせた月の田んぼ（m）。dusk＝夕暮れの色をかぶせる
+  STORY.sceneBg = { prologue: { m: 3, dusk: true, train: true }, ch2: { m: 4 }, ch3: { m: 4 }, ch4: { m: 9, dusk: true }, st_shinmai: { m: 1 }, st_haruka: { m: 4 }, st_ill: { m: 5 },
+    st_haruka2: { m: 10, dusk: true }, st_kaigi: { m: 12, dusk: true }, st_reika: { m: 1 }, st_ce: { m: 2 }, st_next: { m: 6 } };
+  TANADA.sceneBg = { prologue: { m: 4, dusk: true }, ch2: { m: 4 }, ch3: { m: 4 }, ch4: { m: 9, dusk: true }, tn_matsuri: { m: 9 }, tn_suigen: { m: 4 }, tn_bunkou: { m: 3 }, tn_kucho: { m: 12 } };
+  SAIKEN.sceneBg = { prologue: { m: 4 }, review3: { m: 3 }, ch2: { m: 4 }, ch3: { m: 4 }, sk_young: { m: 3 }, sk_karikae: { m: 2 }, sk_gappei: { m: 11 }, sk_yamane: { m: 3 } };
+  SC.bgOf = (st) => { const d = SC.def(st); return (d && d.sceneBg && st.scene && d.sceneBg[st.scene.id]) || { m: 4 }; };
+
   SC.STORIES = { story: STORY, tanada: TANADA, saiken: SAIKEN };
   SC.def = (st) => (st && SC.STORIES[st.scenarioId]) || null;
   SC.isStory = (st) => !!SC.def(st);

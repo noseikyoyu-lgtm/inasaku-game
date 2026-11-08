@@ -161,7 +161,7 @@
     const sec = (tone, ic, text, sub) => h('div', { class: 'ov-sec tone-' + tone }, h('span', { class: 'ov-sec-ic', 'aria-hidden': 'true' }, ic), h('span', null, text), sub ? h('small', null, sub) : null);
     const tone = (el, cls) => { if (el) el.classList.add('ov', ...cls.split(' ')); return el; };
     const pair = (x, y) => (x && y ? h('div', { class: 'ov-pair' }, x, y) : x || y);
-    const out = [homeHero(st), deadlineBox, RG.scenes.isStory(st) ? RG.screens.promiseCard(st, { progress: true }) : null];
+    const out = [homeHero(st), deadlineBox, RG.scenes.isStory(st) ? RG.screens.promiseCard(st, { progress: true }) : null, RG.screens.challengeCard(st)];
 
     // ① 今年のこと
     out.push(sec('green', '🌱', '今年のこと'));
@@ -900,4 +900,14 @@
 
   const TAB_FNS = { overview: tabOverview, crops: tabCrops, land: tabLand, machines: tabMachines, labor: tabLabor, sales: tabSales,
     biz: (app, st, pv) => RG.screens.tabBiz(app, st, pv), finance: tabFinance };
+  // チャレンジ（しばり）のカード：計画のホームと経営終了の画面
+  RG.screens.challengeCard = function (st) {
+    const c = st.challenge, d = c && RG.challenge && RG.challenge.def(c.id);
+    if (!d) return null;
+    const state = c.done ? '✅ 達成（' + c.year + '年目）' : c.failed ? '❌ 達成できなかった' : '挑戦中';
+    return h('div', { class: 'challenge-card' + (c.done ? ' done' : c.failed ? ' failed' : '') },
+      h('div', { class: 'cc-head' }, h('span', { class: 'cc-ic', 'aria-hidden': 'true' }, '🎯'), h('b', null, 'チャレンジ：' + d.icon + ' ' + d.name), h('span', { class: 'cc-state' }, state)),
+      h('p', { class: 'small' }, d.desc),
+      c.done || c.failed ? null : h('p', { class: 'small cc-prog' }, '今：' + d.progress(st)));
+  };
 })(window.RG = window.RG || {});
