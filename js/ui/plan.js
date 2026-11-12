@@ -161,7 +161,7 @@
     const sec = (tone, ic, text, sub) => h('div', { class: 'ov-sec tone-' + tone }, h('span', { class: 'ov-sec-ic', 'aria-hidden': 'true' }, ic), h('span', null, text), sub ? h('small', null, sub) : null);
     const tone = (el, cls) => { if (el) el.classList.add('ov', ...cls.split(' ')); return el; };
     const pair = (x, y) => (x && y ? h('div', { class: 'ov-pair' }, x, y) : x || y);
-    const out = [homeHero(st), deadlineBox, RG.scenes.isStory(st) ? RG.screens.promiseCard(st, { progress: true }) : null, RG.screens.challengeCard(st)];
+    const out = [homeHero(st), deadlineBox, RG.scenes.isStory(st) ? RG.screens.promiseCard(st, { progress: true }) : null, RG.screens.promise2Card(st), RG.screens.challengeCard(st)];
 
     // ① 今年のこと
     out.push(sec('green', '🌱', '今年のこと'));
@@ -450,7 +450,8 @@
           : UI.btn('借りる', () => app.update((s) => A.acceptLand(s, o.id), { undo: true, msg: '農地を借りました' }), 'sm primary')));
     });
     const rows = st.fields.map((f) => [
-      f.name, { v: U.ha(f.area), cls: 'num' }, D.SOILS[f.soil].short,
+      f.name, { v: U.ha(f.area), cls: 'num' }, f.seibi != null ? h('span', null, D.SOILS[f.soil].short, ' ', h('span', { class: 'badge good' }, '整備ずみ'),
+        st.year - f.seibi < D.SEIBI.yieldDrop.length ? h('div', { class: 'small muted' }, '土がなじむまで収量 ' + U.pct(D.SEIBI.yieldDrop[st.year - f.seibi]) + '（' + (f.seibi + D.SEIBI.yieldDrop.length) + '年目にもどる）') : null) : D.SOILS[f.soil].short,
       f.owned ? h('span', { class: 'badge info' }, '所有') : '借地',
       { v: f.owned ? h('span', null, '評価額 ' + U.man(f.landValue), h('div', { class: 'small muted' }, '売ると約 ' + U.man(A.landSalePrice(f)))) : U.yen(f.rent) + '/10a', cls: 'num' },
       f.owned ? UI.btn('売却', async () => {
@@ -700,8 +701,8 @@
     const prem = (x) => '農協価格' + (x >= 1 ? '＋' : '−') + U.pct(Math.abs(x - 1), 0);
     const contractRows = st.contracts.map((c) => {
       const r = S.contracts.find((x) => x.id === c.id);
-      return [c.buyer, D.CROPS[c.crop].name, D.TIER_NAMES[c.minCult], { v: U.bales(c.volume), cls: 'num' }, prem(c.premium),
-        { v: h('span', null, U.yen(SIM.contractPrice(c, w.forecast)), c.refPrice ? h('div', { class: 'small muted' }, '契約時 ' + U.yen(c.refPrice)) : null), cls: 'num' },
+      return [c.buyer, D.CROPS[c.crop].name, D.TIER_NAMES[c.minCult], { v: U.bales(c.volume), cls: 'num' }, c.fixed ? '値段は固定' : prem(c.premium),
+        { v: h('span', null, U.yen(SIM.contractPrice(c, w.forecast)), c.fixed ? h('div', { class: 'small muted' }, '期間中は変わらない') : c.refPrice ? h('div', { class: 'small muted' }, '契約時 ' + U.yen(c.refPrice)) : null), cls: 'num' },
         { v: c.yearsLeft + '年', cls: 'num' },
         r && r.short > 0.5 ? h('span', { class: 'badge bad' }, U.bales(r.short) + '不足') : h('span', { class: 'badge good' }, '充足')];
     });
@@ -711,8 +712,8 @@
       return h('div', { class: 'offer' },
         h('div', { class: 't' }, o.buyer),
         h('div', null, crop.name + (o.minCult ? '（' + D.TIER_NAMES[o.minCult] + '）' : '') + '・毎年 ', h('b', null, U.bales(o.volume)), '・' + o.years + '年契約'),
-        h('div', null, '価格の決め方 ', h('b', { class: o.premium >= 1 ? 'pos' : 'neg' }, prem(o.premium))),
-        h('div', { class: 'small muted' }, '今年の目安 ' + U.yen(o.refPrice) + '/60kg（予想米価から）。実際の価格は毎年、その年の米の需給で決まります。'),
+        h('div', null, '契約の値段 ', h('b', null, U.yen(o.refPrice) + '/60kg'), '（' + o.years + '年間ずっと同じ・今年の予想の' + prem(o.premium) + '）'),
+        h('div', { class: 'small muted' }, '値段を先に決めておく契約です。米価が下がった年も同じ値段で売れるので、値下がりへの備えになります。米価が上がった年は、相場より安く売ることになります。約束の量を届けられないと、足りない分を買って届けます。'),
         crop.sake ? h('div', { class: 'small muted' }, '酒米は酒蔵との契約で出荷先を確保できます。') : null,
         h('div', { class: 'row' }, UI.btn('契約する', () => app.update((s) => A.acceptContract(s, o.id), { undo: true, msg: '契約しました' }), 'sm primary', { disabled: locked }),
           locked ? h('span', { class: 'small muted' }, crop.unlock && !st.flags[crop.unlock] ? '生産者登録をすると作付できます' : '🔒 この品種はまだ作れません') : null));
@@ -748,7 +749,7 @@
       UI.card('販路ごとの見込み', '平年作・予想米価 ' + U.yen(w.forecast) + '/60kg',
         UI.table([{ label: '販路' }, { label: '数量', num: true }, { label: '売上', num: true }, { label: '1俵あたり手取り', num: true }], channel),
         h('p', { class: 'small muted' }, '手取り＝価格から販売経費を引いた額（直販は精米・包装・決済手数料を差し引き）。農協への出荷代金は10月に', T('概算金'), '、残りは翌年6月に追加払い。')),
-      UI.card(h('span', null, T('契約栽培')), '数量は約束、価格はその年の需給で決まる',
+      UI.card(h('span', null, T('契約栽培')), '数量と値段を先に決めておく（値下がりへの備え）',
         contractRows.length ? UI.table([{ label: '取引先' }, { label: '品種' }, { label: '条件' }, { label: '数量/年', num: true }, { label: '価格の決め方' }, { label: '今年の見込み', num: true }, { label: '残り', num: true }, { label: '平年作で' }], contractRows) : h('p', { class: 'muted' }, '契約はありません。'),
         h('h4', { style: { margin: '10px 0 6px' } }, '今年の契約の打診'),
         offers.length ? h('div', { class: 'offers' }, offers) : h('p', { class: 'muted' }, '今年の打診はありません。'),
@@ -857,12 +858,13 @@
         h('p', { class: 'small muted keep' }, '金利は、日本政策金融公庫と県の農業制度資金の利率（令和8年9〜10月）をもとにした目安です。実際の金利は、借りる時期・期間・条件で変わります。')),
       UI.card('保険', '不作や値下がりへの備え', h('div', { class: 'radio-cards' }, ins)),
       SIM.livingVaries(st) ? UI.card(h('span', null, '🏠 ', T('家計費'), '（生活費）'), '年 約' + U.man(st.living) + '（月平均 約' + U.man(st.living / 12) + '）',
+        h('p', { class: 'small' }, 'もうけが続くと、暮らしにかかるお金も増えていきます（直近3年の平均所得が家計費の' + D.FIN.livingUp + '倍をこえると、年 +' + U.man(D.FIN.livingStep) + '。' + U.man(D.FIN.livingCap) + 'まで）。所得が家計費を下回った年のあとは、切り詰めて元に近づきます。'),
         h('p', { class: 'small' }, '物語では、生活費は自分では決められません。毎月の出費は、季節（正月・お盆・年末は多め）や、暮らしのできごと（冠婚葬祭・車の車検や修理・家電の買い替えなど）で上下します。1年の平均は上の額くらいです。'),
         h('p', { class: 'small muted keep' }, '急な出費にも困らないよう、手元の資金に少しゆとりを持たせておきましょう。')) :
       UI.card(st.corp ? '役員報酬' : h('span', null, T('家計費'), '（生活費）'), st.corp ? '経営者の給料。経費になる' : '農業所得から生活費を引き出します',
-        h('div', { class: 'row' }, UI.numInput({ value: st.corp ? st.execPay : st.living, min: st.corp ? D.FIN.livingMin : Math.min(D.FIN.livingMin, st.living), max: 30000000, step: 100000, width: 130, suffix: '円/年', label: st.corp ? '役員報酬' : '家計費',
+        h('div', { class: 'row' }, UI.numInput({ value: st.corp ? st.execPay : st.living, min: st.corp ? S.livingNeed(st) : Math.min(S.livingNeed(st), st.living), max: 30000000, step: 100000, width: 130, suffix: '円/年', label: st.corp ? '役員報酬' : '家計費',
           onChange: (v) => app.update((s) => { if (s.corp) s.execPay = Math.round(v); else s.living = Math.round(v); }) })),
-        h('p', { class: 'small muted' }, st.corp ? '役員報酬は法人の経費になり、社会保険料（約15%）もかかります。' : '家計費は毎月引き出されます。少なくすると経営にお金が残りますが、' + (st.living < D.FIN.livingMin ? '配偶者の収入などで今は ' + U.man(st.living) + ' まで下がっています。' : '最低 ' + U.man(D.FIN.livingMin) + ' は必要です。'))));
+        h('p', { class: 'small muted' }, (S.livingNeed(st) > D.FIN.livingMin ? '今の暮らしには、少なくとも年 ' + U.man(S.livingNeed(st)) + ' が必要です（もうけが続くと増え、所得が下回ると減ります）。' : '') + (st.corp ? '役員報酬は法人の経費になり、社会保険料（約15%）もかかります。' : '家計費は毎月引き出されます。少なくすると経営にお金が残りますが、' + (st.living < D.FIN.livingMin ? '配偶者の収入などで今は ' + U.man(st.living) + ' まで下がっています。' : '最低 ' + U.man(D.FIN.livingMin) + ' は必要です。')))));
   }
 
   // 農協の出荷契約金（前渡金）

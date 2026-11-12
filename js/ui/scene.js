@@ -49,6 +49,18 @@
         h('li', null, '★ 約束を果たす'), h('li', null, '★★ ' + d.star2.label), h('li', null, '★★★ ' + d.star3.label)) : null);
   };
 
+  // 次の約束のカード（計画のホーム・エンディング）
+  RG.screens.promise2Card = function (st) {
+    const p = SC.isStory(st) ? SC.promise2(st) : null;
+    if (!p) return null;
+    const d = SC.def(st);
+    const state = p.final ? (p.kept ? '✅ 果たした' : '❌ 果たせなかった') : p.kept ? '✅ 今は満たしている' : 'あと' + Math.max(0, st.maxYear - st.history.length) + '年';
+    return h('div', { class: 'promise second' + (p.kept ? ' done' : '') },
+      h('div', { class: 'pr-head' }, UI.face(d.promise2.who, 2), h('b', null, '次の約束：' + p.opt.icon + ' ' + p.opt.name), h('span', { class: 'pr-done' }, state)),
+      h('ul', { class: 'pr-conds' }, p.conds.map((c) => h('li', { class: c.ok ? 'ok' : '' }, h('span', { 'aria-hidden': 'true' }, c.ok ? '✅' : '⬜'), c.label, h('small', null, '（今 ' + c.now + '）')))),
+      p.final ? null : h('p', { class: 'small pr-sub' }, '最後の年（' + st.maxYear + '年目）の決算で確かめます。'));
+  };
+
   // 棚田：集落の田んぼの地図（1マス＝1ha。あなたの田・ほかの人が作る田・荒れた田）
   RG.screens.villageMap = function (st) {
     const v = st.village;
@@ -70,11 +82,11 @@
     const ln = lines[i] || { who: 'narr', text: '' };
     // 背景：会話の季節に合わせた月の田んぼ（夕暮れの場面は色をかぶせる）
     const bg = SC.bgOf(st);
-    app.sceneMonth = bg.m; app.sceneTrain = !!bg.train; app.sceneDusk = !!bg.dusk;
+    app.sceneMonth = bg.m; app.sceneTrain = !!bg.train; app.sceneDusk = !!bg.dusk; app.sceneTerrace = !!(SC.def(st) && SC.def(st).terrace);
     let canvas = app.sceneCanvas;
     if (!canvas || !canvas._alive) {
       canvas = app.sceneCanvas = h('canvas', { class: 'title-canvas scene-bg', role: 'img' });
-      RG.farmScene.mount(canvas, () => app.sceneMonth || 4, { train: () => !!app.sceneTrain, lit: () => !!app.sceneDusk, dusk: () => !!app.sceneDusk }); // 田んぼの向こうのローカル線
+      RG.farmScene.mount(canvas, () => app.sceneMonth || 4, { train: () => !!app.sceneTrain, lit: () => !!app.sceneDusk, dusk: () => !!app.sceneDusk, terrace: () => !!app.sceneTerrace }); // 田んぼの向こうのローカル線・山あいの棚田
     }
     canvas.setAttribute('aria-label', '田んぼの様子：' + RG.farmScene.label(bg.m));
     if (canvas._redraw) canvas._redraw();
@@ -112,6 +124,6 @@
       h('div', { class: 'se-talk' }, e.lines.map((ln) => ln.who === 'narr'
         ? h('p', { class: 'se-narr' }, ln.text)
         : h('div', { class: 'se-line' }, UI.face(ln.who, 3, true), h('div', { class: 'saying-bubble' }, h('div', { class: 'saying-who' }, D.PEOPLE[ln.who].name), h('p', null, '「' + ln.text + '」'))))),
-      RG.screens.promiseCard(st, { conds: true, stars: true, starsNote: true }));
+      RG.screens.promiseCard(st, { conds: true, stars: true, starsNote: true }), RG.screens.promise2Card(st));
   };
 })(window.RG = window.RG || {});

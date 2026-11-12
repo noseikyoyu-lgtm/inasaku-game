@@ -590,3 +590,10 @@ h2, h3 { font-weight: 900; letter-spacing: .04em; }
 .fc-ic { font-size: 20px; line-height: 1; }
 .fc-p { margin-left: 6px; font-size: 14px; }
 .fc-p small { margin-left: 4px; opacity: .7; }
+
+/* サイコロ勝負：損の見込み */
+.crisis-choices .est { margin-top: 6px; font-size: 13px; padding: 4px 8px; border-radius: 8px; background: var(--panel2, rgba(0, 0, 0, .05)); }
+
+/* 次の約束のカード */
+.promise.second { background: linear-gradient(135deg, #eef1fb, #dfe6f7); border-color: #bcc8ea; color: #232c4a; }
+.promise.second.done { background: linear-gradient(135deg, #f1f8e6, #dcefc4); border-color: #b9d99a; color: #23401a; }

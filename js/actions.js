@@ -181,7 +181,7 @@
     const o = st.offers.contracts.find((x) => x.id === offerId);
     if (!o) return 'この話はもうありません';
     if ((D.CROPS[o.crop].unlock && !st.flags[D.CROPS[o.crop].unlock]) || (RG.era && RG.era.cropLocked(st, o.crop))) return 'この品種はまだ作付できません';
-    st.contracts.push({ id: U.uid(st, 'c'), buyer: o.buyer, crop: o.crop, minCult: o.minCult, volume: o.volume, premium: o.premium, refPrice: o.refPrice, yearsLeft: o.years, years: o.years });
+    st.contracts.push({ id: U.uid(st, 'c'), buyer: o.buyer, crop: o.crop, minCult: o.minCult, volume: o.volume, premium: o.premium, refPrice: o.refPrice, fixed: true, yearsLeft: o.years, years: o.years }); // 値段は期間中ずっと固定
     st.offers.contracts = st.offers.contracts.filter((x) => x.id !== offerId);
     return null;
   };

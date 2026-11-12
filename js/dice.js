@@ -243,6 +243,26 @@
 
   DI.outcomeOf = (c, face) => c.outcomes.find((o) => o.faces.indexOf(face) >= 0);
   DI.choiceOf = (st, id) => ((st.yearFlags || {}).crisis || {})[id];
+  // ---------- 勝負と対策の損の見込み（円） ----------
+  // 今の計画の見通し（平年の天候）で、その結果が起きたら利益がいくら減るかを計算する
+  DI.lossOf = function (st, eff, base) {
+    const s = RG.state.fromJSON(JSON.stringify(st));
+    const yf = s.yearFlags || (s.yearFlags = {});
+    if (eff.y) yf.cardY = (yf.cardY || 1) * eff.y;
+    if (eff.q) yf.cardQ = (yf.cardQ || 0) + eff.q;
+    if (eff.labor) { yf.cardLabor = yf.cardLabor || {}; for (const k in eff.labor) yf.cardLabor[k] = (yf.cardLabor[k] || 0) + eff.labor[k]; }
+    return Math.max(0, base - RG.sim.simulate(s, { preview: true }).pl.preTax) + (eff.cost || 0);
+  };
+  // 対策の損・勝負の平均の損・いちばん悪い目の損
+  DI.estimate = function (st, c) {
+    try {
+      const base = RG.sim.simulate(st, { preview: true }).pl.preTax;
+      const pm = (c.id === 'blast' || c.id === 'stinkbug') && RG.fieldwork ? (RG.fieldwork.input(st, 'pest').pest || 1) : 1;
+      const adj = (o) => (pm !== 1 && o.kind !== 'good' ? Object.assign({}, o, { y: o.y ? 1 - (1 - o.y) * pm : o.y, q: o.q ? o.q * pm : o.q }) : o);
+      const outs = c.outcomes.map((o) => ({ p: o.faces.length / 6, loss: o.kind === 'good' ? 0 : DI.lossOf(st, adj(o), base) }));
+      return { guard: DI.lossOf(st, c.guard(st), base), dice: outs.reduce((a, o) => a + o.p * o.loss, 0), worst: Math.max.apply(null, outs.map((o) => o.loss)), outs };
+    } catch (e) { return null; }
+  };
   DI.pending = (st) => DI.crises(st).find((c) => { const ch = DI.choiceOf(st, c.id); return !ch || !ch.fixed; });
 
   DI.chooseGuard = function (st, id) {
@@ -263,7 +283,7 @@
   // preview：計画の見通し。勝負はまだ起きていないので含めない
   DI.effects = function (st, preview) {
     const f = st.yearFlags || {};
-    const fx = { y: f.cardY || 1, q: 0, mat: f.matUp || 0, labor: Object.assign({}, f.cardLabor || {}), costs: [], logs: [] };
+    const fx = { y: f.cardY || 1, q: f.cardQ || 0, mat: f.matUp || 0, labor: Object.assign({}, f.cardLabor || {}), costs: [], logs: [] };
     if (st.luck && st.luck.year === st.year && st.luck.done && st.luck.msg) fx.logs.push({ month: 1, text: '🎲 運だめし：' + st.luck.msg, kind: st.luck.kind });
     if (preview) return fx;
     DI.crises(st).forEach((c) => {

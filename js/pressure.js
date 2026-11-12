@@ -80,7 +80,7 @@
   // ---------- 6年目からの、経営を圧迫するできごと ----------
   const ramp = (st) => (st.year >= PR.FROM ? 0.5 + 0.05 * (st.year - PR.FROM) : 0);
   // 同じできごとは4年に1回まで（値上がりが毎年重ならないように）
-  const cool = (st, id) => st.year - (st.events.seen[id] || -99) >= 4;
+  const cool = (st, id, n) => st.year - (st.events.seen[id] || -99) >= (n || 4);
   const addCost = (st, amount, label) => RG.state.addLedger(st, { amount: -amount, cat: 'eventCost', label });
   const addAsset = (st, amount, label) => RG.state.addLedger(st, { amount: -amount, cat: 'asset', label });
   E.POOL.push({
@@ -99,7 +99,8 @@
   });
   E.POOL.push({
     id: 'part_shortage', who: 'tamura', sq: 0,
-    cond: (st) => st.year >= PR.FROM && cool(st, 'part_shortage') && (st.partTimers > 0 || (st.regulars || []).length > 0), weight: ramp,
+    // 6年に1回まで。時給の上がりは合わせて2割まで
+    cond: (st) => st.year >= PR.FROM && cool(st, 'part_shortage', 6) && (st.market.partWageBoost || 1) < 1.19 && (st.partTimers > 0 || (st.regulars || []).length > 0), weight: ramp,
     title: 'パートが集まらない',
     text: () => '町に大きな工場ができ、パートの人がそちらに流れている。「時給を上げんと、もう人は来んよ」と言われた。',
     choices: [
@@ -109,7 +110,7 @@
   });
   E.POOL.push({
     id: 'cost_up', who: 'takahashi', sq: 0,
-    cond: (st) => st.year >= PR.FROM && cool(st, 'cost_up'), weight: ramp,
+    cond: (st) => st.year >= PR.FROM && cool(st, 'cost_up', 6), weight: ramp,
     title: '資材と機械の値上がり',
     text: () => '「世界的な物価高で、肥料も農薬も機械も、また値上がりだ。これからは、同じことをしていても毎年お金が余計にかかるよ」',
     choices: [{ label: 'わかった', desc: '資材・機械の値段がこれから +4%', apply: (st) => { st.market.matInfl *= 1.04; return '資材と機械が値上がりした。'; } }],

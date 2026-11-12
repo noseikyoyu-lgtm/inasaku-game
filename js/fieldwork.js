@@ -185,33 +185,39 @@
   FW.addEffects = function (st, dfx, preview, yearType, events) {
     const a10 = planted(st) * 10;
     if (a10 <= 0) return dfx;
+    // 品質を上げる工夫（作業・肥料・農薬・土づくり）は、重ねるほど効きが小さくなる。
+    // 1つ2つならほぼそのまま効くが、全部重ねても合わせて +8点くらいまで（猛暑の年に1等米100%が当たり前にならないように）
+    let bonus = 0;
+    const addQ = (q) => { if (q > 0) bonus += q; else if (q) dfx.q += q; };
     // 肥料・農薬の効き（費用と病害虫の被害は sim のほうで掛ける）
     ['fert', 'pest'].forEach((kind) => {
       const o = FW.input(st, kind);
       if (o.key === 'std') return;
       if (o.y) dfx.y *= o.y;
-      if (o.q) dfx.q += o.q;
+      addQ(o.q);
       if (o.h) for (const s in o.h) dfx.labor[s] = (dfx.labor[s] || 0) + o.h[s] * a10;
       if (!preview) dfx.logs.push({ month: kind === 'fert' ? 4 : 6, text: FW.INPUTS[kind].icon + ' ' + FW.INPUTS[kind].name + '：「' + o.label + '」を使った。', kind: '' });
     });
     const w = FW.weather(st, preview, yearType, events);
     // 前の年の12月に土づくりをしていれば、今年の収量と品質が上がる
     const sp = st.flags && st.flags.soilPrev;
-    if (sp) { dfx.y *= sp.y; dfx.q += sp.q; if (!preview) dfx.logs.push({ month: 5, text: '🍂 去年の秋の土づくりのおかげで、田んぼの土がふかふかだ。', kind: 'good' }); }
+    if (sp) { dfx.y *= sp.y; addQ(sp.q); if (!preview) dfx.logs.push({ month: 5, text: '🍂 去年の秋の土づくりのおかげで、田んぼの土がふかふかだ。', kind: 'good' }); }
     FW.WORKS.forEach((wk) => {
       const o = FW.option(st, wk.id, preview);
       if (o.key === 'std' && !wk.forecast) return; // 天気予報の作業は、標準でも天気しだいで結果が変わる
       const e = o.eff(st, w) || {};
       if (e.y) dfx.y *= e.y;
-      if (e.q) dfx.q += e.q;
+      addQ(e.q);
       if (e.h) for (const s in e.h) dfx.labor[s] = (dfx.labor[s] || 0) + e.h[s] * a10;
       if (e.c) dfx.costs.push({ month: wk.month, amount: Math.round(e.c * a10), label: wk.title + '（' + o.label + '）' });
       if (e.bd) dfx.bd = (dfx.bd || 1) * e.bd;
       if (e.inc) { dfx.incomes = dfx.incomes || []; dfx.incomes.push({ month: wk.month, amount: e.inc, label: wk.title + '（' + o.label + '）' }); }
       if (!preview && e.note) dfx.logs.push({ month: wk.month, text: wk.icon + ' ' + wk.title + '：' + e.note, kind: (e.q || 0) < 0 || (e.y || 1) < 1 ? 'bad' : 'good' });
     });
+    dfx.q += FW.Q_CAP * (1 - Math.exp(-bonus / FW.Q_CAP));
     return dfx;
   };
+  FW.Q_CAP = 8;
 
   // シーズン中に聞く作業：毎回聞く設定で、今年まだ決めていないもの（月の順）
   FW.pending = function (st) {

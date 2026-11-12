@@ -56,7 +56,8 @@
     if (!cv || !cv._alive) {
       cv = app.farmCanvas = h('canvas', { class: 'farm-scene', role: 'img', 'aria-label': '田んぼの様子' });
       RG.farmScene.mount(cv, () => (app.st && app.st.seasonMonth) || 1,
-        { rain: (m) => m >= 7 && m <= 9 && app.farmRes && (app.farmRes.weather === 'rain' || app.farmRes.weather === 'typh') });
+        { rain: (m) => m >= 7 && m <= 9 && app.farmRes && (app.farmRes.weather === 'rain' || app.farmRes.weather === 'typh'),
+          terrace: () => !!(app.st && app.st.scenarioId === 'tanada') }); // 棚田のシナリオは、山あいの棚田の絵
     }
     app.farmRes = res;
     cv.setAttribute('aria-label', '田んぼの様子：' + RG.farmScene.label((app.st && app.st.seasonMonth) || 1));

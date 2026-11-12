@@ -33,7 +33,8 @@
     L.plans.push({
       y: st.year, area: r1(U.sum(st.fields, (f) => f.area)), crops,
       machines: st.machines.map((m) => m.model + (m.lease ? '(L)' : '') + ':' + m.age),
-      staff: st.staff.length, part: st.partTimers, family: st.family.length,
+      ver: (RG.CONFIG && RG.CONFIG.version) || '', // その年に遊んだ版
+      staff: st.staff.length, regulars: (st.regulars || []).length, part: st.partTimers, partSeason: st.partSeason ? Object.assign({}, st.partSeason) : null, family: st.family.length,
       contracts: st.contracts.map((c) => c.crop + ':' + r0(c.volume)),
       direct: { alloc: r0(st.direct.alloc), price5: r0(st.direct.price5), marketing: r0(st.direct.marketing), customers: r0(st.direct.customers) },
       store: r0(st.storePlan), biz: Object.assign({}, st.biz), insurance: st.insurance,
@@ -56,6 +57,8 @@
       crises: Object.keys(cr).map((id) => id + ':' + (cr[id].choice === 'guard' ? 'guard' : 'dice' + (cr[id].rolls || []).join(''))),
       events: res.events.map((e) => e.id + ':' + e.sev), titles: res.newTitles || [],
       gameOver: st.gameOver ? st.gameOver.reason : null, retired: !!st.retired,
+      work: Object.assign({}, (st.yearFlags || {}).work), // 作業の判断（天気予報の選び方も）
+      people: D.SEASONS.map((s) => r1(res.labor.seasons[s].peopleNeed || 0) + '/' + (res.labor.seasons[s].heads || 0)).join(' '), // 季節ごとの 要る人数/いる人数
     });
   };
 
@@ -63,7 +66,7 @@
   PL.summary = function (st) {
     const L = PL.get(st);
     return {
-      gid: L.gid, challenge: st.challenge ? st.challenge.id + (st.challenge.done ? ':done' : st.challenge.failed ? ':failed' : '') : null, scenario: st.scenarioId, custom: st.scenarioId === 'custom', seed: st.seed, year: st.year, maxYear: st.maxYear, phase: st.phase, mode: st.mode, closed: !!st.closed,
+      gid: L.gid, promise2: st.promise2 || null, challenge: st.challenge ? st.challenge.id + (st.challenge.done ? ':done' : st.challenge.failed ? ':failed' : '') : null, scenario: st.scenarioId, custom: st.scenarioId === 'custom', seed: st.seed, year: st.year, maxYear: st.maxYear, phase: st.phase, mode: st.mode, closed: !!st.closed,
       corp: !!st.corp, gameOver: st.gameOver ? { reason: st.gameOver.reason, year: st.gameOver.year } : null,
       score: st.history.length && RG.score ? { rank: RG.score(st).rank, total: r1(RG.score(st).total) } : null,
       midterms: (st.midterms || []).map((m) => m.year + ':' + m.rank + r0(m.total)),

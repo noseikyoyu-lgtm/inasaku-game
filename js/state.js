@@ -378,6 +378,8 @@
     st.offers = RG.events.genOffers(st);
     st.events.queue = RG.events.genEvents(st);
     st.news = RG.events.genNews(st);
+    S.updateLiving(st);
+    RG.events.updateSeibi(st); // 整備した田の収量が戻っていく
     st.notes = [];
     st.seasonMonth = 0;
     if (RG.dice) RG.dice.startYear(st);
@@ -390,6 +392,25 @@
     // 章の節目には、じいちゃんとの会話の場面が先に入る
     const scene = RG.scenes && RG.scenes.due(st);
     if (scene) RG.scenes.start(st, scene);
+  };
+
+  // 暮らしにかかるお金：もうけが続くと家計費（法人は役員報酬）の下限が上がり、赤字が続くと切り詰めて元に近づく
+  S.livingNeed = (st) => st.livingNeed || D.FIN.livingMin;
+  S.updateLiving = function (st) {
+    if (st.livingBase == null) { st.livingBase = st.corp ? st.execPay : st.living; st.livingNeed = Math.max(D.FIN.livingMin, Math.min(st.livingBase, D.FIN.livingCap)); }
+    const hs = (st.history || []).slice(-3);
+    if (st.year < 3 || hs.length < 3) return;
+    const avg = U.avg(hs.map((h) => h.income)), cur = st.corp ? st.execPay : st.living, F = D.FIN;
+    let d = 0;
+    if (avg > cur * F.livingUp && cur < F.livingCap) d = Math.min(F.livingStep, F.livingCap - cur);
+    // 苦しくなったら、すぐに切り詰める（去年の所得が今の家計費を下回ったら、増えた分を2年ぶんずつ戻す）
+    else if (hs[hs.length - 1].income < cur && st.livingNeed > Math.max(F.livingMin, Math.min(st.livingBase, F.livingCap))) d = -Math.min(F.livingStep * 2, st.livingNeed - Math.max(F.livingMin, Math.min(st.livingBase, F.livingCap)));
+    if (!d) return;
+    st.livingNeed += d;
+    if (st.corp) st.execPay = Math.max(F.livingMin, st.execPay + d); else st.living = Math.max(0, st.living + d);
+    st.news.unshift(d > 0
+      ? { kind: 'event', text: '🏠 もうけが続いて、暮らしにもお金がかかるようになった（家の修繕・車の買い替え・つきあいなど）。' + (st.corp ? '役員報酬' : '家計費') + 'が年 ' + U.man(cur + d) + ' に（+' + U.man(d) + '）。' }
+      : { kind: 'event', text: '🏠 もうけが減ったので、暮らしを切り詰めた。' + (st.corp ? '役員報酬' : '家計費') + 'が年 ' + U.man(cur + d) + ' に（−' + U.man(-d) + '）。' });
   };
 
   S.nextYear = function (st) {

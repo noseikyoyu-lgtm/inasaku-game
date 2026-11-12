@@ -165,6 +165,7 @@
       h('div', { class: 'row', style: { marginTop: '8px' } },
         UI.btn('全部シーズン中に聞く', () => app.update((t) => FW.setAllAuto(t, false)), 'sm'),
         UI.btn('全部このやり方でおまかせ', () => app.update((t) => FW.setAllAuto(t, true)), 'sm')),
+      h('p', { class: 'small muted keep' }, '品質を上げる工夫は、重ねるほど効きが小さくなります（全部重ねても、合わせて +8点くらいまで）。手間とお金に見合うものを選びましょう。'),
       h('p', { class: 'small muted' }, '「聞く」にした作業は、シーズン中のその月に止まって、天候を見ながら選べます。「標準」は、手間もお金も増えない、いつもどおりのやり方です。水管理は、猛暑の年は掛け流し、冷夏の年は深水が効きます。'));
   };
 

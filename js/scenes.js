@@ -113,7 +113,7 @@
     },
     scenes: {
       prologue: () => [
-        { who: 'narr', text: '7年ぶりに帰ってきた、山あいの集落。夕日が棚田の石垣を照らしている。' },
+        { who: 'narr', text: '7年ぶりに帰ってきた、山あいの集落。夕日が、段々の田んぼと池の水面を照らしている。' },
         { who: 'kucho', text: '区長の中山です。よう帰ってきてくれた。……見てのとおり、この集落は70を超えた年寄りばかりでな。' },
         { who: 'kucho', text: '体が動かんようになったら、田んぼはやめるしかない。このままだと10年もせんうちに、棚田は荒れ放題じゃ。' },
         { who: 'kucho', text: 'あんたの家の田んぼと、近所から預かった分で、まずは3ha。小さい田んぼばかりで手間はかかるが、景色は日本一じゃよ。' },
@@ -178,7 +178,7 @@
       return { title: '集落の田んぼを守った', kind: 'good', lines: [
         { who: 'kucho', text: '約束どおりじゃ！ 集落の田んぼは、ちゃんと米を実らせとる。' },
         { who: 'kucho', text: (p.s2 ? '棚田米の名前も、すっかり売れるようになった。' : p.s3 ? '次の担い手まで育ててくれた。' : 'あとは、次の担い手じゃな。') + 'あんたが帰ってきてくれて、本当によかった。' },
-        { who: 'narr', text: '石垣の上の小さな田んぼが、今年も黄金色に揺れている。' }] };
+        { who: 'narr', text: '段々の小さな田んぼが、今年も黄金色に揺れている。' }] };
     },
   };
 
@@ -380,7 +380,46 @@
     st_haruka2: { m: 10, dusk: true }, st_kaigi: { m: 12, dusk: true }, st_reika: { m: 1 }, st_ce: { m: 2 }, st_next: { m: 6 } };
   TANADA.sceneBg = { prologue: { m: 4, dusk: true }, ch2: { m: 4 }, ch3: { m: 4 }, ch4: { m: 9, dusk: true }, tn_matsuri: { m: 9 }, tn_suigen: { m: 4 }, tn_bunkou: { m: 3 }, tn_kucho: { m: 12 } };
   SAIKEN.sceneBg = { prologue: { m: 4 }, review3: { m: 3 }, ch2: { m: 4 }, ch3: { m: 4 }, sk_young: { m: 3 }, sk_karikae: { m: 2 }, sk_gappei: { m: 11 }, sk_yamane: { m: 3 } };
+  TANADA.terrace = true; // 場面の背景は山あいの棚田
   SC.bgOf = (st) => { const d = SC.def(st); return (d && d.sceneBg && st.scene && d.sceneBg[st.scene.id]) || { m: 4 }; };
+
+  // ======================================================================
+  // 次の約束：物語の後半（じいちゃんの田んぼ・棚田は11年目、法人の立て直しは8年目）に、3つから1つ選ぶ目標。
+  // 最後の年の決算で果たしていれば、称号とエンディングの一言がつく（星の数は変わらない）
+  // ======================================================================
+  const lastH = (st) => st.history[st.history.length - 1] || {};
+  const nextGen = (st) => st.staff.length + st.family.filter((f) => f.tag === 'trainee' || f.tag === 'successor').length;
+  STORY.promise2 = { at: 11, who: 'jiichan', lead: '「約束の田んぼは、もう守れとる。……ここから先は、お前が自分で決めた道を、わしに見せてくれ」', options: [
+    { id: 'big', icon: '🚜', name: '地域でいちばんの担い手になる', text: '経営面積40ha以上・地域の信頼80以上',
+      conds: (st) => [{ label: '経営面積 40ha以上', ok: area(st) >= 40, now: U.ha(area(st)) }, { label: '地域の信頼 80以上', ok: st.trust >= 80, now: U.num(st.trust) }] },
+    { id: 'brand', icon: '🏷️', name: '名のある米を残す', text: 'ブランド力90以上・直販のお客さん1,200人以上',
+      conds: (st) => [{ label: 'ブランド力 90以上', ok: st.brand >= 90, now: U.num(st.brand) }, { label: '直販のお客さん 1,200人以上', ok: st.direct.customers >= 1200, now: U.num(st.direct.customers) + '人' }] },
+    { id: 'solid', icon: '🏦', name: '借金のない、強い経営を渡す', text: '純資産1億2,000万円以上・借入0円',
+      conds: (st) => [{ label: '純資産 1億2,000万円以上', ok: (lastH(st).equity || 0) >= 1.2e8, now: U.man(lastH(st).equity || 0) }, { label: '借入 0円', ok: debtNow(st) <= 0, now: U.man(debtNow(st)) }] },
+  ] };
+  TANADA.promise2 = { at: 11, who: 'kucho', lead: '「田んぼは、あんたのおかげで残っとる。……この先、集落をどうしていきたいか、あんたの考えを聞かせてくれ」', options: [
+    { id: 'all', icon: '⛰️', name: '集落の田んぼを荒らさない', text: '集落の田んぼの9割以上で米づくり',
+      conds: (st) => [{ label: '集落の田んぼの9割以上で米づくり', ok: villagePct(st) >= 0.9, now: U.pct(villagePct(st)) }] },
+    { id: 'brand', icon: '💎', name: '棚田米を、名のある米にする', text: 'ブランド力80以上・直販のお客さん600人以上',
+      conds: (st) => [{ label: 'ブランド力 80以上', ok: st.brand >= 80, now: U.num(st.brand) }, { label: '直販のお客さん 600人以上', ok: st.direct.customers >= 600, now: U.num(st.direct.customers) + '人' }] },
+    { id: 'people', icon: '👥', name: '集落に、次の世代を根づかせる', text: '次の担い手（社員・研修生・後継者）が2人以上・地域の信頼90以上',
+      conds: (st) => [{ label: '次の担い手 2人以上', ok: nextGen(st) >= 2, now: nextGen(st) + '人' }, { label: '地域の信頼 90以上', ok: st.trust >= 90, now: U.num(st.trust) }] },
+  ] };
+  SAIKEN.promise2 = { at: 8, who: 'kimura', lead: '「立て直しのめどは立ちました。……次は、この会社をどんな会社にしたいか。社長の考えを聞かせてください」', options: [
+    { id: 'big', icon: '🚜', name: '地域の農地の受け皿になる', text: '経営面積60ha以上',
+      conds: (st) => [{ label: '経営面積 60ha以上', ok: area(st) >= 60, now: U.ha(area(st)) }] },
+    { id: 'solid', icon: '🏦', name: '銀行に頼らない会社にする', text: '自己資本比率70%以上',
+      conds: (st) => [{ label: '自己資本比率 70%以上', ok: eqRatio(st) >= 0.7, now: U.pct(eqRatio(st)) }] },
+    { id: 'people', icon: '👥', name: '若い人が働きたい会社にする', text: '社員5人以上・社員の士気80以上',
+      conds: (st) => [{ label: '社員 5人以上', ok: st.staff.length >= 5, now: st.staff.length + '人' }, { label: '社員の士気 80以上', ok: !!st.saiken && st.saiken.morale >= 80, now: st.saiken ? U.num(st.saiken.morale) : '—' }] },
+  ] };
+  // 選んだ次の約束と、今の進み具合
+  SC.promise2 = function (st) {
+    const d = SC.def(st), o = d && d.promise2 && st.promise2 ? d.promise2.options.find((x) => x.id === st.promise2) : null;
+    if (!o) return null;
+    const conds = o.conds(st);
+    return { opt: o, conds, kept: conds.every((c) => c.ok) && !st.gameOver, final: st.history.length >= st.maxYear };
+  };
 
   SC.STORIES = { story: STORY, tanada: TANADA, saiken: SAIKEN };
   SC.def = (st) => (st && SC.STORIES[st.scenarioId]) || null;
@@ -661,5 +700,17 @@
     SC.BEATS.push(b.id);
     E.POOL.push({ id: b.id, who: b.who, once: true, sq: b.sq !== undefined ? b.sq : b.choices.length - 1, cond: (st) => beat(b.sc, b.y)(st) && (!b.cond || b.cond(st)), weight: () => 100,
       title: b.title, text: b.text, choices: b.choices });
+  });
+  // 次の約束を選ぶ（物語ごとに1つ。場面のあとの選択と同じく、年初のできごとの先頭に出る）
+  Object.keys(SC.STORIES).forEach((k) => {
+    const P = SC.STORIES[k].promise2;
+    if (!P) return;
+    SC.BEATS.push('promise2_' + k);
+    E.POOL.push({ id: 'promise2_' + k, who: P.who, once: true, sq: 3, weight: () => 100,
+      cond: (st) => st.scenarioId === k && !st.promise2 && st.year >= P.at && st.year <= st.maxYear - 3,
+      title: '次の約束',
+      text: () => P.lead + '（最後の年の決算で果たしていれば、称号「次の約束も果たす」がもらえます。果たせなくても、経営は続けられます）',
+      choices: P.options.map((o) => ({ label: o.icon + ' ' + o.name, desc: o.text, apply: (st) => { st.promise2 = o.id; return '次の約束：「' + o.name + '」（' + o.text + '）。'; } }))
+        .concat([{ label: '今は約束しない', desc: 'これまでどおりに経営を続ける', apply: (st) => { st.promise2 = 'none'; return '次の約束はしなかった。'; } }]) });
   });
 })(window.RG = window.RG || {});

@@ -17,8 +17,8 @@
   };
   SIM.tier = (ck) => D.CULT_KEYS[ck].tier;
   SIM.group = (crop) => D.CROPS[crop].group || crop;
-  // 契約栽培の価格：その年の農協価格（米の需給で決まる）× 上乗せ率
-  SIM.contractPrice = (c, price) => Math.round((price * D.CROPS[c.crop].priceCoef * c.premium) / 10) * 10;
+  // 契約の値段：新しい契約は、結んだときに決めた値段で期間中ずっと変わらない（fixed）。古い契約は、その年の米価に合わせて決まる
+  SIM.contractPrice = (c, price) => (c.fixed && c.refPrice ? c.refPrice : Math.round((price * D.CROPS[c.crop].priceCoef * c.premium) / 10) * 10);
 
   // 作付計画を計算の単位に分ける。田んぼの条件は経営全体の平均を使い、
   // 有機は「2年続けて有機だった面積」までが有機認証、残りは転換期間中になる
@@ -993,7 +993,9 @@
     log(10, '米価（農協の基準価格）は60kgあたり ' + U.num(res.price) + '円に決まった（全国の作況指数 ' + W.nationalIndex.toFixed(0) + '）。');
     if (W.shockText) log(10, W.shockText + '。', W.shock > 0 ? 'good' : 'bad');
     if (W.marketReason) log(10, '米の需給：' + W.marketReason, W.priceChange >= 0.05 ? 'good' : W.priceChange <= -0.05 ? 'bad' : '');
-    res.sales.contracts.forEach((c) => log(10, c.buyer + 'との契約価格は、今年の需給を反映して1俵 ' + U.num(c.price) + '円に決まった' +
+    res.sales.contracts.forEach((c) => (st.contracts.find((x) => x.id === c.id) || {}).fixed
+      ? log(10, c.buyer + 'との契約は、決めてあった値段（1俵 ' + U.num(c.price) + '円）で引き取ってもらった' + (res.price * D.CROPS[c.crop].priceCoef < c.price * 0.95 ? '。米価が下がった年でも、値段は変わらない' : res.price * D.CROPS[c.crop].priceCoef > c.price * 1.05 ? '。今年の相場よりは安いが、約束の値段だ' : '') + '。', res.price * D.CROPS[c.crop].priceCoef < c.price * 0.95 ? 'good' : '')
+      : log(10, c.buyer + 'との契約価格は、今年の需給を反映して1俵 ' + U.num(c.price) + '円に決まった' +
       (c.refPrice ? '（契約時の目安 ' + U.num(c.refPrice) + '円から ' + (c.price >= c.refPrice ? '+' : '') + U.pct(c.price / c.refPrice - 1, 1) + '）' : '') + '。',
       c.refPrice && c.price < c.refPrice * 0.95 ? 'bad' : ''));
     const pr = res.production;

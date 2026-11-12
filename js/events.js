@@ -176,7 +176,7 @@
     },
     {
       id: 'machine_subsidy',
-      cond: (st) => st.year >= 3,
+      cond: (st) => st.year >= 3 && st.year - (st.events.seen.machine_subsidy || -9) >= 4, // 4年に1回まで
       weight: () => 0.35,
       title: '機械導入の補助事業',
       text: () => '規模拡大を目指す経営体向けに、機械導入費の1/2を補助する事業の公募が始まった。申請には事業計画の作成が必要だ。',
@@ -219,7 +219,7 @@
     // ---- 借りている田を返してほしい（強制返還） ----
     {
       id: 'land_return_dev', who: 'sato', sq: 0,
-      cond: (st) => st.year >= 3 && !!E.returnTarget(st), weight: () => 0.3,
+      cond: (st) => st.year >= 3 && st.year - (st.events.seen.land_return_dev || -9) >= 6 && !!E.returnTarget(st), weight: () => 0.3, // 6年に1回まで
       title: '借りている田を返してほしい（開発）',
       text: (st) => { const f = E.returnTarget(st); return '「' + f.name + '（' + U.ha(f.area) + '）のあたりに、' + E.devWhat(st) + 'ができることになってね。土地を売るから、田んぼを返してもらえんか」と地主さんから頼まれた。契約上、断ることはできない。'; },
       choices: [
@@ -378,7 +378,7 @@
     },
     {
       id: 'bank_offer',
-      cond: (st) => st.year >= 3 && RG.accounting.bs(st).equityRatio >= 0.3,
+      cond: (st) => st.year >= 3 && st.year - (st.events.seen.bank_offer || -9) >= 5 && RG.accounting.bs(st).equityRatio >= 0.3, // 5年に1回まで
       weight: () => 0.2,
       title: '金融機関からの融資案内',
       text: () => '地域の金融機関から「経営内容が良いので、今年に限り設備資金を年' + U.pct(D.MACHINE.lowRate, 1) + 'で融資できる」と案内があった。',
@@ -395,7 +395,84 @@
         { label: '断る', desc: '', apply: () => '誘いを断った。' },
       ],
     },
+    {
+      id: 'seibi', who: 'takahashi', once: true, sq: 2,
+      cond: (st) => st.year >= 6 && st.year <= st.maxYear - 4 && E.seibiArea(st) >= 2,
+      weight: () => 100,
+      title: 'ほ場整備の話',
+      text: (st) => '「地区の田んぼをまとめて、ほ場整備をしようという話が出ているんだ。国と県の補助で、小さな田を30a〜1haの大きな区画にまとめて、用水と排水も整える。あんたの田も ' + U.ha(E.seibiArea(st)) +
+        ' が入る。大きな機械がまっすぐ長く走れるから、作業の時間が1割5分ほど減るし、大きな機械ほど力を出せる。ただ、表土を入れ替えるから、工事のあと2年は収量が落ちる（1年目 約' + U.pct(1 - D.SEIBI.yieldDrop[0]) + '・2年目 約' + U.pct(1 - D.SEIBI.yieldDrop[1]) + '減）。' +
+        (E.seibiBurden(st) > 0 ? '自分の田の負担金は10aあたり' + U.man(D.SEIBI.burden) + '、あんたの場合は ' + U.man(E.seibiBurden(st)) + '。無利子で' + D.SEIBI.years + '年かけて返せばいい。' : '') +
+        (E.seibiFields(st).some((f) => !f.owned) ? '借りている田は、地主さんの負担のぶん地代が上がる。' : '') +
+        'それと、地区の田をまとめて引き受けてくれる担い手も探しているんだ」',
+      choices: [
+        { label: '整備に参加する', desc: (st) => U.ha(E.seibiArea(st)) + ' が大区画に（手間 約' + U.pct(D.SEIBI.labor) + '・大きな機械の能力が上がる）。今年と来年は収量が落ちる。' + (E.seibiBurden(st) > 0 ? '負担金 ' + U.man(E.seibiBurden(st)) + '（無利子10年）' : ''),
+          apply: (st) => E.doSeibi(st, false) },
+        { label: '参加して、地区の田もまとめて引き受ける', desc: (st) => '上に加えて、整備ずみの田 ' + U.ha(E.seibiTake(st)) + ' を借りる（地代 10aあたり ' + U.yen(D.SEIBI.takeRent) + '）。集積協力金 ' + U.man(E.seibiTake(st) * 10 * D.SEIBI.coop) + '・地域の信頼 +4。人手と機械が足りるか注意',
+          apply: (st) => E.doSeibi(st, true) },
+        { label: '今回は見送る', desc: '田はこのまま。地区の話がまとまらず、地域の信頼 −3', apply: (st) => { st.trust = Math.max(0, st.trust - 3); return 'ほ場整備は見送った。'; } },
+      ],
+    },
   ];
+
+  // ---------- ほ場整備（地区で1回だけ） ----------
+  E.seibiFields = (st) => st.fields.filter((f) => f.soil === 'normal' && !f.village && f.seibi == null);
+  E.seibiArea = (st) => U.sum(E.seibiFields(st), (f) => f.area);
+  E.seibiTake = (st) => U.round(Math.max(2, Math.min(8, U.sum(st.fields, (f) => f.area) * 0.25)), 1);
+  E.seibiBurden = (st) => Math.round(U.sum(E.seibiFields(st).filter((f) => f.owned), (f) => f.area) * 10 * D.SEIBI.burden);
+  // 整備した田：区画が大きくなり（土の条件「良」）、手間が減る。工事のあと2年は収量が落ちる
+  E.applySeibi = function (st, f) {
+    f.soil = 'good'; f.seibi = st.year; f.laborMult = D.SEIBI.labor;
+    f.yieldMult = D.SEIBI.yield * D.SEIBI.yieldDrop[0];
+  };
+  E.doSeibi = function (st, take) {
+    const F = D.SEIBI, list = E.seibiFields(st), burden = E.seibiBurden(st), area = U.sum(list, (f) => f.area);
+    list.forEach((f) => {
+      E.applySeibi(st, f);
+      if (f.owned) f.landValue += Math.round(f.area * 10 * F.burden); // 負担金は、田の値打ちに上乗せ（資産）
+      else f.rent += F.rentUp;
+    });
+    const out = ['ほ場整備に参加した。' + U.ha(area) + ' の田が大きな区画になった（手間 約' + U.pct(F.labor) + '・今年の収量は約' + U.pct(F.yieldDrop[0]) + '、来年は約' + U.pct(F.yieldDrop[1]) + '）。'];
+    if (burden > 0) {
+      if (RG.challenge && RG.challenge.on(st, 'noloan')) {
+        RG.state.addLedger(st, { amount: -burden, cat: 'asset', label: 'ほ場整備の負担金（一括）' });
+        out.push('負担金 ' + U.man(burden) + ' は、借入をしないチャレンジ中なので一括で払った。');
+      } else {
+        st.loans.push({ id: U.uid(st, 'l'), kind: 'seibi', name: 'ほ場整備の負担金', original: burden, balance: burden, rate: 0, term: F.years,
+          repayYears: F.years, yearsLeft: F.years, grace: 0, newThisYear: true, rateLater: null, rateYears: 0 });
+        out.push('負担金 ' + U.man(burden) + ' は、無利子で' + F.years + '年かけて返す（来年から年 ' + U.man(burden / F.years) + '）。');
+      }
+    }
+    if (list.some((f) => !f.owned)) out.push('借りている田は、地代が10aあたり ' + U.yen(F.rentUp) + ' 上がった。');
+    if (take) {
+      const a = E.seibiTake(st), block = RG.challenge && RG.challenge.blockLand(st, a);
+      if (block) out.push(block + '（まとめて引き受ける話は断った）');
+      else {
+        const place = RG.rng.make(st.seed, st.year, 'seibi').pick(D.PLACES);
+        let left = a, i = 1;
+        while (left > 0.05) {
+          const x = Math.min(left, U.round(Math.max(1, a / 3), 1));
+          const f = RG.state.makePlot(st, { area: x, soil: 'good', rent: F.takeRent, name: place + '整備地区' + i + '号' });
+          E.applySeibi(st, f); st.fields.push(f);
+          left = U.round(left - x, 1); i++;
+        }
+        RG.state.addPlanArea(st, a);
+        const coop = Math.round(a * 10 * F.coop);
+        RG.state.addLedger(st, { amount: coop, cat: 'subsidy', label: '農地の集積協力金' });
+        st.trust = Math.min(100, st.trust + 4);
+        out.push('地区の田 ' + U.ha(a) + ' も、まとめて引き受けた（整備ずみ・地代 10aあたり ' + U.yen(F.takeRent) + '）。集積協力金 ' + U.man(coop) + '・地域の信頼 +4。「作付計画」で作るものを決めよう。');
+      }
+    }
+    return out.join('');
+  };
+  // 毎年の初め：整備した田の収量が、土がなじむにつれて戻っていく
+  E.updateSeibi = function (st) {
+    st.fields.forEach((f) => {
+      if (f.seibi == null) return;
+      const age = st.year - f.seibi;
+      f.yieldMult = D.SEIBI.yield * (age < D.SEIBI.yieldDrop.length ? D.SEIBI.yieldDrop[age] : 1);
+    });
+  };
 
   E.waterwayCost = (st) => U.sum(st.fields, (f) => f.area) * 10 * 3000;
 

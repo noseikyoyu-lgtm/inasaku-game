@@ -37,6 +37,7 @@
     { id: 'trials3', icon: '⛈️', name: '嵐を越えて', desc: '3つの試練の年をすべて黒字で乗り越える', check: (st) => (st.trials || []).filter((t) => t.income > 0).length >= 3 },
     { id: 'mission5', icon: '📜', name: '頼れる人', desc: '依頼を5つ達成する', check: (st) => (st.missions || []).filter((m) => m.status === 'done').length >= 5 },
     { id: 'pathGoal', icon: '🧭', name: '道をきわめる', desc: '選んだ経営の道の目標を達成する', check: (st) => !!st.path && RG.chapters && RG.chapters.PATHS[st.path].check(st) },
+    { id: 'promise2', icon: '🌠', name: '次の約束も果たす', desc: 'ストーリーの後半に選んだ「次の約束」を、最後の年に果たす', check: (st) => { const p = RG.scenes && RG.scenes.promise2 ? RG.scenes.promise2(st) : null; return !!(p && p.final && p.kept); } },
     { id: 'ch_noloan', icon: '🕊️', name: '借入なしで20ha', desc: 'チャレンジ「借入なしで20ha」を達成する', check: (st) => !!(st.challenge && st.challenge.id === 'noloan' && st.challenge.done) },
     { id: 'ch_organic', icon: '🐸', name: '有機だけで10年', desc: 'チャレンジ「有機だけで10年」を達成する', check: (st) => !!(st.challenge && st.challenge.id === 'organic' && st.challenge.done) },
     { id: 'ch_noloss5', icon: '📈', name: '赤字ゼロで5年', desc: 'チャレンジ「赤字ゼロで5年」を達成する', check: (st) => !!(st.challenge && st.challenge.id === 'noloss5' && st.challenge.done) },

@@ -117,10 +117,14 @@
     const pmNote = pm !== 1 ? UI.note(pm < 1 ? 'good' : 'warn', '使っている農薬：' + RG.fieldwork.input(st, 'pest').label,
       '被害の大きさは、下の表の約' + U.pct(pm) + 'になります（' + (pm < 1 ? '長く効く農薬で、被害が小さい' : '安い農薬が効きにくく、被害が大きい') + '）。') : null;
     let actions;
+    const est = !ch ? DI.estimate(st, c) : null; // 対策と勝負の損の見込み（円）
     if (!ch) {
       body.push(h('div', { class: 'crisis-choices' },
-        h('div', { class: 'opt' }, h('div', { class: 't' }, '🛡️ 対策する'), h('div', null, g.label), h('div', { class: 'small muted' }, g.desc)),
-        h('div', { class: 'opt' }, h('div', { class: 't' }, '🎲 対策せず、サイコロで勝負'), h('div', { class: 'small muted' }, '出た目で結果が決まる'), table)));
+        h('div', { class: 'opt' }, h('div', { class: 't' }, '🛡️ 対策する'), h('div', null, g.label), h('div', { class: 'small muted' }, g.desc),
+          est ? h('div', { class: 'est' }, '損の見込み：', h('b', null, '約' + U.man(est.guard))) : null),
+        h('div', { class: 'opt' }, h('div', { class: 't' }, '🎲 対策せず、サイコロで勝負'), h('div', { class: 'small muted' }, '出た目で結果が決まる'), table,
+          est ? h('div', { class: 'est' }, '損の見込み：平均 ', h('b', null, '約' + U.man(est.dice)), '（いちばん悪い目で 約' + U.man(est.worst) + '）') : null)));
+      if (est) body.push(h('p', { class: 'small muted keep' }, '損の見込みは、今の計画（平年の天候）で計算した利益の減り方です。「平均」は、何度も勝負したときにならすといくら損をするか（期待値）を表します。'));
       body.push(pmNote);
       body.push(h('p', { class: 'small muted' }, '収量が落ちた分は、収量共済に入っていれば一部が戻ります。品質（1等米の割合）の低下は戻りません。'));
       body.push(h('div', { class: 'dice-stage' }, UI.die(0)));

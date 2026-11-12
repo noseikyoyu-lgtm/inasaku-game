@@ -126,7 +126,7 @@
       cs.length ? UI.table([{ label: '契約先' }, { label: '契約時の目安', num: true }, { label: '今年の価格', num: true }, { label: '差', num: true }],
         cs.map((c) => [c.buyer + '（' + D.CROPS[c.crop].name + '）', { v: c.refPrice ? U.yen(c.refPrice) : '—', cls: 'num' }, { v: U.yen(c.price), cls: 'num' },
           { v: c.refPrice ? (c.price >= c.refPrice ? '+' : '') + U.pct(c.price / c.refPrice - 1, 1) : '—', cls: 'num ' + (c.refPrice && c.price < c.refPrice ? 'neg' : 'pos') }])) : null,
-      cs.length ? h('p', { class: 'small muted' }, '契約栽培は数量を約束していますが、価格はその年の需給で決まります（農協価格 × 上乗せ率）。') : null);
+      cs.length ? h('p', { class: 'small muted' }, '新しく結んだ契約は、結んだときに決めた値段で期間中ずっと変わりません（前から続いている契約は、その年の農協価格 × 上乗せ率）。') : null);
   }
 
   // ---------- 損益計算書 ----------

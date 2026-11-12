@@ -209,10 +209,10 @@
   // 機械の補助事業：ストーリーでは認定農業者だけ
   const subs = E.get('machine_subsidy');
   if (subs) { const c1 = subs.cond; subs.cond = (st) => c1(st) && (!st.featOpen || !!st.featOpen.nintei); }
-  // 畜産農家からの相談：飼料用米（新潟次郎）を作れるようになる。断ると2年後にまた来る
+  // 畜産農家からの相談：飼料用米（新潟次郎）を作れるようになる。断ると5年後にもう一度だけ来る（2回断ったら、もう来ない）
   E.POOL.push({
     id: 'feed_offer', who: 'takahashi', sq: 1,
-    cond: (st) => !!st.cropsOpen && !st.cropsOpen.feed && st.year >= 3 && st.year - (st.flags.feedAsked || 0) >= 2 && (priceDrop(st) || area(st) >= 6 || st.year >= 5),
+    cond: (st) => !!st.cropsOpen && !st.cropsOpen.feed && st.year >= 3 && (st.flags.feedNo || 0) < 2 && st.year - (st.flags.feedAsked || -9) >= 5 && (priceDrop(st) || area(st) >= 6 || st.year >= 5),
     weight: () => 100,
     title: '肉牛農家からの相談',
     text: (st) => '「近くで肉牛を育てている大川さんが、輸入のトウモロコシが値上がりして困っていてね。エサになる米（飼料用米）を作ってくれる人を探しているんだ。' +
@@ -221,7 +221,7 @@
       { label: '作ってみる', desc: '飼料用米「新潟次郎」が作れるようになる・地域の信頼 +2。専用の種もみと、まざらないための機械の掃除で3万円・春の作業 +10時間', apply: (st) => { st.cropsOpen.feed = true; st.trust = Math.min(100, st.trust + 2);
         RG.state.addLedger(st, { amount: -30000, cat: 'eventCost', label: '飼料用米の種もみと機械の掃除' });
         const yf = st.yearFlags; yf.cardLabor = yf.cardLabor || {}; yf.cardLabor.spring = (yf.cardLabor.spring || 0) + 10; return '🔓 飼料用米「新潟次郎」が作れるようになった。「作付計画」で選べる。'; } },
-      { label: '今はやめておく', desc: '2年後に、また話が来る', apply: (st) => { st.flags.feedAsked = st.year; return '今回は見送った。'; } },
+      { label: '今はやめておく', desc: '5年後に、もう一度だけ話が来る（2回断ると、もう来ない）', apply: (st) => { st.flags.feedAsked = st.year; st.flags.feedNo = (st.flags.feedNo || 0) + 1; return '今回は見送った。'; } },
     ],
   });
 
