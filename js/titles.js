@@ -42,7 +42,7 @@
     { id: 'ch_organic', icon: '🐸', name: '有機だけで10年', desc: 'チャレンジ「有機だけで10年」を達成する', check: (st) => !!(st.challenge && st.challenge.id === 'organic' && st.challenge.done) },
     { id: 'ch_noloss5', icon: '📈', name: '赤字ゼロで5年', desc: 'チャレンジ「赤字ゼロで5年」を達成する', check: (st) => !!(st.challenge && st.challenge.id === 'noloss5' && st.challenge.done) },
     { id: 'ch_small', icon: '🏡', name: '10ha以下で所得500万円', desc: 'チャレンジ「10ha以下で所得500万円」を達成する', check: (st) => !!(st.challenge && st.challenge.id === 'small' && st.challenge.done) },
-    { id: 'complete20', icon: '🎌', name: '20年完走', desc: '20年の経営をやりとげる', check: (st) => st.history.length >= 20 && !st.gameOver },
+    { id: 'complete20', icon: '🎌', name: '最後まで完走', desc: '物語や経営を、最後の年までやりとげる（自分の経営モードは20年）', check: (st) => st.history.length >= (st.mode === 'endless' ? 20 : st.maxYear) && !st.gameOver },
     { id: 'promise', icon: '🤝', name: '約束を果たす', desc: 'ストーリーで、物語の約束を果たす', check: (st) => !!(RG.scenes && RG.scenes.isStory(st) && st.history.length >= st.maxYear && RG.scenes.promise(st).kept) },
     { id: 'promise3', icon: '🌟', name: '米道をきわめた', desc: 'ストーリーで、星3つのエンディングを見る', check: (st) => !!(RG.scenes && RG.scenes.isStory(st) && st.history.length >= st.maxYear && RG.scenes.promise(st).stars >= 3) },
   ];

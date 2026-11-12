@@ -6,18 +6,20 @@
 
   // ---------- 試練の年（1年前に予告。年はシードで少しずれる） ----------
   ERA.TRIALS = [
-    { id: 'coldSummer', icon: '❄️', name: '大冷夏', range: [7, 9], yearType: 'cold', force: [['cold', 'heavy'], ['sun', 'mid']],
+    { id: 'coldSummer', icon: '❄️', name: '大冷夏', range: [7, 9], range15: [7, 9], yearType: 'cold', force: [['cold', 'heavy'], ['sun', 'mid']],
       notice: '長期予報では、来年の夏は冷たい空気が居座り、記録的な冷夏になるおそれ。冷えに強い品種を混ぜる、田植えの時期をずらす、収量共済に入るなどで備えておこう。',
       hit: '記録的な冷夏。日照不足と低温で、稲の実入りが悪い。' },
-    { id: 'priceCrash', icon: '📉', name: '米価暴落', range: [12, 14], priceMult: 0.72, forecastMult: 0.86,
+    { id: 'priceCrash', icon: '📉', name: '米価暴落', range: [12, 14], range15: [10, 12], priceMult: 0.72, forecastMult: 0.86,
       notice: '全国で作付が増え、米の在庫が積み上がっている。来年は米価が大きく下がるおそれ。値段の決まった売り先、収入保険、経費の見直しで備えておこう。',
       hit: '在庫の山で、米価が大きく下がった。' },
-    { id: 'heatWave', icon: '🔥', name: '記録的猛暑', range: [17, 19], yearType: 'hot', force: [['heat', 'heavy'], ['foehn', 'heavy'], ['sun', 'mid']], hedgeOff: true, // 全国の収量は平年並みで、品質だけが落ちる（値上がりしない）
+    { id: 'heatWave', icon: '🔥', name: '記録的猛暑', range: [17, 19], range15: [13, 14], yearType: 'hot', force: [['heat', 'heavy'], ['foehn', 'heavy'], ['sun', 'mid']], hedgeOff: true, // 全国の収量は平年並みで、品質だけが落ちる（値上がりしない）
       notice: '来年の夏は、記録的な暑さになるおそれ。暑さに強い品種（新之助・にじのきらめき・なつひめ）への切り替えや、水の管理の人手を考えておこう。',
       hit: '記録的な猛暑。高温で白く濁った米が増え、品質が落ちた。' },
   ];
-  ERA.trialYear = (st, t) => t.range[0] + (RG.rng.hash(st.seed, 'trial', t.id) % (t.range[1] - t.range[0] + 1));
-  // 試練・制度の見直し・段階的な開放はストーリー（20年）だけ。自分の経営モードは最初から全部使え、試練もない
+  // 15年の物語（じいちゃんの田んぼ・棚田）は、試練の年を前に寄せる（3つとも物語のあいだに来る）。法人の立て直しは、もとの年のまま
+  ERA.trialRange = (st, t) => ((D.SCENARIOS[st.scenarioId] || {}).trials15 && t.range15 ? t.range15 : t.range);
+  ERA.trialYear = (st, t) => { const r = ERA.trialRange(st, t); return r[0] + (RG.rng.hash(st.seed, 'trial', t.id) % (r[1] - r[0] + 1)); };
+  // 試練・制度の見直し・段階的な開放は、区切りのある経営（ストーリーなど）だけ。自分の経営モードは最初から全部使え、試練もない
   ERA.on = (st) => st.mode !== 'endless';
   ERA.trialOf = (st, year) => !ERA.on(st) ? null : ERA.TRIALS.find((t) => ERA.trialYear(st, t) === year) || null;
 
@@ -40,12 +42,15 @@
     { id: 'drone', year: 4, icon: '🛸', name: '防除用ドローン', tab: 'machines', mtype: 'drone' },
     { id: 'harvest', year: 6, icon: '🌾', name: '稲刈りの作業受託', tab: 'biz' },
     { id: 'stand', year: 6, icon: '🏪', name: '農産物の直売所', tab: 'biz' },
-    { id: 'proc', year: 8, path: { sixth: 6 }, icon: '🍡', name: '餅・米粉の加工場', tab: 'biz' },
-    { id: 'droneBiz', year: 8, path: { local: 6 }, icon: '🛸', name: 'ドローン防除の請負', tab: 'biz' },
-    { id: 'smart', year: 11, path: { grow: 9 }, icon: '📡', name: 'スマート農業（自動操舵・水管理）', tab: 'machines', mtype: 'smart' },
+    { id: 'proc', year: 8, path: { sixth: 6 }, y15: 7, icon: '🍡', name: '餅・米粉の加工場', tab: 'biz' },
+    { id: 'droneBiz', year: 8, path: { local: 6 }, y15: 7, icon: '🛸', name: 'ドローン防除の請負', tab: 'biz' },
+    { id: 'smart', year: 11, path: { grow: 9 }, y15: 9, path15: { grow: 7 }, icon: '📡', name: 'スマート農業（自動操舵・水管理）', tab: 'machines', mtype: 'smart' },
   ];
   ERA.unlock = (id) => ERA.UNLOCKS.find((u) => u.id === id);
-  ERA.openYear = (st, u) => (st.path && u.path && u.path[st.path] ? Math.min(u.year, u.path[st.path]) : u.year);
+  ERA.openYear = (st, u) => {
+    const s15 = st.maxYear <= 15, y = s15 && u.y15 ? u.y15 : u.year, p = s15 && u.path15 ? u.path15 : u.path;
+    return st.path && p && p[st.path] ? Math.min(y, p[st.path]) : y;
+  };
   ERA.isOpen = function (st, id) {
     if (!ERA.on(st)) return true;
     if (st.featOpen && ERA.FEATURES[id]) return !!st.featOpen[id]; // ストーリー：きっかけで開く
@@ -80,7 +85,7 @@
       why: '大きな経営になり、晩生多収の「あきだわら」で収穫期をさらに分けられるようになった。' },
     niji: { hint: '1等米の割合が70%を下回った年のあと（遅くとも6年目）', check: (st) => st.history.some((x) => x.r1 < 0.7) || st.year >= 6,
       why: '暑さで品質が落ちる年が出てきた。高温に強い新品種「にじのきらめき」の試験栽培に誘われた。' },
-    natsuhime: { hint: '猛暑の年を経験したあと（遅くとも11年目）', check: (st) => st.history.some((x) => x.weather === 'hot') || st.year >= 11,
+    natsuhime: { hint: '猛暑の年を経験したあと（遅くとも9年目）', check: (st) => st.history.some((x) => x.weather === 'hot') || st.year >= 9,
       why: '猛暑の年を経験して、暑さに強い極早生「なつひめ」の種もみが手に入るようになった。' },
     koshi: { hint: '直販のお客さん 60人以上（こだわりのお客さんから頼まれる）', check: (st) => st.direct.customers >= 60,
       why: '直販のお客さんから「昔ながらのコシヒカリを食べたい」と頼まれた。従来のコシヒカリも作れる。' },

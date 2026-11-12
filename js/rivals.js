@@ -129,7 +129,7 @@
     const d = RV.def(r.id);
     const assets = Math.max(1, r.equity + r.debt);
     return RG.scoreFrom({ eqGain: r.equity - r.initEquity, avgInc: r.incomes.length ? U.avg(r.incomes) : 0,
-      ratio: r.equity > 0 ? r.equity / assets : 0, area: r.area, trust: r.trust, brand: r.brand, name: d.name });
+      ratio: r.equity > 0 ? r.equity / assets : 0, area: r.area, trust: r.trust, brand: r.brand, name: d.name, years: RG.scoreYears(st) });
   };
 
   // プレイヤーを含めた順位表（今の実績で比べる）
@@ -138,7 +138,7 @@
     const rows = [];
     if (last) {
       const ps = RG.scoreFrom({ eqGain: last.equity - st.initialEquity, avgInc: U.avg(hs.map((x) => x.income)),
-        ratio: last.assets > 0 ? last.equity / last.assets : 0, area: last.area, trust: st.trust, brand: st.brand });
+        ratio: last.assets > 0 ? last.equity / last.assets : 0, area: last.area, trust: st.trust, brand: st.brand, years: RG.scoreYears(st) });
       rows.push({ id: 'me', name: st.farmName + '（あなた）', label: '', area: last.area, avgInc: ps.avgInc, eqGain: ps.eqGain, total: ps.total, rank: ps.rank, active: true, me: true });
     }
     (st.rivals || []).forEach((r) => {

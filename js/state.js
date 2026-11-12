@@ -58,7 +58,7 @@
     const sc = opts.scenarioId === 'custom' ? S.buildCustom(opts.custom) : D.SCENARIOS[opts.scenarioId];
     const st = {
       version: S.VERSION, seed: opts.seed, scenarioId: opts.scenarioId, farmName: opts.farmName || '稲穂ファーム',
-      // mode：'story'＝ストーリー（20年・章と依頼と試練）、'endless'＝自分の経営（区切りなく続けられる）
+      // mode：'story'＝ストーリー（物語は15年・用意された経営は20年。章と依頼と試練）、'endless'＝自分の経営（区切りなく続けられる）
       mode: S.modeOf(opts), year: 1, maxYear: sc.maxYear || D.MAX_YEAR, phase: 'event', nextId: 1, midterms: [], items: { omamori: 1, reroll: 1 },
       storePlan: 0, stock: null, wearV2: true, directV2: true, shops: {}, biz: { harvest: 0, drone: 0, proc: 0, droneLicense: false },
       titles: {}, stats: { sixes: 0, omamori: 0, gambles: 0, guards: 0, typhoonWin: 0, counted: 0 }, rivalLand: [],
@@ -475,6 +475,9 @@
     // モードがなかった古いセーブ：自分の経営はエンドレス、用意されたシナリオはそれまでどおり20年（章あり）
     if (!st.mode) st.mode = st.scenarioId === 'custom' ? 'endless' : 'story';
     if (RG.chapters) RG.chapters.state(st);
+    // 物語（じいちゃんの田んぼ・棚田）を20年から15年にした前のセーブ：まだ14年目までなら、15年の物語に切り替える
+    const sc15 = D.SCENARIOS[st.scenarioId];
+    if (sc15 && sc15.story && sc15.maxYear === 15 && st.maxYear === 20 && st.mode !== 'endless' && st.year <= 14) st.maxYear = 15;
     // 田んぼに出なくなったじいちゃんは、働き手（家族）から外す（前の版のセーブ）
     if (st.scenarioId === 'story' && (st.year >= 11 || (st.flags || {}).jiichanIll)) st.family = st.family.filter((f) => f.tag !== 'grandpa');
     // 直販の参考価格を実際に近づけた（米価×0.147→×0.17）前のセーブ：決めていた値段も同じ割合で上げる

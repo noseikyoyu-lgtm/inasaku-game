@@ -13,18 +13,18 @@
   const pathName = (st) => (st.path && RG.chapters ? RG.chapters.PATHS[st.path].name : '');
 
   // ======================================================================
-  // 物語1：じいちゃんの田んぼ（20年）
+  // 物語1：じいちゃんの田んぼ（15年）
   // ======================================================================
   const STORY = {
     goalName: 'じいちゃんとの約束', giver: 'jiichan',
-    promiseText: '20年後も経営を続け、経営面積を15ha以上（じいちゃんの田んぼの7倍以上）にして、黒字の経営にすること',
+    promiseText: '15年後も経営を続け、経営面積を15ha以上（じいちゃんの田んぼの7倍以上）にして、黒字の経営にすること',
     conds: (st) => [yearsCond(st),
       { label: '経営面積 15ha以上', ok: area(st) >= 15, now: U.ha(area(st)) },
       { label: '直近3年の平均所得が黒字', ok: last3(st).length > 0 && avg3(st, 'income') > 0, now: last3(st).length ? U.man(avg3(st, 'income')) : '—' }],
     star2: { label: 'さらに、選んだ経営の道の目標も達成', check: (st) => !!(st.path && RG.chapters.PATHS[st.path].check(st)) },
     star3: { label: 'さらに、最終評価がAランク以上', check: rankA },
     progress: (st) => ({ text: '🌾 ' + U.ha(area(st)) + ' / 15ha', v: Math.min(area(st), 15), max: 15 }),
-    sceneAt: { 6: 'ch2', 11: 'ch3', 16: 'ch4' },
+    sceneAt: { 6: 'ch2', 11: 'ch3', 13: 'ch4' },
     scenes: {
       prologue: () => [
         { who: 'narr', text: '春の夕暮れ。久しぶりに、じいちゃんの家に帰ってきた。田んぼの向こうに、雪の残る山が見える。' },
@@ -34,7 +34,7 @@
         { who: 'narr', text: '米づくりなんて、子どものころに手伝ったくらいだ。機械の動かし方も、お金のことも、わからないことだらけ。それでも――気づけば、うなずいていた。' },
         { who: 'jiichan', text: 'なに、わしも最初はなんもわからんかった。JAの高橋さんを紹介しよう。話は長いが、あの人は頼りになる。' },
         { who: 'takahashi', text: 'はじめまして、高橋です。JAに入ったころから、おじいさんにはお世話になっていてね。田んぼのことも、お金のことも、一緒にやっていきましょう。' },
-        { who: 'jiichan', text: 'それと、ひとつ約束してくれんか。20年後、この集落の田んぼを守れるくらいの百姓になっとってくれ。それが、わしの夢じゃ。' },
+        { who: 'jiichan', text: 'それと、ひとつ約束してくれんか。15年後、この集落の田んぼを守れるくらいの百姓になっとってくれ。それが、わしの夢じゃ。' },
         { who: 'goal' },
       ],
       ch2: (st) => {
@@ -49,9 +49,10 @@
         { who: 'jiichan', text: 'わしもすっかり足腰が弱ってのう。田んぼの見回りは、もう全部お前に任せる。' },
         { who: 'jiichan', text: '今の田んぼは ' + U.ha(area(st)) + '。約束の15haまで、' + (area(st) >= 15 ? 'もう届いとるな。あとは続けることじゃ。' : 'あと ' + U.ha(Math.max(0, 15 - area(st))) + '。お前ならやれる。') },
         { who: 'takahashi', text: 'これからは時代が大きく動きます。暑くなる夏、米の値段、機械の買い替え……。備えた人が生き残る時代です。予告をよく見ておきましょう。' },
+        { who: 'jiichan', text: 'それとな、そろそろ「この先」のことも考えておくんじゃぞ。田んぼは、お前ひとりのもんじゃない。' },
       ],
-      ch4: () => [
-        { who: 'narr', text: '秋。じいちゃんの米寿（88歳）のお祝いに、親戚が集まった。食卓には、自分の作った新米が並んでいる。' },
+      ch4: (st) => [
+        { who: 'narr', text: '秋。じいちゃんの' + (72 + st.year) + '歳の誕生日のお祝いに、親戚が集まった。食卓には、自分の作った新米が並んでいる。' },
         { who: 'jiichan', text: 'お前の米を食べて、ここまで長生きできた。ありがたいことじゃ。' },
         { who: 'jiichan', text: '次はお前が、誰に託すかを考える番じゃな。家族でも、外から来た若いもんでもええ。田んぼは、人がつないでいくもんじゃ。' },
       ],
@@ -68,8 +69,8 @@
         { who: 'jiichan', text: 'じゃがな、お前がうちの田んぼをやってみてくれたこと。わしは、それが何よりうれしかったんじゃ。' },
         { who: 'narr', text: '経営は続けられなかった。それでも、この経験は次の一歩になるはずだ。（もう一度、同じ条件で挑戦できます）' }] };
       if (!p.kept) return { title: 'じいちゃんの田んぼを守った', kind: 'normal', lines: [
-        { who: 'jiichan', text: !p.conds[1].ok ? '20年、ようやってくれた。約束の広さには届かなんだが、うちの田んぼは今も青々としとる。'
-          : '20年、ようやってくれた。田んぼはこんなに広うなった。じゃが、ここ何年かは儲けが出とらんのが気がかりじゃ。' },
+        { who: 'jiichan', text: !p.conds[1].ok ? '15年、ようやってくれた。約束の広さには届かなんだが、うちの田んぼは今も青々としとる。'
+          : '15年、ようやってくれた。田んぼはこんなに広うなった。じゃが、ここ何年かは儲けが出とらんのが気がかりじゃ。' },
         { who: 'jiichan', text: 'それで十分じゃ。……いや、欲を言えば、もう少し見たかったかのう。' },
         { who: 'narr', text: '約束はあと一歩。次はどの道を選び、どこまで広げられるだろう。' }] };
       if (p.stars >= 3) return { title: '米道をきわめた', kind: 'true', lines: [
@@ -79,12 +80,12 @@
       return { title: '集落を守る百姓になった', kind: 'good', lines: [
         { who: 'jiichan', text: 'ようやった！ 約束どおり、集落の田んぼをお前が守ってくれとる。' },
         { who: 'jiichan', text: p.s2 ? 'しかも、' + pathName(st) + 'というお前らしいやり方でな。わしはもう、何も心配しとらん。' : 'わしはもう、何も心配しとらん。' },
-        { who: 'narr', text: '20年前、2haから始まった田んぼは、今では集落の景色そのものになった。' }] };
+        { who: 'narr', text: '15年前、2haから始まった田んぼは、今では集落の景色そのものになった。' }] };
     },
   };
 
   // ======================================================================
-  // 物語2：山あいの棚田を守れ（20年）
+  // 物語2：山あいの棚田を守れ（15年）
   // 集落の田んぼは30ha。毎年、離農する人の田んぼが託され、引き受けないと荒れてしまう
   // ======================================================================
   const VILLAGE = 30;
@@ -95,21 +96,20 @@
   const heirOk = (st) => !!(RG.state.successor(st) || RG.state.pendingSuccessor(st) || st.family.some((f) => f.tag === 'trainee') || st.staff.length > 0);
   const TANADA = {
     goalName: '区長さんとの約束', giver: 'kucho',
-    promiseText: '20年後も経営を続け、集落の田んぼ（30ha）の7割以上で米が作られているようにして、黒字の経営にすること',
+    promiseText: '15年後も経営を続け、集落の田んぼ（30ha）の7割以上で米が作られているようにして、黒字の経営にすること',
     conds: (st) => [yearsCond(st),
       { label: '集落の田んぼの7割以上で米づくり', ok: villagePct(st) >= 0.7, now: U.pct(villagePct(st)) },
       { label: '直近3年の平均所得が黒字', ok: last3(st).length > 0 && avg3(st, 'income') > 0, now: last3(st).length ? U.man(avg3(st, 'income')) : '—' }],
     star2: { label: 'さらに、棚田米のブランド力が50以上', check: (st) => st.brand >= 50 },
     star3: { label: 'さらに、次の担い手（後継者・研修生・社員）がいる', check: heirOk },
     progress: (st) => ({ text: '⛰️ 集落の田んぼで米づくり ' + U.pct(villagePct(st)) + '（約束は70%以上・荒れた田 ' + U.ha(st.village ? st.village.abandoned : 0) + '）', v: villagePct(st), max: 1, map: true }),
-    sceneAt: { 6: 'ch2', 11: 'ch3', 16: 'ch4' },
+    sceneAt: { 6: 'ch2', 11: 'ch3', 14: 'ch4' },
     chapters: {
       1: { name: '帰郷', icon: '⛰️', goal: '集落の田んぼを預かりながら、黒字の経営にする', intro: '小さな棚田ばかりで、手間はかかるよ。まずは引き受けた田んぼをきちんと回せる、経営の土台を作ろうね。',
         news: ['毎年、集落の人から「田んぼを預かってほしい」と頼まれる。断ると、その田は荒れてしまう', 'イノシシの被害もある', '3年目に「棚田米」として売り出す話', '5年目の終わりに中間評価と第1章のまとめ'] },
       2: { name: '預かる', goal: '選んだ道で、棚田の米の稼ぎ方を見つける', intro: '預かる田んぼは年々増えていくよ。手間に見合う稼ぎ方を見つけないと、広げるほど苦しくなるからね。' },
-      3: { name: '守り方を選ぶ', goal: '手が回る広さを見きわめ、機械と人を整える', intro: '集落の高齢化は待ってくれない。全部を守るのは無理だから、どこを、どうやって守るかを選ぶ時期だよ。',
-        news: ['集落に移り住みたいという若者が現れる', '機械の買い替えと、暑くなる夏への備え', '15年目の終わりに中間評価と第3章のまとめ'] },
-      4: { name: 'つなぐ', goal: '次の担い手に、集落の田んぼを渡せる形にする', intro: 'いよいよ最後の5年。守ってきた棚田を、次の世代にどう手渡すかを考えようね。' },
+      3: { name: 'つなぐ', icon: '🎌', goal: '手が回る広さを見きわめ、次の担い手に集落の田んぼを渡せる形にする', intro: 'いよいよ最後の5年。集落の高齢化は待ってくれない。どこを、どうやって守り、守ってきた棚田を次の世代にどう手渡すかを考えようね。',
+        news: ['集落に移り住みたいという若者が現れる', '機械の買い替えと、暑くなる夏への備え', '15年目の終わりに最終評価と、集落のエンディング'] },
     },
     scenes: {
       prologue: () => [
@@ -119,7 +119,7 @@
         { who: 'kucho', text: 'あんたの家の田んぼと、近所から預かった分で、まずは3ha。小さい田んぼばかりで手間はかかるが、景色は日本一じゃよ。' },
         { who: 'narr', text: '棚田には大きな機械が入らない。草刈りも水の管理も大変だ。それでも、この景色を残したいと思った。' },
         { who: 'takahashi', text: 'JAの高橋です。棚田は手間がかかるぶん、売り方しだいで高く売れる。それに、条件の悪い田んぼを守る活動には「中山間地域等直接支払」という交付金が10aあたり2万1千円出ます。手間と稼ぎのつり合いを、数字で一緒に考えましょう。' },
-        { who: 'kucho', text: 'ひとつ約束してくれんか。20年後も、この集落の田んぼの7割で米を作っていてほしい。全部とは言わん。あんたが倒れたら元も子もないからの。' },
+        { who: 'kucho', text: 'ひとつ約束してくれんか。15年後も、この集落の田んぼの7割で米を作っていてほしい。全部とは言わん。あんたが倒れたら元も子もないからの。' },
         { who: 'goal' },
       ],
       ch2: (st) => [
@@ -165,10 +165,10 @@
         { who: 'kucho', text: 'あんたが帰ってきて、棚田に人の声が戻った。それだけで、わしらは救われたんじゃ。' },
         { who: 'narr', text: '経営は続けられなかった。手間と稼ぎのつり合いを、もう一度考えてみよう。（同じ条件で挑戦できます）' }] };
       if (!p.kept) return { title: '守りきれなかった棚田', kind: 'normal', lines: !p.conds[1].ok ? [
-        { who: 'kucho', text: '20年、ようがんばってくれた。荒れた田もあるが、あんたのおかげで残った田のほうが、ずっと多い。' },
+        { who: 'kucho', text: '15年、ようがんばってくれた。荒れた田もあるが、あんたのおかげで残った田のほうが、ずっと多い。' },
         { who: 'kucho', text: '全部を守るのは、誰にもできんことじゃ。それでも……もう少し残せたかもしれんな。' },
         { who: 'narr', text: '約束はあと一歩。人と機械と売り方を、どう組み合わせれば守れたのだろう。' }] : [
-        { who: 'kucho', text: '20年、ようがんばってくれた。集落の田んぼは、ちゃんと守られとる。' },
+        { who: 'kucho', text: '15年、ようがんばってくれた。集落の田んぼは、ちゃんと守られとる。' },
         { who: 'kucho', text: 'じゃが、ここ何年かは赤字続きじゃったな。田んぼを守っても、あんたが続けられんようでは元も子もない。' },
         { who: 'narr', text: '約束はあと一歩。人と機械と売り方を、どう組み合わせれば守れたのだろう。' }] };
       if (p.stars >= 3) return { title: '棚田の村の、次の100年へ', kind: 'true', lines: [
@@ -306,7 +306,7 @@
   // ======================================================================
   const famHas = (st, tag) => st.family.some((f) => f.tag === tag);
   // じいちゃんの田んぼ
-  Object.assign(STORY.sceneAt, { 2: 'st_shinmai', 4: 'st_haruka', 8: 'st_ill', 9: 'st_haruka2', 10: 'st_kaigi', 13: 'st_reika', 15: 'st_ce', 18: 'st_next' });
+  Object.assign(STORY.sceneAt, { 2: 'st_shinmai', 4: 'st_haruka', 7: 'st_ill', 8: 'st_ce', 9: 'st_haruka2', 10: 'st_kaigi', 12: 'st_reika', 14: 'st_next' });
   STORY.movies = { prologue: 'prologue' }; // 場面の前に流すムービー（js/ui/movie.js）
   STORY.sceneIf = { st_haruka2: (st) => (st.flags.haruka || 0) >= 1 && !famHas(st, 'spouse') };
   Object.assign(STORY.scenes, {
@@ -336,12 +336,12 @@
     st_ce: () => [
       { who: 'takahashi', text: 'この地域の乾燥施設、もう40年使っていて限界なんです。JAと集落法人で、建て直す計画が出ています。' },
       { who: 'ishii', text: '建てる費用を出してくれた農家は、これから乾燥・調製の料金が3割安くなる。大きく作る家ほど得になる話です。' }],
-    st_next: () => [
+    st_next: (st) => [
       { who: 'narr', text: '初夏。田植えを終えた田んぼを、近くの小学校の子どもたちが見学に来た。' },
-      { who: 'jiichan', text: 'わしがお前に田んぼを頼んで、もう17年か。……次は、お前が誰かに渡す番じゃな。' }],
+      { who: 'jiichan', text: 'わしがお前に田んぼを頼んで、もう' + (st.year - 1) + '年か。……次は、お前が誰かに渡す番じゃな。' }],
   });
   // 山あいの棚田
-  Object.assign(TANADA.sceneAt, { 2: 'tn_matsuri', 5: 'tn_suigen', 9: 'tn_bunkou', 14: 'tn_kucho' });
+  Object.assign(TANADA.sceneAt, { 2: 'tn_matsuri', 5: 'tn_suigen', 9: 'tn_bunkou', 12: 'tn_kucho' });
   Object.assign(TANADA.scenes, {
     tn_matsuri: () => [
       { who: 'kucho', text: '秋祭りが近い。この集落では、神社に奉納する米を、毎年だれかが作ることになっとる。' },
@@ -353,7 +353,7 @@
       { who: 'kucho', text: '分校が、この春で閉校になる。子どもが3人しかおらんようになってしもうた。' },
       { who: 'ogawa', text: '最後の年に、子どもたちと棚田で田植えをしませんか？ 思い出のお米、私が売り場で紹介します。' }],
     tn_kucho: () => [
-      { who: 'kucho', text: 'わしも、もう80になる。区長は、そろそろ若いもんに譲りたいんじゃ。' },
+      { who: 'kucho', text: 'わしも、もう80を過ぎた。区長は、そろそろ若いもんに譲りたいんじゃ。' },
       { who: 'kucho', text: 'この集落の田んぼのことを、いちばん考えとるのは、あんたじゃろう。……次の区長を、引き受けてくれんか。' }],
   });
   // 農業法人の立て直し
@@ -384,26 +384,26 @@
   SC.bgOf = (st) => { const d = SC.def(st); return (d && d.sceneBg && st.scene && d.sceneBg[st.scene.id]) || { m: 4 }; };
 
   // ======================================================================
-  // 次の約束：物語の後半（じいちゃんの田んぼ・棚田は11年目、法人の立て直しは8年目）に、3つから1つ選ぶ目標。
+  // 次の約束：物語の後半（じいちゃんの田んぼ・棚田は9年目、法人の立て直しは8年目）に、3つから1つ選ぶ目標。
   // 最後の年の決算で果たしていれば、称号とエンディングの一言がつく（星の数は変わらない）
   // ======================================================================
   const lastH = (st) => st.history[st.history.length - 1] || {};
   const nextGen = (st) => st.staff.length + st.family.filter((f) => f.tag === 'trainee' || f.tag === 'successor').length;
-  STORY.promise2 = { at: 11, who: 'jiichan', lead: '「約束の田んぼは、もう守れとる。……ここから先は、お前が自分で決めた道を、わしに見せてくれ」', options: [
-    { id: 'big', icon: '🚜', name: '地域でいちばんの担い手になる', text: '経営面積40ha以上・地域の信頼80以上',
-      conds: (st) => [{ label: '経営面積 40ha以上', ok: area(st) >= 40, now: U.ha(area(st)) }, { label: '地域の信頼 80以上', ok: st.trust >= 80, now: U.num(st.trust) }] },
-    { id: 'brand', icon: '🏷️', name: '名のある米を残す', text: 'ブランド力90以上・直販のお客さん1,200人以上',
-      conds: (st) => [{ label: 'ブランド力 90以上', ok: st.brand >= 90, now: U.num(st.brand) }, { label: '直販のお客さん 1,200人以上', ok: st.direct.customers >= 1200, now: U.num(st.direct.customers) + '人' }] },
-    { id: 'solid', icon: '🏦', name: '借金のない、強い経営を渡す', text: '純資産1億2,000万円以上・借入0円',
-      conds: (st) => [{ label: '純資産 1億2,000万円以上', ok: (lastH(st).equity || 0) >= 1.2e8, now: U.man(lastH(st).equity || 0) }, { label: '借入 0円', ok: debtNow(st) <= 0, now: U.man(debtNow(st)) }] },
+  STORY.promise2 = { at: 9, who: 'jiichan', lead: '「約束の田んぼは、もう守れとる。……ここから先は、お前が自分で決めた道を、わしに見せてくれ」', options: [
+    { id: 'big', icon: '🚜', name: '地域でいちばんの担い手になる', text: '経営面積30ha以上・地域の信頼80以上',
+      conds: (st) => [{ label: '経営面積 30ha以上', ok: area(st) >= 30, now: U.ha(area(st)) }, { label: '地域の信頼 80以上', ok: st.trust >= 80, now: U.num(st.trust) }] },
+    { id: 'brand', icon: '🏷️', name: '名のある米を残す', text: 'ブランド力80以上・直販のお客さん900人以上',
+      conds: (st) => [{ label: 'ブランド力 80以上', ok: st.brand >= 80, now: U.num(st.brand) }, { label: '直販のお客さん 900人以上', ok: st.direct.customers >= 900, now: U.num(st.direct.customers) + '人' }] },
+    { id: 'solid', icon: '🏦', name: '借金のない、強い経営を渡す', text: '純資産9,000万円以上・借入0円',
+      conds: (st) => [{ label: '純資産 9,000万円以上', ok: (lastH(st).equity || 0) >= 9e7, now: U.man(lastH(st).equity || 0) }, { label: '借入 0円', ok: debtNow(st) <= 0, now: U.man(debtNow(st)) }] },
   ] };
-  TANADA.promise2 = { at: 11, who: 'kucho', lead: '「田んぼは、あんたのおかげで残っとる。……この先、集落をどうしていきたいか、あんたの考えを聞かせてくれ」', options: [
+  TANADA.promise2 = { at: 9, who: 'kucho', lead: '「田んぼは、あんたのおかげで残っとる。……この先、集落をどうしていきたいか、あんたの考えを聞かせてくれ」', options: [
     { id: 'all', icon: '⛰️', name: '集落の田んぼを荒らさない', text: '集落の田んぼの9割以上で米づくり',
       conds: (st) => [{ label: '集落の田んぼの9割以上で米づくり', ok: villagePct(st) >= 0.9, now: U.pct(villagePct(st)) }] },
-    { id: 'brand', icon: '💎', name: '棚田米を、名のある米にする', text: 'ブランド力80以上・直販のお客さん600人以上',
-      conds: (st) => [{ label: 'ブランド力 80以上', ok: st.brand >= 80, now: U.num(st.brand) }, { label: '直販のお客さん 600人以上', ok: st.direct.customers >= 600, now: U.num(st.direct.customers) + '人' }] },
-    { id: 'people', icon: '👥', name: '集落に、次の世代を根づかせる', text: '次の担い手（社員・研修生・後継者）が2人以上・地域の信頼90以上',
-      conds: (st) => [{ label: '次の担い手 2人以上', ok: nextGen(st) >= 2, now: nextGen(st) + '人' }, { label: '地域の信頼 90以上', ok: st.trust >= 90, now: U.num(st.trust) }] },
+    { id: 'brand', icon: '💎', name: '棚田米を、名のある米にする', text: 'ブランド力70以上・直販のお客さん500人以上',
+      conds: (st) => [{ label: 'ブランド力 70以上', ok: st.brand >= 70, now: U.num(st.brand) }, { label: '直販のお客さん 500人以上', ok: st.direct.customers >= 500, now: U.num(st.direct.customers) + '人' }] },
+    { id: 'people', icon: '👥', name: '集落に、次の世代を根づかせる', text: '次の担い手（社員・研修生・後継者）が2人以上・地域の信頼85以上',
+      conds: (st) => [{ label: '次の担い手 2人以上', ok: nextGen(st) >= 2, now: nextGen(st) + '人' }, { label: '地域の信頼 85以上', ok: st.trust >= 85, now: U.num(st.trust) }] },
   ] };
   SAIKEN.promise2 = { at: 8, who: 'kimura', lead: '「立て直しのめどは立ちました。……次は、この会社をどんな会社にしたいか。社長の考えを聞かせてください」', options: [
     { id: 'big', icon: '🚜', name: '地域の農地の受け皿になる', text: '経営面積60ha以上',
@@ -418,7 +418,7 @@
     const d = SC.def(st), o = d && d.promise2 && st.promise2 ? d.promise2.options.find((x) => x.id === st.promise2) : null;
     if (!o) return null;
     const conds = o.conds(st);
-    return { opt: o, conds, kept: conds.every((c) => c.ok) && !st.gameOver, final: st.history.length >= st.maxYear };
+    return { opt: o, conds, kept: conds.every((c) => c.ok) && !st.gameOver, final: st.history.length >= st.maxYear || !!st.gameOver }; // 経営が終わったら、そこで結果が決まる
   };
 
   SC.STORIES = { story: STORY, tanada: TANADA, saiken: SAIKEN };
@@ -533,7 +533,7 @@
   });
   E.POOL.push({
     id: 'tanada_newcomer', who: 'kucho', once: true, sq: 2,
-    cond: (st) => story('tanada')(st) && st.year >= 11 && st.year <= 16, weight: () => 100,
+    cond: (st) => story('tanada')(st) && st.year >= 9 && st.year <= 12, weight: () => 100,
     title: '集落に移り住みたい若者',
     text: () => '「町から、農業をやりたいという若い夫婦が下見に来とる。あんたのところで働かせてもらえんじゃろうか。いずれは、集落の田んぼを継いでくれるかもしれん」',
     choices: [
@@ -608,7 +608,7 @@
         { label: 'ときどき相談に乗ってもらう', desc: '直販のお客さん +10人', apply: (st) => { st.flags.haruka = 1; st.direct.customers += 10; return '「何かあったら、いつでも言って」'; } },
         { label: 'あいさつだけにしておく', desc: '', apply: (st) => { st.flags.haruka = 0; return '「そっか。がんばってね」遥は笑って手を振った。'; } },
       ] },
-    { id: 'st_ill', sc: 'story', y: 8, sq: 1, who: 'takahashi', title: 'じいちゃんの入院',
+    { id: 'st_ill', sc: 'story', y: 7, sq: 1, who: 'takahashi', title: 'じいちゃんの入院',
       text: () => '「田植えの季節です。おじいさんの付き添いと、田んぼの段取りを決めましょう」',
       choices: [
         { label: 'できるだけ付き添う', desc: '入院費 30万円・春と夏の作業 +60時間ずつ（そのぶん田んぼの時間が減る）・地域の信頼 +3', apply: (st) => { st.flags.jiichanIll = true; st.family = st.family.filter((f) => f.tag !== 'grandpa'); ledger(st, -300000, 'じいちゃんの入院費'); extra(st, { spring: 60, summer: 60 }); st.trust = clampT(st.trust + 3); return '毎日、病院に顔を出した。じいちゃんは少しずつ元気になった。'; } },
@@ -627,20 +627,20 @@
         { label: '良い田の2haだけ預かる', desc: '田が2ha増える。地域の信頼 +2', apply: (st) => { addField(st, 2, 'normal', 8000, '集落から預かった田'); st.trust = clampT(st.trust + 2); return '2haを預かった。山ぎわの田は、大山さんが引き受けることになった。'; } },
         { label: '大山さんに任せる', desc: '地域の信頼 −2', apply: (st) => { const o = (st.rivals || []).find((x) => x.id === 'oyama' && x.active); if (o) o.area = U.round(o.area + 4, 1); st.trust = clampT(st.trust - 2); return '今回は大山さんに任せた。'; } },
       ] },
-    { id: 'st_reika', sc: 'story', y: 13, who: 'jiichan', title: '悪い年への備え',
+    { id: 'st_reika', sc: 'story', y: 12, who: 'jiichan', title: '悪い年への備え',
       text: (st) => '「お前は、悪い年に備えとるか？」（今の保険：' + D.INSURANCE[st.insurance || 'none'].name + '）',
       choices: [
         { label: '冷害や高温に強い育て方を学ぶ', desc: '研修 5万円・冬の作業 +10時間。技術力が上がる', apply: (st) => { ledger(st, -50000, '冷害・高温対策の研修'); extra(st, { winter: 10 }); st.skill = Math.min(1.1, st.skill + 0.015); return '県の研修で、深水管理と高温対策を学んだ。'; } },
         { label: '収入保険に入る', desc: '米価の下落や不作で収入が減ったとき、基準の9割を下回った分の9割を補てん（保険料がかかる）', apply: (st) => { st.insurance = 'income'; return '収入保険に入ることにした。'; } },
         { label: '大丈夫、なんとかなる', desc: '', apply: () => '「……そうか。お前がそう言うなら、それでええ」' },
       ] },
-    { id: 'st_ce', sc: 'story', y: 15, who: 'ishii', title: '共同の乾燥施設に出資するか',
+    { id: 'st_ce', sc: 'story', y: 8, who: 'ishii', title: '共同の乾燥施設に出資するか',
       text: () => '「出資は1軒300万円。建てたあとは、乾燥・調製の委託料が3割安くなります」',
       choices: [
         { label: '300万円出資する', desc: '建設の負担金 300万円。これから乾燥・調製の委託料が3割安くなる', apply: (st) => { ledger(st, -3000000, '共同乾燥施設の建設負担金'); st.flags.coopDryer = true; return '新しい乾燥施設の銘板に、自分の名前が刻まれた。'; } },
         { label: '見送る', desc: '', apply: () => '今回は見送った。' },
       ] },
-    { id: 'st_next', sc: 'story', y: 18, who: 'jiichan', title: '次の世代へ',
+    { id: 'st_next', sc: 'story', y: 14, who: 'jiichan', title: '次の世代へ',
       text: () => '「子どもらに、田んぼを見せてやってくれんか。米がどうやってできるのか、知らん子も多いんじゃ」',
       choices: [
         { label: '田植えと稲刈りの体験を受け入れる', desc: '5万円・春と秋の作業 +10時間ずつ。ブランド力 +5・地域の信頼 +5', apply: (st) => { ledger(st, -50000, '田んぼ体験の受け入れ'); extra(st, { spring: 10, autumn: 10 }); st.brand = clampT(st.brand + 5); st.trust = clampT(st.trust + 5); return '泥だらけの子どもたちの笑い声が、田んぼに響いた。'; } },
@@ -665,7 +665,7 @@
         { label: '子どもたちと田植えをする', desc: '春の作業 +10時間。ブランド力 +6・直販のお客さん +15人', apply: (st) => { extra(st, { spring: 10 }); st.brand = clampT(st.brand + 6); st.direct.customers += 15; return '最後の分校の子どもたちと、棚田に苗を植えた。新聞にも載った。'; } },
         { label: '見送る', desc: '', apply: () => '今回は見送った。' },
       ] },
-    { id: 'tn_kucho', sc: 'tanada', y: 14, who: 'kucho', title: '次の区長を頼まれた',
+    { id: 'tn_kucho', sc: 'tanada', y: 12, who: 'kucho', title: '次の区長を頼まれた',
       text: () => '「区長になると、寄り合いや役場との話で忙しくなる。じゃが、集落のみんなが、あんたについていくじゃろう」',
       choices: [
         { label: '区長を引き受ける', desc: '冬と夏の作業 +30時間ずつ（今年）。地域の信頼 +10', apply: (st) => { extra(st, { winter: 30, summer: 30 }); st.trust = clampT(st.trust + 10); return '集落の新しい区長になった。中山さんは「これで安心じゃ」と笑った。'; } },

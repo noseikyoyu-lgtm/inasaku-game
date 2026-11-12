@@ -206,7 +206,7 @@
     // クリア・ゲームオーバー（引退も）で経営が終わったら、プレイの記録を送る（送ってよいと選んだ人だけ）
     if (app.st.phase === 'end' || app.st.phase === 'gameover') {
       const st = app.st, go = () => RG.feedback.atEnd(app, st);
-      // じいちゃんの田んぼを20年続けたら、エンディングのムービーを流してから
+      // じいちゃんの田んぼを最後の年まで続けたら、エンディングのムービーを流してから
       if (st.phase === 'end' && st.scenarioId === 'story' && !st.gameOver && RG.movie) RG.movie.play('ending', st, go); else go();
     }
   };

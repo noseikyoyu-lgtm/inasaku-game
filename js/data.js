@@ -592,7 +592,7 @@
   D.SCENARIO_ORDER = ['shinki', 'oyamoto', 'hojin'];
   // ストーリーモード「じいちゃんの田んぼ」（js/scenes.js）
   D.SCENARIOS.story = {
-    name: 'じいちゃんの田んぼ', sub: 'じいちゃんの2haを受け継ぐ', difficulty: 'ふつう', story: true,
+    name: 'じいちゃんの田んぼ', sub: 'じいちゃんの2haを受け継ぐ', difficulty: 'ふつう', story: true, maxYear: 15, trials15: true,
     desc: '腰を痛めたじいちゃんから、ご先祖さんの2haの田んぼを託された。米づくりはほぼ初めて。古いトラクタ・田植機・コンバインはあるが、苗と乾燥は人に頼むところから始まる。',
     corp: false, cash: 3500000, living: 1800000, trust: 35, skill: 0.9, customers: 30, brand: 0,
     fields: [
@@ -607,7 +607,7 @@
   };
   // ストーリー「山あいの棚田を守れ」：条件の悪い小さな田が中心。集落の田んぼが毎年託されてくる
   D.SCENARIOS.tanada = {
-    name: '山あいの棚田を守れ', sub: '中山間の集落で、田んぼを荒らさない', difficulty: 'むずかしい', story: true,
+    name: '山あいの棚田を守れ', sub: '中山間の集落で、田んぼを荒らさない', difficulty: 'むずかしい', story: true, maxYear: 15, trials15: true,
     desc: 'ふるさとの山あいの集落に帰ってきた。集落の平均年齢は70歳を超え、田んぼを預かってほしいという話が毎年届く。小さな棚田は手間がかかるが、売り方しだいで高く売れる。',
     corp: false, cash: 4000000, living: 2000000, trust: 55, skill: 0.9, customers: 40, brand: 10,
     fields: [

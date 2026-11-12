@@ -1,4 +1,4 @@
-// 章立て・依頼・経営の道（20年を4つの章に分け、章ごとの目標と依頼で中だるみを防ぐ）。DOM 非依存
+// 章立て・依頼・経営の道（ストーリーの15年は3つの章、20年の経営は4つの章に分け、章ごとの目標と依頼で中だるみを防ぐ）。DOM 非依存
 (function (RG) {
   'use strict';
   const D = RG.data, U = RG.util, E = RG.events;
@@ -19,13 +19,20 @@
       intro: 'いよいよ最後の5年。積み上げてきた経営を、どんな形で次の人に渡すか。総仕上げだね。',
       news: ['純資産を育て、地域の顔になる依頼', '20年目の終わりに最終評価と、選んだ道のエンディング'] },
   ];
-  // 章・依頼・経営の道はストーリー（20年）だけ。自分の経営モードには出さない
+  // 15年の物語：最後の章で「時代の変化への備え」と「次の世代への引き継ぎ」をまとめて行う
+  CH.LIST15 = CH.LIST.slice(0, 2).concat([
+    { n: 3, from: 11, to: 15, name: '継承', icon: '🎌', theme: '#b8508a', goal: '時代の変化に備えながら、よい形で次の世代へ引き継ぐ',
+      intro: 'いよいよ最後の5年。機械の買い替え、暑くなる夏、ふくらんだ借入に備えながら、積み上げてきた経営をどんな形で次の人に渡すか。総仕上げだね。',
+      news: ['機械の買い替えの山と、暑くなる夏', '借入を減らす依頼、後継ぎを決める依頼、純資産を育てる依頼', '15年目の終わりに最終評価と、選んだ道のエンディング'] },
+  ]);
+  CH.listOf = (st) => (st && st.maxYear && st.maxYear <= 15 ? CH.LIST15 : CH.LIST);
+  // 章・依頼・経営の道は、区切りのある経営（ストーリーなど）だけ。自分の経営モードには出さない
   CH.on = (st) => st.mode !== 'endless';
   // st を渡すと、ストーリーごとの章の名前・目標・説明に差し替える（js/scenes.js）
   const withOv = (c, st) => { const ov = st && RG.scenes && RG.scenes.chapterOv(st, c.n); return ov ? Object.assign({}, c, ov) : c; };
-  CH.of = (year, st) => withOv(CH.LIST.find((c) => year >= c.from && year <= c.to) || CH.LIST[CH.LIST.length - 1], st);
-  CH.byN = (n, st) => withOv(CH.LIST.find((c) => c.n === n), st);
-  CH.isStart = (year) => CH.LIST.some((c) => c.from === year);
+  CH.of = (year, st) => { const L = CH.listOf(st); return withOv(L.find((c) => year >= c.from && year <= c.to) || L[L.length - 1], st); };
+  CH.byN = (n, st) => withOv(CH.listOf(st).find((c) => c.n === n), st);
+  CH.isStart = (year, st) => CH.listOf(st).some((c) => c.from === year);
 
   // ---------- 経営の道（第2章の初めに選ぶ） ----------
   CH.PATHS = {
@@ -110,12 +117,12 @@
       check: (st) => !!(RG.state.successor(st) || RG.state.pendingSuccessor(st) || st.family.some((f) => f.tag === 'trainee')),
       progress: () => '家族の後継者、または研修生（健太さん）を迎える', reward: { trust: 5, omamori: 1 } },
     // 第4章
-    { id: 'equity2x', who: 'kimura', from: 16, until: 17, years: 4, title: '純資産を、始めたときの2倍以上に',
+    { id: 'equity2x', who: 'kimura', from: 16, until: 17, w15: [11, 12], years: 4, title: '純資産を、始めたときの2倍以上に',
       target: (st) => Math.max(st.initialEquity * 2, st.initialEquity + 10000000),
-      text: '「20年の経営の成果は、最後は純資産に表れます。次の世代に、よい形で渡しましょう」',
+      text: '「これまでの経営の成果は、最後は純資産に表れます。次の世代に、よい形で渡しましょう」',
       check: (st, res, m) => res.bs.equity >= m.target, progress: (st, m) => '今 ' + U.man(RG.accounting.bs(st).equity) + '（目標 ' + U.man(m.target) + '）',
       reward: { trust: 5, brand: 5 } },
-    { id: 'trust80', who: 'sato', from: 16, until: 18, years: 3, title: '地域の信頼を80以上に',
+    { id: 'trust80', who: 'sato', from: 16, until: 18, w15: [12, 13], years: 3, title: '地域の信頼を80以上に',
       text: '「あんたには、この集落の田んぼを任せたいんじゃ。皆にそう思われる人になっておくれ」',
       check: (st) => st.trust >= 80, progress: (st) => '今 ' + Math.round(st.trust) + '（目標 80）', reward: { land: 3.0, brand: 3 } },
   ];
@@ -173,6 +180,8 @@
     CH.MISSIONS.push(m);
   });
   CH.def = (id) => CH.MISSIONS.find((m) => m.id === id);
+  // 依頼が届く年（15年の物語は w15 の年）
+  CH.win = (m, st) => (st && st.maxYear <= 15 && m.w15 ? m.w15 : [m.from, m.until]);
 
   // ごほうびの説明
   CH.rewardText = function (r) {
@@ -197,7 +206,7 @@
   CH.MISSIONS.forEach((m) => {
     E.POOL.push({
       id: 'mission_' + m.id, who: m.who, once: true, sq: 1, mission: true,
-      cond: (st) => CH.on(st) && st.year + m.years - 1 <= st.maxYear && st.year >= m.from && st.year <= m.until && (!m.path || st.path === m.path) && (!m.cond || m.cond(st)) && !CH.state(st).missions.some((x) => x.id === m.id),
+      cond: (st) => CH.on(st) && st.year + m.years - 1 <= st.maxYear && st.year >= CH.win(m, st)[0] && st.year <= CH.win(m, st)[1] && (!m.path || st.path === m.path) && (!m.cond || m.cond(st)) && !CH.state(st).missions.some((x) => x.id === m.id),
       weight: () => 0, // 年初のできごとの抽選には入れず、CH.queueOffers で必ず届ける
       title: '依頼：' + m.title,
       text: (st) => m.text + '（期限：' + (st.year + m.years - 1) + '年目の決算まで）',
@@ -281,7 +290,7 @@
   };
 
   // ---------- 章の扉 ----------
-  CH.needsDoor = (st) => CH.on(st) && CH.isStart(st.year) && !CH.state(st).chapterSeen[CH.of(st.year, st).n];
+  CH.needsDoor = (st) => CH.on(st) && CH.isStart(st.year, st) && !CH.state(st).chapterSeen[CH.of(st.year, st).n];
   // 扉を閉じて、運だめし（なければ年初のできごと・計画）へ
   CH.leave = function (st) {
     const c = CH.of(st.year, st);

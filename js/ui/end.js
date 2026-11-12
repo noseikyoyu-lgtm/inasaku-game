@@ -8,7 +8,7 @@
     const hs = st.history;
     const last = hs[hs.length - 1];
     return RG.scoreFrom({ eqGain: last.equity - st.initialEquity, avgInc: U.avg(hs.map((x) => x.income)),
-      ratio: last.assets > 0 ? last.equity / last.assets : 0, area: last.area, trust: st.trust, brand: st.brand });
+      ratio: last.assets > 0 ? last.equity / last.assets : 0, area: last.area, trust: st.trust, brand: st.brand, years: RG.scoreYears(st) });
   };
 
   RG.screens.end = function (app) {

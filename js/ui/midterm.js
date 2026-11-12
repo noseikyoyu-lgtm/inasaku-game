@@ -18,6 +18,7 @@
     const now = { eqGain: last.equity - st.initialEquity, avgInc: U.avg(hs.map((x) => x.income)),
       ratio: last.assets > 0 ? last.equity / last.assets : 0, area: last.area, trust: st.trust, brand: st.brand };
     const end = Object.assign({}, now, { eqGain: now.eqGain / done * H });
+    now.years = end.years = RG.scoreYears(st);
     const sNow = RG.scoreFrom(now), sEnd = RG.scoreFrom(end);
     const up = RG.RANKS.slice().reverse().find((r) => r[1] > sEnd.total);
     return { done, left: H - done, now: sNow, end: sEnd, up, H };

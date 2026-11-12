@@ -24,15 +24,15 @@
       { bg: 10, pan: 'out', dur: 5200, text: '初めての稲刈り。', sub: '……自分の米が、とれた。' },
       { bg: 'black', card: true, dur: 3000, text: '1年目の決算', sub: 'この1年の経営を、数字でふり返ろう' },
     ],
-    // じいちゃんの田んぼ：エンディング（20年を終えたとき）
+    // じいちゃんの田んぼ：エンディング（物語の最後の年を終えたとき）
     ending: (st) => {
       const wife = st.family.some((f) => f.tag === 'spouse');
       return [
-        { bg: 5, pan: 'in', dur: 5000, text: '20年前の春。', sub: '2haの小さな田んぼから、すべてが始まった。' },
+        { bg: 5, pan: 'in', dur: 5000, text: st.maxYear + '年前の春。', sub: '2haの小さな田んぼから、すべてが始まった。' },
         { bg: 7, pan: 'right', fx: 'firefly', dur: 5000, text: wife ? '遥と二人で、田んぼを守ってきた。' : '毎年、田んぼと向き合ってきた。', sub: 'いい年も、悪い年もあった。' },
         { bg: 9, pan: 'left', dur: 5200, text: '今、田んぼは ' + U.ha(area(st)) + '。', sub: '集落の景色の中に、自分の米がある。' },
         { bg: 12, pan: 'out', dur: 5000, text: 'じいちゃん、見とるか。', sub: '' },
-        { bg: 'dusk', pan: 'right', dur: 5200, text: '米道', sub: st.farmName + '　20年の物語', card: true },
+        { bg: 'dusk', pan: 'right', dur: 5200, text: '米道', sub: st.farmName + '　' + st.maxYear + '年の物語', card: true },
       ];
     },
   };

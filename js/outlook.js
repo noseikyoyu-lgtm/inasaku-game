@@ -9,9 +9,12 @@
   RG.RANK_TITLES = { S: '地域を代表する稲作経営者', A: '安定した担い手経営', B: '堅実な家族経営', C: 'もう一歩の経営', D: '苦しい経営' };
 
   // v: { eqGain, avgInc, ratio, area, trust, brand } から得点を出す（最終評価と中間評価で共通）
+  // years：経営の年数（純資産の増加の目標を、20年で1億2,000万円の割合で合わせる。15年なら9,000万円）
+  RG.scoreYears = (st) => (st.mode === 'endless' ? D.MAX_YEAR : Math.min(st.maxYear || D.MAX_YEAR, D.MAX_YEAR));
   RG.scoreFrom = function (v) {
+    const yrs = v.years || 20, eqGoal = 1.2e8 * yrs / 20;
     const items = [
-      { key: 'equity', label: '純資産の増加', value: U.man(v.eqGain), pts: U.clamp((v.eqGain / 1.2e8) * 30, 0, 30), max: 30, goal: '20年で1億2,000万円' },
+      { key: 'equity', label: '純資産の増加', value: U.man(v.eqGain), pts: U.clamp((v.eqGain / eqGoal) * 30, 0, 30), max: 30, goal: yrs + '年で' + U.man(eqGoal) },
       { key: 'income', label: '経営者・家族の平均所得（年）', value: U.man(v.avgInc), pts: U.clamp((v.avgInc / 1.2e7) * 30, 0, 30), max: 30, goal: '年1,200万円' },
       { key: 'ratio', label: '自己資本比率', value: U.pct(v.ratio), pts: U.clamp((v.ratio / 0.6) * 15, 0, 15), max: 15, goal: '60%' },
       { key: 'area', label: '経営面積', value: U.ha(v.area), pts: U.clamp((v.area / 40) * 10, 0, 10), max: 10, goal: '40ha' },
@@ -102,8 +105,9 @@
     const st = S.fromJSON(snapshot);
     st.seed = seed;
     S.beginYear(st);
-    // 自分の経営モードは区切りがないので、見立ては20年まで
-    while (st.phase !== 'end' && st.phase !== 'gameover' && st.history.length < D.MAX_YEAR) {
+    // 見立ては物語の最後の年まで（自分の経営モードは区切りがないので、20年まで）
+    const lim = st.mode === 'endless' ? D.MAX_YEAR : Math.min(st.maxYear || D.MAX_YEAR, D.MAX_YEAR);
+    while (st.phase !== 'end' && st.phase !== 'gameover' && st.history.length < lim) {
       OL.statusQuoPlan(st);
       SIM.apply(st, SIM.simulate(st));
       S.nextYear(st);
