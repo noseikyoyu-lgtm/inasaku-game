@@ -104,7 +104,7 @@
     const start = () => {
       const s = parseInt(app.titleSeed, 10);
       app.titleView = 'menu';
-      app.newGame({ scenarioId: pick, farmName: (app.titleFarm || '').trim() || '稲穂ファーム', seed: isFinite(s) && s > 0 ? s : RG.rng.randomSeed(), challenge: app.titleChallenge || null });
+      app.newGame({ scenarioId: pick, farmName: (app.titleFarm || '').trim() || '稲穂ファーム', seed: isFinite(s) && s > 0 ? s : RG.rng.randomSeed(), challenge: app.titleChallenge || null, perk: app.titlePerk || null });
     };
     const cards = h('div', { class: 'story-cards', role: 'radiogroup', 'aria-label': '物語' }, D.STORY_ORDER.map((k, i) => {
       const sc = D.SCENARIOS[k], inf = STORY_INFO[k], on = k === pick;
@@ -129,7 +129,7 @@
             h('li', null, '📖 章と依頼、1年前に予告される試練の年。結果でエンディングが変わる')))),
       h('div', { class: 'px-fields' },
         h('label', null, h('span', null, sc.corp ? '法人の名前' : '農場の名前'), nameInp),
-        challengeField(app)),
+        challengeField(app), RG.screens.perkField ? RG.screens.perkField(app) : null),
       seedSettings(app, seedInp),
       h('div', { class: 'px-actions' },
         h('button', { class: 'px-btn plain', type: 'button', onclick: () => go('menu') }, 'もどる'),
@@ -165,7 +165,7 @@
       }
       app.titleView = 'menu';
       app.newGame({ scenarioId: scenario, custom: scenario === 'custom' ? app.customDraft : null,
-        farmName: (app.titleFarm || '').trim() || '稲穂ファーム', seed: isFinite(s) && s > 0 ? s : RG.rng.randomSeed(), challenge: app.titleChallenge || null });
+        farmName: (app.titleFarm || '').trim() || '稲穂ファーム', seed: isFinite(s) && s > 0 ? s : RG.rng.randomSeed(), challenge: app.titleChallenge || null, perk: app.titlePerk || null });
     };
     return h('div', { class: 'px-window' },
       h('h2', null, '🏡 自分の経営モード'),
@@ -174,7 +174,7 @@
       scenario === 'custom' ? customForm(app) : null,
       h('div', { class: 'px-fields' },
         h('label', null, h('span', null, '農場の名前'), nameInp),
-        challengeField(app)),
+        challengeField(app), RG.screens.perkField ? RG.screens.perkField(app) : null),
       seedSettings(app, seedInp),
       h('div', { class: 'px-actions' },
         h('button', { class: 'px-btn plain', type: 'button', onclick: () => go('menu') }, 'もどる'),

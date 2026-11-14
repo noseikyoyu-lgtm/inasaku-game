@@ -289,7 +289,8 @@
     DI.crises(st).forEach((c) => {
       const ch = DI.choiceOf(st, c.id);
       let eff;
-      if (ch && ch.choice === 'guard') eff = Object.assign({ kind: '' }, c.guard(st));
+      if (ch && ch.choice === 'card') { const cd = RG.extras && RG.extras.CARDS[ch.card]; eff = { kind: 'good', text: '備えのカード「' + (cd ? cd.name : '') + '」を切って、被害を防いだ。' }; } // 備えのカード：お金も手間もかからない
+      else if (ch && ch.choice === 'guard') eff = Object.assign({ kind: '' }, c.guard(st));
       else {
         // まだ選んでいなければ（自動で進めるとき）対策せずにサイコロを振ったことにする
         const face = ch && ch.rolls.length ? ch.rolls[ch.rolls.length - 1] : DI.face(st, 'crisis_' + c.id, 0);

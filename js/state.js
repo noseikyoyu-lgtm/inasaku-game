@@ -105,6 +105,7 @@
     if (sc.plan && sc.plan.some((r) => D.CROPS[r.crop].unlock)) sc.plan.forEach((r) => { const u = D.CROPS[r.crop].unlock; if (u) st.flags[u] = true; });
     if (RG.rivals) RG.rivals.init(st);
     if (RG.story) RG.story.state(st);
+    if (opts.perk && RG.extras) RG.extras.applyPerk(st, opts.perk); // 引き継ぎ特典
     st.initialEquity = RG.accounting.bs(st).equity;
     // 「今のやり方のまま続けたら」を後で試算するための、始めたときの状態
     st.initialSnapshot = JSON.stringify(st);
@@ -387,6 +388,7 @@
     if (RG.chapters) RG.chapters.beginYear(st);
     if (RG.era) RG.era.beginYear(st);
     if (RG.scenes) RG.scenes.beginYear(st);
+    if (RG.extras) RG.extras.beginYear(st); // 備えのカード
     RG.events.splitSeason(st); // 計画に関わらないできごとは、シーズン中の月に回す
     st.phase = RG.chapters && RG.chapters.needsDoor(st) ? 'chapter' : RG.dice && RG.dice.active(st) ? 'dice' : st.events.queue.length ? 'event' : 'plan';
     // 章の節目には、じいちゃんとの会話の場面が先に入る

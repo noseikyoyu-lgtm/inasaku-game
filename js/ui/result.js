@@ -34,7 +34,8 @@
           reportCard(app, st, res, viewing),
           (res.livingEvents || []).length && !viewing ? UI.note('info', '🏠 今年の家計：生活費 ' + U.man(res.living) + '（平均 ' + U.man(st.living) + '）',
             res.livingEvents.slice().sort((a, b) => a.month - b.month).map((e) => e.month + '月 ' + e.label + '（' + (e.amount >= 0 ? '−' : '＋') + U.man(Math.abs(e.amount)) + '）').join('・')) : null,
-          (res.missionNotes || []).length ? h('div', { class: 'notes' }, res.missionNotes.map((t) => UI.note(/失敗|できなかった|期限まで|通らなかった/.test(t) ? 'bad' : /乗り越えた|達成|通過|🔓/.test(t) ? 'good' : 'warn', null, t))) : null,
+          (res.missionNotes || []).length ? h('div', { class: 'notes' }, res.missionNotes.map((t) => UI.note(/失敗|できなかった|期限まで|通らなかった/.test(t) ? 'bad' : /乗り越えた|達成|通過|🔓/.test(t) ? 'good' : /^🎓|^🏆/.test(t) ? 'info' : 'warn', null, t))) : null,
+          res.contest && RG.screens.contestCard && (app.resultTab || 'summary') === 'summary' ? RG.screens.contestCard(res.contest) : null,
           tabs, body,
           h('div', { class: 'row' }, h('span', { class: 'spacer' }), next))));
   };

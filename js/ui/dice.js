@@ -130,6 +130,12 @@
       body.push(h('div', { class: 'dice-stage' }, UI.die(0)));
       actions = [UI.btn('🛡️ ' + g.label, () => { DI.chooseGuard(st, c.id); app.autosave(); app.keepScroll = true; app.render(); }, 'primary'),
         rollBtn(app, '🎲 サイコロで勝負', 'gold', () => DI.rollCrisis(st, c.id))];
+      // 備えのカード：合うカードが手札にあれば、切って被害を防げる
+      const cardId = RG.extras ? RG.extras.cardFor(st, c.id) : null, cd = cardId && RG.extras.CARDS[cardId];
+      if (cd) {
+        body.push(UI.note('good', '🃏 備えのカード「' + cd.icon + cd.name + '」が使えます', 'このカードを切ると、お金も手間もかけずに被害を防げます（カードは1枚なくなります）。あとの勝負のためにとっておくこともできます。'));
+        actions.unshift(UI.btn('🃏 カード「' + cd.name + '」を切る', () => { RG.extras.useCard(st, c.id); app.autosave(); app.keepScroll = true; app.render(); }, 'primary'));
+      } else if (RG.extras && st.cards && st.cards.started) body.push(h('p', { class: 'small muted' }, '🃏 この勝負に合う備えのカードは、手札にありません（手札：' + (RG.extras.hand(st).map((id) => RG.extras.CARDS[id].name).join('・') || 'なし') + '）。'));
     } else {
       const face = ch.rolls[ch.rolls.length - 1];
       const o = DI.outcomeOf(c, face);

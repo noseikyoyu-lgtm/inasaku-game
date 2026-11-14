@@ -597,3 +597,38 @@ h2, h3 { font-weight: 900; letter-spacing: .04em; }
 /* 次の約束のカード */
 .promise.second { background: linear-gradient(135deg, #eef1fb, #dfe6f7); border-color: #bcc8ea; color: #232c4a; }
 .promise.second.done { background: linear-gradient(135deg, #f1f8e6, #dcefc4); border-color: #b9d99a; color: #23401a; }
+
+/* 技（スキル）の樹 */
+.sk-pts { display: flex; align-items: baseline; gap: 10px; margin: 2px 0 6px; }
+.sk-pts b { font-size: 30px; color: var(--gold); line-height: 1; }
+.sk-tree { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 900px) { .sk-tree { grid-template-columns: 1fr; } }
+.sk-branch { display: grid; gap: 8px; align-content: start; }
+.sk-bh { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; padding: 4px 2px; border-bottom: 2px solid var(--line); }
+.sk-bh b { font-size: 16px; }
+.sk-node { display: flex; gap: 10px; padding: 10px 12px; border-radius: 14px; border: 1px solid var(--line); background: var(--panel-2); }
+.sk-node .sk-ic { font-size: 22px; line-height: 1.2; }
+.sk-node .sk-body { display: grid; gap: 4px; min-width: 0; }
+.sk-node .sk-name { font-weight: 700; display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+.sk-node .sk-cost { font-size: 12px; font-weight: 400; opacity: .75; }
+.sk-node.got { background: linear-gradient(135deg, #f1f8e6, #dcefc4); border-color: #b9d99a; color: #23401a; }
+.sk-node.can { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold-2); }
+.sk-node.locked { opacity: .55; }
+.sk-node .btn { justify-self: start; }
+
+/* 備えのカードの手札・ライバルとの勝負 */
+.hand { border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; background: var(--panel); display: grid; gap: 8px; }
+.hand-h { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.hand-cards { display: flex; flex-wrap: wrap; gap: 8px; }
+.hcard { display: grid; gap: 2px; width: 150px; padding: 10px; border-radius: 12px; border: 2px solid var(--gold); background: var(--gold-2); }
+.hcard .hc-ic { font-size: 24px; line-height: 1; }
+.hcard small { font-size: 11px; opacity: .8; line-height: 1.35; }
+.hand.duel { border-color: #d9a0a0; background: linear-gradient(135deg, #fdf1ee, #f9e2dc); color: #4a2320; }
+/* 図鑑 */
+.zk-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; }
+.zk { display: flex; gap: 8px; padding: 8px 10px; border-radius: 12px; border: 1px dashed var(--line); opacity: .6; }
+.zk.got { border-style: solid; opacity: 1; background: var(--panel-2); }
+.zk .zk-ic { font-size: 22px; line-height: 1.2; }
+.zk small { display: block; font-size: 11.5px; opacity: .8; line-height: 1.4; }
+.perk-how { margin-top: 4px; font-size: 12.5px; }
+.perk-how ul { margin: 4px 0 0; padding-left: 18px; }

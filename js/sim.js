@@ -353,7 +353,8 @@
     });
 
     // ---------- 3. 労働 ----------
-    const skillLabor = 1 + (1 - st.skill);
+    const hasSk = (id) => !!(RG.skills && RG.skills.has(st, id)); // 覚えた技（js/skills.js）
+    const skillLabor = (1 + (1 - st.skill)) * (hasSk('dandori') ? 0.98 : 1) * (hasSk('tsukai') ? 0.97 : 1);
     const smartMult = 1 - 0.12 * smartCov;
     const ops = {};
     const contractFee = { spring: 0, autumn: 0 };
@@ -467,7 +468,8 @@
     // 機械も委託先も足りず適期に作業できなかった面積の割合
     const und = (k) => (area.planted > 0 ? ops[k].undone / area.planted : 0);
     const delayY = U.clamp(1 - Math.max(und('till'), und('plant'), 0.8 * und('harvest'), 0.3 * und('dry')), 0.02, 1);
-    const skillY = 0.97 + 0.4 * (st.skill - 0.9);
+    const skillY = (0.97 + 0.4 * (st.skill - 0.9)) * (hasSk('meijin') ? 1.015 : 1);
+    const skQ = (hasSk('mizu') ? 1.5 : 0) + (hasSk('meijin') ? 1.5 : 0), skLate = hasSk('takumi') ? 0.5 : 1;
     const sev = (!preview && W.pest.occurs) ? W.pest.severity : 0;
     const pestMult = RG.fieldwork ? (RG.fieldwork.input(st, 'pest').pest || 1) : 1; // 農薬の種類で病害虫の被害が変わる
     const norm = AG.norm();
@@ -491,10 +493,11 @@
       const n = norm[p.f.crop];
       // 平年作の見通しでは気象を長期平均で見込む
       const wf = preview ? { wm: n.all, qm: n.qEq, fx: [] } : AG.weatherFactor(v, events, p.hd - p.hdN, p.hd + p.late);
-      const wIdx = wf.wm / n.all;
-      const lateY = Math.min(0.08, 0.0025 * p.late), lateQ = Math.min(12, 0.5 * p.late);
+      let wIdx = wf.wm / n.all;
+      if (wIdx < 1 && hasSk('sonae')) wIdx = 1 - (1 - wIdx) * 0.8; // 暑さ寒さへの備え
+      const lateY = Math.min(0.08, 0.0025 * p.late) * skLate, lateQ = Math.min(12, 0.5 * p.late) * skLate;
       const std = v.by * p.f.yieldMult * p.cult.yield * p.sow.yield * (p.f.cult === 'organic' && !p.f.cert ? 0.95 : 1);
-      const pestLoss = sev * p.cult.pestSens * (v.blast || 1) * (1 - 0.25 * droneCov) * pestMult;
+      const pestLoss = sev * p.cult.pestSens * (v.blast || 1) * (1 - 0.25 * droneCov) * pestMult * (hasSk('byoki') ? 0.8 : 1);
       const boar = flags.boar ? 1 - 0.15 * poorShare : 1;
       let noise = 1, qNoise = 0;
       if (!preview) {
@@ -503,7 +506,7 @@
         qNoise = r.next() * 4 - 2;
       }
       const y10 = std * p.timing.m * wIdx * skillY * laborY * delayY * (1 - lateY) * (1 - pestLoss) * boar * dfx.y * noise;
-      const q = dfx.q + v.bq + p.timing.q + wf.qm - lateQ - 25 * sh('autumn') - 30 * und('harvest') - 20 * und('dry') - 60 * pestLoss + 20 * (st.skill - 0.95) + qNoise;
+      const q = dfx.q + v.bq + p.timing.q + wf.qm - lateQ - 25 * sh('autumn') - 30 * und('harvest') - 20 * und('dry') - 60 * pestLoss + 20 * (st.skill - 0.95) + skQ + qNoise;
       const gi = v.market ? AG.gradeInfo(v, q) : { mix: [1, 0, 0, 0], coef: 1 };
       const r1 = gi.mix[0];
       const bales = (y10 * p.a10) / 60;
@@ -565,7 +568,7 @@
       newCustomers: 0, churn: 0, unmet: 0, customersEnd: st.direct.customers, perBaleNet: 0 };
     // 新しいお客さん：お客さんが増えるほど、1人増やす費用が高くなる（集めやすい人から集まっていく）
     const cacNow = SIM.directCac(st) * mInf;
-    const newCust = (st.direct.marketing / cacNow) * (1 + st.brand / 100);
+    const newCust = (st.direct.marketing / cacNow) * (1 + st.brand / 100) * (hasSk('kao') ? 1.15 : 1);
     if (dp && dCrop && dCrop.directCoef) {
       const alloc = Math.max(0, Math.min(st.direct.alloc, dp.rem));
       dp.rem -= alloc;
@@ -576,7 +579,7 @@
       const revenue = sold * p5 * DD.bagsPerBale;
       const cost = sold * (DD.packaging + (hasMill ? DD.polishMill : DD.polish) + DD.shipping * DD.bagsPerBale) * mInf + revenue * DD.platform;
       const unmet = demand > 0 ? Math.max(0, demand - sold) / demand : 0;
-      const churn = U.clamp(DD.baseChurn + Math.max(0, p5 / ref5 - 1) * 0.35 + unmet * 0.3 + (dp.r1 < 0.6 ? 0.08 : 0) - st.brand / 1000, 0.05, 0.6);
+      const churn = U.clamp(DD.baseChurn + Math.max(0, p5 / ref5 - 1) * 0.35 + unmet * 0.3 + (dp.r1 < 0.6 ? 0.08 : 0) - st.brand / 1000 - (hasSk('akinai') ? 0.03 : 0), 0.05, 0.6);
       const wom = st.direct.customers * 0.06 * dp.r1 * (sold > 0 ? 1 : 0);
       Object.assign(direct, { alloc, demand, sold, unsold: alloc - sold, revenue, cost, ref5, unmet, churn,
         newCustomers: newCust + wom, customersEnd: Math.max(0, st.direct.customers * (1 - churn) + newCust + wom),
@@ -807,7 +810,7 @@
     spend('water', area.total * 10 * D.COST.water, { 6: 1 });
     spend('contract', contractFee.spring, { 5: 1 }, '春作業の委託料');
     spend('contract', contractFee.autumn, { 10: 1 }, '秋作業の委託料');
-    spend('repair', U.sum(st.machines, (m) => SIM.repairCost(m, mInf)), { 3: 0.5, 9: 0.5 }, '機械の点検・修理');
+    spend('repair', U.sum(st.machines, (m) => SIM.repairCost(m, mInf)) * (hasSk('ijiri') ? 0.8 : 1), { 3: 0.5, 9: 0.5 }, '機械の点検・修理');
     const brokenCost = U.sum(res.broken.filter((b) => !b.lease), (b) => D.MODELS[st.machines.find((m) => m.id === b.id).model].price * 0.12 * mInf);
     spend('repair', brokenCost, { 9: 1 }, '故障の修理');
     const dep = {};
@@ -928,7 +931,7 @@
     }
 
     // ---------- 10. ブランド・信頼 ----------
-    const brandGain = (st.brandInvest > 0 ? D.BRAND.gain * Math.log10(1 + st.brandInvest / 100000) : 0) * (st.path === 'brand' ? 1.5 : 1); // ブランドの道は1.5倍
+    const brandGain = (st.brandInvest > 0 ? D.BRAND.gain * Math.log10(1 + st.brandInvest / 100000) : 0) * (st.path === 'brand' ? 1.5 : 1) * (hasSk('namae') ? 1.2 : 1); // ブランドの道は1.5倍
     let brandBonus = 0;
     if (direct.sold > 0 && dp && dp.ck === 'organic') brandBonus += 1;
     if (direct.sold > 0 && dp && dp.r1 > 0.85) brandBonus += 1;
@@ -941,6 +944,7 @@
     if (area.total > 0 && area.fallow / area.total > 0.2) trustDelta -= 3;
     trustDelta -= st.trust > 80 ? 4 : st.trust > 60 ? 2 : 0; // 高い信頼は、保つのに手間がかかる（ほうっておくと下がる）
     if (st.path === 'local') trustDelta += 1; // 地域の要の道
+    if (hasSk('tsukiai')) trustDelta += 1; // 技「地域づきあい」
 
     Object.assign(res, {
       rec, pl, tax, special, items,
@@ -1096,6 +1100,8 @@
     // 依頼の判定は、決算の数字（所得・純資産）が出てから
     if (RG.chapters) RG.chapters.afterYear(st, res).forEach((t) => notes.push(t));
     if (RG.era) RG.era.afterYear(st, res).forEach((t) => { notes.push(t); (res.missionNotes = res.missionNotes || []).push(t); });
+    // 米の品評会と、技術ポイント
+    if (RG.skills) RG.skills.afterYear(st, res).forEach((t) => { notes.push(t); (res.missionNotes = res.missionNotes || []).push(t); });
     res.equityCheck = bs.equity - bsStart.equity - (res.pl.preTax - res.tax.amount) +
       (st.corp ? 0 : livingUsed) - U.sum(st.ledger.filter((x) => x.cat === 'capital'), (x) => x.amount);
     res.notes = notes;
@@ -1128,6 +1134,8 @@
     // 期限つきの危機（6年目から）：達成できなければ経営終了
     if (RG.pressure && !st.gameOver) RG.pressure.afterYear(st, res).forEach((t) => { res.notes.push(t); (res.missionNotes = res.missionNotes || []).push(t); });
     if (RG.challenge) RG.challenge.afterYear(st, res).forEach((t) => { res.notes.push(t); (res.missionNotes = res.missionNotes || []).push(t); });
+    // ライバルとの勝負・集落の番付・図鑑・引き継ぎ特典
+    if (RG.extras) RG.extras.afterYear(st, res).forEach((t) => { res.notes.push(t); (res.missionNotes = res.missionNotes || []).push(t); });
     st.phase = 'season';
   };
 })(window.RG = window.RG || {});

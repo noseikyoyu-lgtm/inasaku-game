@@ -9,7 +9,7 @@
 
   const TABS = [
     ['overview', '概況', '🏠'], ['crops', '作付計画', '🌾'], ['land', '農地', '🗾'], ['machines', '機械・設備', '🚜'],
-    ['labor', '労働力', '👨‍🌾'], ['sales', '販売計画', '🛒'], ['biz', '新しい事業', '🏪'], ['finance', '資金・保険', '💰'],
+    ['labor', '労働力', '👨‍🌾'], ['sales', '販売計画', '🛒'], ['biz', '新しい事業', '🏪'], ['finance', '資金・保険', '💰'], ['skills', '技と品評会', '🎓'], ['zukan', '図鑑', '📔'],
   ];
 
   const GUIDES = {
@@ -35,10 +35,11 @@
       finance: pv.cash.minBalance < 0,
       sales: pv.sales.contracts.some((c) => c.short > 0.5) || st.offers.contracts.length > 0,
       land: st.offers.land.length > 0,
+      skills: !!RG.skills && RG.skills.canLearnAny(st),
     };
     const nav = h('nav', { class: 'nav', 'aria-label': '計画のタブ' }, TABS.map(([k, l, ic]) =>
       h('button', { class: 'nav-' + k + (app.tab === k ? ' on' : ''), type: 'button', onclick: () => { app.tab = k; app.render(); } }, h('span', { class: 'nav-ic', 'aria-hidden': 'true' }, ic), h('span', { class: 'nav-l' }, l),
-        dots[k] ? h('span', { class: 'dot', title: k === 'land' || k === 'sales' ? '新しい話があります' : '注意があります' }) : null)));
+        dots[k] ? h('span', { class: 'dot', title: k === 'land' || k === 'sales' ? '新しい話があります' : k === 'skills' ? '覚えられる技があります' : '注意があります' }) : null)));
     const tabFn = TAB_FNS[app.tab] || TAB_FNS.overview;
     const content = [];
     if (app.tab !== 'overview') content.push(tabBanner(app.tab, st));
@@ -53,6 +54,8 @@
     machines: ['🚜', '🌾', '🔧', '機械・設備', '買う？ 借りる？ 頼む？'], labor: ['👨‍🌾', '🧑‍🌾', '⏰', '労働力', '人手は足りてる？'],
     sales: ['🛒', '🤝', '📦', '販売計画', 'どこに、いくらで売る？'], biz: ['🏪', '🍡', '🛸', '新しい事業', '稲作のほかにも挑戦！'],
     finance: ['💰', '🏦', '🛡️', '資金・保険', 'お金は1年もつ？'],
+    skills: ['🎓', '🏆', '🌾', '技と品評会', 'どの腕をみがく？'],
+    zukan: ['📔', '🐸', '🌾', '図鑑', '今年は何に出会える？'],
   };
   function tabBanner(tab, st) {
     const b = BANNERS[tab];
@@ -161,7 +164,7 @@
     const sec = (tone, ic, text, sub) => h('div', { class: 'ov-sec tone-' + tone }, h('span', { class: 'ov-sec-ic', 'aria-hidden': 'true' }, ic), h('span', null, text), sub ? h('small', null, sub) : null);
     const tone = (el, cls) => { if (el) el.classList.add('ov', ...cls.split(' ')); return el; };
     const pair = (x, y) => (x && y ? h('div', { class: 'ov-pair' }, x, y) : x || y);
-    const out = [homeHero(st), deadlineBox, RG.scenes.isStory(st) ? RG.screens.promiseCard(st, { progress: true }) : null, RG.screens.promise2Card(st), RG.screens.challengeCard(st)];
+    const out = [homeHero(st), deadlineBox, RG.scenes.isStory(st) ? RG.screens.promiseCard(st, { progress: true }) : null, RG.screens.promise2Card(st), RG.screens.challengeCard(st), RG.screens.duelCard(st), RG.screens.handCard(st)];
 
     // ① 今年のこと
     out.push(sec('green', '🌱', '今年のこと'));
@@ -901,7 +904,7 @@
   RG.screens.cashTable = cashTable;
 
   const TAB_FNS = { overview: tabOverview, crops: tabCrops, land: tabLand, machines: tabMachines, labor: tabLabor, sales: tabSales,
-    biz: (app, st, pv) => RG.screens.tabBiz(app, st, pv), finance: tabFinance };
+    biz: (app, st, pv) => RG.screens.tabBiz(app, st, pv), finance: tabFinance, skills: (app, st) => RG.screens.tabSkills(app, st), zukan: (app, st) => RG.screens.tabZukan(app, st) };
   // チャレンジ（しばり）のカード：計画のホームと経営終了の画面
   RG.screens.challengeCard = function (st) {
     const c = st.challenge, d = c && RG.challenge && RG.challenge.def(c.id);
