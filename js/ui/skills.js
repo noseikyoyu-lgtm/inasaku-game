@@ -39,7 +39,7 @@
         st.contestOn == null && !cs.length ? h('p', { class: 'small' }, '2年目の年の初めに、高橋さんから誘いがあります。出すと決めると、秋に自動で出品され、結果は決算のときにわかります。')
           : h('div', { class: 'row' }, h('b', null, SK.contestOn(st) ? '✅ 今年の秋も出品します' : '⏸ 今は出品していません'),
             UI.btn(SK.contestOn(st) ? '出品をやめる' : '出品する', () => app.update((x) => { x.contestOn = !SK.contestOn(x); return null; }, { undo: true, msg: SK.contestOn(st) ? '品評会への出品をやめました' : '品評会に出品します' }), 'sm')),
-        h('p', { class: 'small muted' }, '費用はかかりません。3位までに入ると、ブランド力・直販のお客さん・技術ポイントが増えます。初めのうちは選別や仕上げで点を落とします（1回目 −4点。出すたびに1点ずつ戻り、5回目からは引かれません）。' + (SK.contestOn(st) && SK.expPenalty(st) ? '次の出品は −' + SK.expPenalty(st) + '点。' : ''))),
+        h('p', { class: 'small muted' }, '費用はかかりません。3位までに入ると、ブランド力・直販のお客さん・技術ポイントが増えます。初めのうちは選別や仕上げで点を落とします（出すたびに1点ずつ戻り、4点まで）。' + (SK.contestOn(st) && SK.expPenalty(st) ? '次の出品は −' + SK.expPenalty(st) + '点。' : ''))),
       last ? RG.screens.contestCard(last, '🏆 去年の米の品評会の結果') : null,
       cs.length ? UI.card('これまでの品評会', '金賞 ' + golds + '回・入賞 ' + medals + '回（' + cs.length + '回出品）',
         UI.table([{ label: '年', num: true }, { label: '出品した米' }, { label: '点', num: true }, { label: '結果', num: true }],

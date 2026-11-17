@@ -62,7 +62,7 @@
     { rank: 3, name: '銅賞', icon: '🥉', brand: 1, customers: 4, trust: 0, pts: 1 },
   ];
   SK.PRIZE = PRIZE;
-  const CULT_BONUS = { conv: 0, special: 1.5, organic: 3 };
+  const CULT_BONUS = { conv: 0, special: 1.5, organicT: 1.5, organic: 3 }; // 有機の転換期間中は、特別栽培と同じ
   // 出品しているか（高橋さんに誘われて「出す」と決めてから。前の版のセーブは、出したことがあれば出品中）
   SK.contestOn = (st) => (st.contestOn != null ? !!st.contestOn : (st.contests || []).length > 0);
   // 出品の経験：選別や仕上げは、出すたびに上手くなる（1回目 −4点、5回目からは引かれない）
@@ -72,14 +72,16 @@
     const g = {};
     (res.production.plots || []).forEach((p) => {
       if (!D.CROPS[p.crop] || !D.CROPS[p.crop].market || !(p.bales > 0)) return;
-      const k = p.crop + '|' + p.cult, x = g[k] || (g[k] = { crop: p.crop, cult: p.cult, q: 0, b: 0 });
+      const ck = String(p.key || '').split('|')[1] || p.cult; // 売るときの区分（有機は認証の前なら「転換期間中」）
+      const k = p.crop + '|' + ck, x = g[k] || (g[k] = { crop: p.crop, cult: ck, q: 0, b: 0 });
       x.q += p.q * p.bales; x.b += p.bales;
     });
     let best = null;
     Object.keys(g).forEach((k) => {
       const x = g[k], q = x.q / x.b, cult = CULT_BONUS[x.cult] || 0, skill = SK.has(st, 'akinai') ? 1.5 : 0, exp = -SK.expPenalty(st);
       const score = q + cult + skill + exp;
-      if (!best || score > best.score) best = { score, q, cult, skill, exp, crop: x.crop, label: D.CROPS[x.crop].name + (x.cult !== 'conv' && D.CULTS[x.cult] ? '（' + D.CULTS[x.cult].name + '）' : '') };
+      const ckName = (D.CULT_KEYS[x.cult] || D.CULTS[x.cult] || {}).name;
+      if (!best || score > best.score) best = { score, q, cult, skill, exp, crop: x.crop, label: D.CROPS[x.crop].name + (x.cult !== 'conv' && ckName ? '（' + ckName + '）' : '') };
     });
     return best;
   };
@@ -108,7 +110,7 @@
     title: '米の品評会に出してみないか',
     text: () => '「毎年の秋に、地域の米の品評会があるんだ。その年にいちばん出来のよかった米を出して、品質の点を競う。小川さんや、となり町の名人の星野さんも出てくるよ。3位までに入れば、名前が売れてお客さんも増える。最初のうちは選別や仕上げで点を落とすけど、出すたびに上手くなる。出してみないか？」',
     choices: [
-      { label: '毎年、出品する', desc: 'その年にいちばん点の高い品種の米が、秋に自動で出品される（費用はかからない）。1回目は −4点、出すたびに1点ずつ戻る', apply: (st) => { st.contestOn = true; return '今年の秋から、米の品評会に出品することにした。結果は決算のときにわかる。'; } },
+      { label: '毎年、出品する', desc: (st) => 'その年にいちばん点の高い品種の米が、秋に自動で出品される（費用はかからない）。' + (SK.expPenalty(st) ? '1回目は −' + SK.expPenalty(st) + '点、出すたびに1点ずつ戻る' : '出品の経験があるので、1回目から引かれない'), apply: (st) => { st.contestOn = true; return '今年の秋から、米の品評会に出品することにした。結果は決算のときにわかる。'; } },
       { label: '今はやめておく', desc: 'あとから「技と品評会」タブで、いつでも出品に変えられる', apply: (st) => { st.contestOn = false; return '品評会は見送った。「技と品評会」タブで、いつでも出品に変えられる。'; } },
     ],
   });
@@ -130,10 +132,10 @@
         gain += p.pts; why.push('品評会の' + p.name + ' +' + p.pts);
         notes.push('🏆 米の品評会：' + c.label + 'が ' + c.score.toFixed(1) + '点で' + p.icon + p.name + '（' + c.n + '人中 ' + c.rank + '位）を達成！ ブランド力 +' + p.brand + '・直販のお客さん +' + p.customers + '人' + (p.trust ? '・地域の信頼 +' + p.trust : ''));
       } else notes.push('🏆 米の品評会：' + c.label + 'は ' + c.score.toFixed(1) + '点で、' + c.n + '人中 ' + c.rank + '位だった（3位までが入賞）。');
-    }
+    } else if (SK.contestOn(st)) notes.push('🏆 米の品評会：今年は出せる米（販売用の品種）がなかったので、出品しなかった。');
     k.pts += gain; k.earned = (k.earned || 0) + gain;
     res.skillGain = { gain, why, pts: k.pts };
-    notes.push('🎓 技術ポイント +' + gain + '（' + why.join('・') + '）。今 ' + k.pts + 'ポイント' + (SK.canLearnAny(st) ? '。「技と品評会」タブで新しい技を覚えられる' : ''));
+    notes.push('🎓 技術ポイント +' + gain + '（' + why.join('・') + '）' + (SK.canLearnAny(st) ? '。「技と品評会」タブで新しい技を覚えられる' : '。今のポイントは「技と品評会」タブで見られる'));
     return notes;
   };
   // 自動で進めるとき（検証）：覚えられる技を、道の順に覚える

@@ -104,6 +104,7 @@
     const S = RG.state, SIM = RG.sim;
     const st = S.fromJSON(snapshot);
     st.seed = seed;
+    st._sandbox = true; // 試算：引き継ぎ特典などを本当には解放しない
     S.beginYear(st);
     // 見立ては物語の最後の年まで（自分の経営モードは区切りがないので、20年まで）
     const lim = st.mode === 'endless' ? D.MAX_YEAR : Math.min(st.maxYear || D.MAX_YEAR, D.MAX_YEAR);

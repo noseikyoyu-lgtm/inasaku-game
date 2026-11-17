@@ -17,7 +17,7 @@
   // ======================================================================
   const STORY = {
     goalName: 'じいちゃんとの約束', giver: 'jiichan',
-    promiseText: '15年後も経営を続け、経営面積を15ha以上（じいちゃんの田んぼの7倍以上）にして、黒字の経営にすること',
+    promiseText: (st) => st.maxYear + '年後も経営を続け、経営面積を15ha以上（じいちゃんの田んぼの7倍以上）にして、黒字の経営にすること',
     conds: (st) => [yearsCond(st),
       { label: '経営面積 15ha以上', ok: area(st) >= 15, now: U.ha(area(st)) },
       { label: '直近3年の平均所得が黒字', ok: last3(st).length > 0 && avg3(st, 'income') > 0, now: last3(st).length ? U.man(avg3(st, 'income')) : '—' }],
@@ -69,8 +69,8 @@
         { who: 'jiichan', text: 'じゃがな、お前がうちの田んぼをやってみてくれたこと。わしは、それが何よりうれしかったんじゃ。' },
         { who: 'narr', text: '経営は続けられなかった。それでも、この経験は次の一歩になるはずだ。（もう一度、同じ条件で挑戦できます）' }] };
       if (!p.kept) return { title: 'じいちゃんの田んぼを守った', kind: 'normal', lines: [
-        { who: 'jiichan', text: !p.conds[1].ok ? '15年、ようやってくれた。約束の広さには届かなんだが、うちの田んぼは今も青々としとる。'
-          : '15年、ようやってくれた。田んぼはこんなに広うなった。じゃが、ここ何年かは儲けが出とらんのが気がかりじゃ。' },
+        { who: 'jiichan', text: !p.conds[1].ok ? st.maxYear + '年、ようやってくれた。約束の広さには届かなんだが、うちの田んぼは今も青々としとる。'
+          : st.maxYear + '年、ようやってくれた。田んぼはこんなに広うなった。じゃが、ここ何年かは儲けが出とらんのが気がかりじゃ。' },
         { who: 'jiichan', text: 'それで十分じゃ。……いや、欲を言えば、もう少し見たかったかのう。' },
         { who: 'narr', text: '約束はあと一歩。次はどの道を選び、どこまで広げられるだろう。' }] };
       if (p.stars >= 3) return { title: '米道をきわめた', kind: 'true', lines: [
@@ -80,7 +80,7 @@
       return { title: '集落を守る百姓になった', kind: 'good', lines: [
         { who: 'jiichan', text: 'ようやった！ 約束どおり、集落の田んぼをお前が守ってくれとる。' },
         { who: 'jiichan', text: p.s2 ? 'しかも、' + pathName(st) + 'というお前らしいやり方でな。わしはもう、何も心配しとらん。' : 'わしはもう、何も心配しとらん。' },
-        { who: 'narr', text: '15年前、2haから始まった田んぼは、今では集落の景色そのものになった。' }] };
+        { who: 'narr', text: st.maxYear + '年前、2haから始まった田んぼは、今では集落の景色そのものになった。' }] };
     },
   };
 
@@ -96,7 +96,7 @@
   const heirOk = (st) => !!(RG.state.successor(st) || RG.state.pendingSuccessor(st) || st.family.some((f) => f.tag === 'trainee') || st.staff.length > 0);
   const TANADA = {
     goalName: '区長さんとの約束', giver: 'kucho',
-    promiseText: '15年後も経営を続け、集落の田んぼ（30ha）の7割以上で米が作られているようにして、黒字の経営にすること',
+    promiseText: (st) => st.maxYear + '年後も経営を続け、集落の田んぼ（30ha）の7割以上で米が作られているようにして、黒字の経営にすること',
     conds: (st) => [yearsCond(st),
       { label: '集落の田んぼの7割以上で米づくり', ok: villagePct(st) >= 0.7, now: U.pct(villagePct(st)) },
       { label: '直近3年の平均所得が黒字', ok: last3(st).length > 0 && avg3(st, 'income') > 0, now: last3(st).length ? U.man(avg3(st, 'income')) : '—' }],
@@ -165,10 +165,10 @@
         { who: 'kucho', text: 'あんたが帰ってきて、棚田に人の声が戻った。それだけで、わしらは救われたんじゃ。' },
         { who: 'narr', text: '経営は続けられなかった。手間と稼ぎのつり合いを、もう一度考えてみよう。（同じ条件で挑戦できます）' }] };
       if (!p.kept) return { title: '守りきれなかった棚田', kind: 'normal', lines: !p.conds[1].ok ? [
-        { who: 'kucho', text: '15年、ようがんばってくれた。荒れた田もあるが、あんたのおかげで残った田のほうが、ずっと多い。' },
+        { who: 'kucho', text: st.maxYear + '年、ようがんばってくれた。荒れた田もあるが、あんたのおかげで残った田のほうが、ずっと多い。' },
         { who: 'kucho', text: '全部を守るのは、誰にもできんことじゃ。それでも……もう少し残せたかもしれんな。' },
         { who: 'narr', text: '約束はあと一歩。人と機械と売り方を、どう組み合わせれば守れたのだろう。' }] : [
-        { who: 'kucho', text: '15年、ようがんばってくれた。集落の田んぼは、ちゃんと守られとる。' },
+        { who: 'kucho', text: st.maxYear + '年、ようがんばってくれた。集落の田んぼは、ちゃんと守られとる。' },
         { who: 'kucho', text: 'じゃが、ここ何年かは赤字続きじゃったな。田んぼを守っても、あんたが続けられんようでは元も子もない。' },
         { who: 'narr', text: '約束はあと一歩。人と機械と売り方を、どう組み合わせれば守れたのだろう。' }] };
       if (p.stars >= 3) return { title: '棚田の村の、次の100年へ', kind: 'true', lines: [

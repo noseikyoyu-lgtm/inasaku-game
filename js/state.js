@@ -479,7 +479,10 @@
     if (RG.chapters) RG.chapters.state(st);
     // 物語（じいちゃんの田んぼ・棚田）を20年から15年にした前のセーブ：まだ14年目までなら、15年の物語に切り替える
     const sc15 = D.SCENARIOS[st.scenarioId];
-    if (sc15 && sc15.story && sc15.maxYear === 15 && st.maxYear === 20 && st.mode !== 'endless' && st.year <= 14) st.maxYear = 15;
+    if (sc15 && sc15.story && sc15.maxYear === 15 && st.maxYear === 20 && st.mode !== 'endless' && st.year <= 14) {
+      st.maxYear = 15;
+      (st.missions || []).forEach((m) => { if (m.status === 'active' && m.deadline > 15) m.deadline = 15; }); // 依頼の期限も最後の年までに
+    }
     // 田んぼに出なくなったじいちゃんは、働き手（家族）から外す（前の版のセーブ）
     if (st.scenarioId === 'story' && (st.year >= 11 || (st.flags || {}).jiichanIll)) st.family = st.family.filter((f) => f.tag !== 'grandpa');
     // 直販の参考価格を実際に近づけた（米価×0.147→×0.17）前のセーブ：決めていた値段も同じ割合で上げる

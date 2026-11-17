@@ -54,7 +54,7 @@
       sales: r0(res.pl.sales), income: r0(res.analysis.income), preTax: r0(res.pl.preTax), cashEnd: r0(st.cash), minCash: r0(res.cash.minBalance),
       emergencyPeak: r0(res.cash.emergencyPeak), equity: r0(res.bs.equity), debt: r0(res.bs.longLoans + res.bs.emergency),
       area: r1(res.area.total), laborShort: r1(Math.max.apply(null, D.SEASONS.map((s) => res.labor.seasons[s].ratio)) * 100),
-      crises: Object.keys(cr).map((id) => id + ':' + (cr[id].choice === 'guard' ? 'guard' : 'dice' + (cr[id].rolls || []).join(''))),
+      crises: Object.keys(cr).map((id) => id + ':' + (cr[id].choice === 'guard' ? 'guard' : cr[id].choice === 'card' ? 'card:' + cr[id].card : 'dice' + (cr[id].rolls || []).join(''))),
       events: res.events.map((e) => e.id + ':' + e.sev), titles: res.newTitles || [],
       gameOver: st.gameOver ? st.gameOver.reason : null, retired: !!st.retired,
       work: Object.assign({}, (st.yearFlags || {}).work), // 作業の判断（天気予報の選び方も）

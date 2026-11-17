@@ -353,6 +353,7 @@
   }
   function runWhatIf(json, mod) {
     const s = RG.state.fromJSON(json);
+    s._sandbox = true; // 試算：引き継ぎ特典などを本当には解放しない
     if (mod) mod(s);
     const r = RG.sim.simulate(s);
     RG.sim.apply(s, r);

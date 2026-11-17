@@ -42,7 +42,7 @@
     return h('div', { class: 'promise' + (opts.big ? ' big' : '') },
       h('div', { class: 'pr-head' }, UI.face(d.giver, 2), h('b', null, d.goalName),
         opts.stars ? h('span', { class: 'pr-stars', 'aria-label': '星' + p.stars + 'つ' }, [1, 2, 3].map((i) => h('i', { class: i <= p.stars ? 'on' : '' }, '★'))) : null),
-      h('p', { class: 'pr-text' }, d.promiseText),
+      h('p', { class: 'pr-text' }, typeof d.promiseText === 'function' ? d.promiseText(st) : d.promiseText),
       pg ? h('div', { class: 'pr-bar' }, h('span', null, pg.text), pg.map ? RG.screens.villageMap(st) : UI.bar(pg.v, pg.max)) : null,
       opts.conds ? h('ul', { class: 'pr-conds' }, p.conds.map((c) => h('li', { class: c.ok ? 'ok' : '' }, h('span', { 'aria-hidden': 'true' }, c.ok ? '✅' : '⬜'), c.label, h('small', null, '（' + c.now + '）')))) : null,
       opts.starsNote ? h('ul', { class: 'pr-star-note' },

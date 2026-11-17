@@ -28,7 +28,7 @@
   ];
   EX.CATS = [
     { id: 'life', icon: '🐸', name: '田んぼの生き物', list: () => EX.LIFE },
-    { id: 'crop', icon: '🌾', name: '作った品種', list: () => Object.keys(D.CROPS).map((k) => ({ id: k, icon: '🌾', name: D.CROPS[k].name, hint: '作付計画で作ると記録される', note: D.CROPS[k].kind || '' })) },
+    { id: 'crop', icon: '🌾', name: '作った品種', list: () => (D.CROP_ORDER || Object.keys(D.CROPS)).filter((k) => D.CROPS[k] && !D.CROPS[k].alias && !D.CROPS[k].fallow && k !== 'none').map((k) => ({ id: k, icon: '🌾', name: D.CROPS[k].name, hint: '作付計画で作ると記録される', note: D.CROPS[k].kind || '' })) },
     { id: 'weather', icon: '🌤', name: '経験した天候', list: () => Object.keys(D.YEAR_TYPES).map((k) => ({ id: k, icon: D.YEAR_TYPES[k].icon, name: D.YEAR_TYPES[k].name, hint: 'その天候の年を経験すると記録される', note: D.YEAR_TYPES[k].desc || '' })) },
     { id: 'machine', icon: '🚜', name: '持った機械', list: () => Object.keys(D.MODELS).map((k) => ({ id: k, icon: '🚜', name: D.MODELS[k].name, hint: '買う・リースすると記録される', note: '' })) },
   ];
@@ -134,12 +134,17 @@
     st.duel = null;
     const d = RG.rivals.def(du.rival), t = THEMES[du.theme];
     if (!d || !t) return [];
-    const yt = (st.world && st.world.yearType) || 'normal', bad = yt === 'normal' ? 0 : du.theme === 'grade' ? -6 : -15; // 天候の悪い年は、相手も落とす
-    const theirs = t.base[d.style] + bad + RG.rng.make(st.seed, du.year, 'duelR').normal(0, t.sd), mine = t.mine(res);
-    const win = mine > theirs;
+    const r = (st.rivals || []).find((x) => x.id === du.rival);
+    if (!r || !r.active) return ['⚔️ ' + d.name + 'との勝負は、' + d.name + 'が田んぼをやめたので取りやめになった。'];
+    if (!(res.production.marketBales > 0)) return ['⚔️ ' + d.name + 'との勝負（' + t.name + '）は、今年は販売用の米を作らなかったので取りやめになった。'];
+    const yt = (st.world && st.world.yearType) || 'normal', bad = ['hot', 'cold', 'rain', 'typh'].indexOf(yt) >= 0 ? (du.theme === 'grade' ? -6 : -15) : 0; // 天候の悪い年は、相手も落とす
+    let theirs = t.base[d.style] + bad + RG.rng.make(st.seed, du.year, 'duelR').normal(0, t.sd);
+    theirs = du.theme === 'grade' ? U.clamp(theirs, 0, 100) : Math.max(0, theirs);
+    const mine = t.mine(res);
+    const win = Math.round(mine) >= Math.round(theirs); // 表示と同じ丸めで比べ、同じなら挑まれた側（あなた）の勝ち
     st.duels = (st.duels || []).concat([{ year: du.year, rival: du.rival, theme: du.theme, mine, theirs, win }]);
     if (win) { st.trust = U.clamp(st.trust + 3, 0, 100); if (RG.skills) { const k = RG.skills.state(st); k.pts += 1; k.earned = (k.earned || 0) + 1; } }
-    return ['⚔️ ' + d.name + 'との勝負（' + t.name + '）：あなた ' + t.fmt(mine) + '・' + d.name + ' ' + t.fmt(Math.min(du.theme === 'grade' ? 100 : 999, theirs)) + ' で、' +
+    return ['⚔️ ' + d.name + 'との勝負（' + t.name + '）：あなた ' + t.fmt(mine) + '・' + d.name + ' ' + t.fmt(theirs) + ' で、' +
       (win ? 'あなたの勝ちを達成！ 地域の信頼 +3・技術ポイント +1。' + d.name + '「……やるな。次は負けんぞ」' : 'あなたの負け。' + d.name + '「まだまだだな。また勝負しよう」')];
   };
   // 農地の取り合い：手放される田を、ライバルも欲しがっている
@@ -164,9 +169,10 @@
   // 集落の番付：順位が変わった年に知らせる
   EX.rankAfterYear = function (st) {
     if (!st.rivals || !RG.rivals.table) return [];
-    const rows = RG.rivals.table(st).filter((r) => r.active), rank = rows.findIndex((r) => r.me) + 1, prev = st.rankPrev;
-    st.rankPrev = rank;
+    const rows = RG.rivals.table(st).filter((r) => r.active), rank = rows.findIndex((r) => r.me) + 1, prev = st.rankPrev, prevN = st.rankPrevN;
+    st.rankPrev = rank; st.rankPrevN = rows.length;
     if (!rank || !prev || prev === rank) return [];
+    if (prevN && prevN !== rows.length) return ['📊 集落の番付：農家の数が ' + prevN + '軒から ' + rows.length + '軒になり、あなたは ' + rank + '位になった（前の年は ' + prev + '位）。'];
     return rank < prev ? ['📊 集落の番付：' + prev + '位から ' + rank + '位に上がることを達成！（' + rows.length + '軒中。くわしくは「概況」の地域の農家）'] : ['📊 集落の番付：' + prev + '位から ' + rank + '位に下がった（' + rows.length + '軒中）。'];
   };
 
@@ -195,6 +201,7 @@
   };
   // 決算のあと：やりとげたことを覚えておく
   EX.unlockAfterYear = function (st, res) {
+    if (st._sandbox) return []; // 見立て・もしもの試算では解放しない
     const ids = [];
     if ((st.contests || []).some((c) => c.rank === 1)) ids.push('gold');
     if (!st.gameOver && st.mode !== 'endless' && st.year >= st.maxYear) {

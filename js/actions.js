@@ -38,7 +38,7 @@
   };
 
   // 売るときの値段：評価額に、田の条件ごとの割合をかける（条件不利地は買い手が少ない）
-  A.landSalePrice = (f) => Math.round(f.landValue * (D.LAND_SALE[f.soil] || 0.9));
+  A.landSalePrice = (f) => Math.round(f.landValue * (D.LAND_SALE[f.seibiFrom || f.soil] || 0.9)); // ほ場整備した田は、整備の前の条件の割合で（負担金の分は評価額に入っている）
   // 農地を売ると、お金は入るが、ほかのものを失う（資金繰りの抜け道にしないため）
   A.LAND_SALE_BAN = 3; // 売ったあと、農地の話が来なくなる年数
   A.landSalePenalty = function (st, f) {

@@ -17,7 +17,7 @@
       hit: '記録的な猛暑。高温で白く濁った米が増え、品質が落ちた。' },
   ];
   // 15年の物語（じいちゃんの田んぼ・棚田）は、試練の年を前に寄せる（3つとも物語のあいだに来る）。法人の立て直しは、もとの年のまま
-  ERA.trialRange = (st, t) => ((D.SCENARIOS[st.scenarioId] || {}).trials15 && t.range15 ? t.range15 : t.range);
+  ERA.trialRange = (st, t) => ((D.SCENARIOS[st.scenarioId] || {}).trials15 && st.maxYear <= 15 && t.range15 ? t.range15 : t.range);
   ERA.trialYear = (st, t) => { const r = ERA.trialRange(st, t); return r[0] + (RG.rng.hash(st.seed, 'trial', t.id) % (r[1] - r[0] + 1)); };
   // 試練・制度の見直し・段階的な開放は、区切りのある経営（ストーリーなど）だけ。自分の経営モードは最初から全部使え、試練もない
   ERA.on = (st) => st.mode !== 'endless';

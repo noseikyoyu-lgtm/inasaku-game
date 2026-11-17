@@ -402,11 +402,11 @@
       title: 'ほ場整備の話',
       text: (st) => '「地区の田んぼをまとめて、ほ場整備をしようという話が出ているんだ。国と県の補助で、小さな田を30a〜1haの大きな区画にまとめて、用水と排水も整える。あんたの田も ' + U.ha(E.seibiArea(st)) +
         ' が入る。大きな機械がまっすぐ長く走れるから、作業の時間が1割5分ほど減るし、大きな機械ほど力を出せる。ただ、表土を入れ替えるから、工事のあと2年は収量が落ちる（1年目 約' + U.pct(1 - D.SEIBI.yieldDrop[0]) + '・2年目 約' + U.pct(1 - D.SEIBI.yieldDrop[1]) + '減）。' +
-        (E.seibiBurden(st) > 0 ? '自分の田の負担金は10aあたり' + U.man(D.SEIBI.burden) + '、あんたの場合は ' + U.man(E.seibiBurden(st)) + '。無利子で' + D.SEIBI.years + '年かけて返せばいい。' : '') +
+        (E.seibiBurden(st) > 0 ? '自分の田の負担金は10aあたり' + U.man(D.SEIBI.burden) + '、あんたの場合は ' + U.man(E.seibiBurden(st)) + '。' + (RG.challenge && RG.challenge.on(st, 'noloan') ? '借入をしないチャレンジの途中だから、一括で払うことになる（今の資金 ' + U.man(st.cash) + '）。' : '無利子で' + D.SEIBI.years + '年かけて返せばいい。') : '') +
         (E.seibiFields(st).some((f) => !f.owned) ? '借りている田は、地主さんの負担のぶん地代が上がる。' : '') +
         'それと、地区の田をまとめて引き受けてくれる担い手も探しているんだ」',
       choices: [
-        { label: '整備に参加する', desc: (st) => U.ha(E.seibiArea(st)) + ' が大区画に（手間 約' + U.pct(D.SEIBI.labor) + '・大きな機械の能力が上がる）。今年と来年は収量が落ちる。' + (E.seibiBurden(st) > 0 ? '負担金 ' + U.man(E.seibiBurden(st)) + '（無利子10年）' : ''),
+        { label: '整備に参加する', desc: (st) => U.ha(E.seibiArea(st)) + ' が大区画に（手間 約' + U.pct(D.SEIBI.labor) + '・大きな機械の能力が上がる）。今年と来年は収量が落ちる。' + (E.seibiBurden(st) > 0 ? '負担金 ' + U.man(E.seibiBurden(st)) + (RG.challenge && RG.challenge.on(st, 'noloan') ? '（一括払い）' : '（無利子10年）') : ''),
           apply: (st) => E.doSeibi(st, false) },
         { label: '参加して、地区の田もまとめて引き受ける', desc: (st) => '上に加えて、整備ずみの田 ' + U.ha(E.seibiTake(st)) + ' を借りる（地代 10aあたり ' + U.yen(D.SEIBI.takeRent) + '）。集積協力金 ' + U.man(E.seibiTake(st) * 10 * D.SEIBI.coop) + '・地域の信頼 +4。人手と機械が足りるか注意',
           apply: (st) => E.doSeibi(st, true) },
@@ -422,7 +422,7 @@
   E.seibiBurden = (st) => Math.round(U.sum(E.seibiFields(st).filter((f) => f.owned), (f) => f.area) * 10 * D.SEIBI.burden);
   // 整備した田：区画が大きくなり（土の条件「良」）、手間が減る。工事のあと2年は収量が落ちる
   E.applySeibi = function (st, f) {
-    f.soil = 'good'; f.seibi = st.year; f.laborMult = D.SEIBI.labor;
+    f.seibiFrom = f.soil; f.soil = 'good'; f.seibi = st.year; f.laborMult = D.SEIBI.labor;
     f.yieldMult = D.SEIBI.yield * D.SEIBI.yieldDrop[0];
   };
   E.doSeibi = function (st, take) {
