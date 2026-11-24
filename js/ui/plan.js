@@ -48,6 +48,16 @@
       h('div', { class: 'layout' }, nav, h('main', { class: 'stack' }, content), h('aside', { class: 'aside' }, previewPanel(app, st, pv, hints))));
   };
 
+  // ---------- 進め方（ふつう／おまかせ） ----------
+  function paceCard(app, st) {
+    if (!RG.crew || st.year < 2) return null;
+    const q = RG.crew.quick(st);
+    return h('div', { class: 'hand pace' }, h('div', { class: 'hand-h' }, h('b', null, '⏩ 1年の進め方'),
+      h('span', { class: 'small muted' }, q ? 'おまかせ：運だめしは自動で振り、シーズン中は作業を計画どおりに決めて、毎月のできごとは見送ります。年のできごととサイコロ勝負だけで止まります' : 'ふつう：運だめし・毎月のできごと・作業の判断を、1つずつ自分で決めます')),
+      h('div', { class: 'row' }, UI.btn('ふつう', () => app.update((x) => RG.crew.setPace(x, false), { msg: 'ふつうの進め方にしました' }), q ? 'sm' : 'sm primary'),
+        UI.btn('⏩ おまかせ', () => app.update((x) => RG.crew.setPace(x, true), { msg: 'おまかせで進めます（年のできごととサイコロ勝負だけで止まります）' }), q ? 'sm primary' : 'sm')));
+  }
+
   // ---------- タブの見出し：絵と、高橋さんのひとこと ----------
   const BANNERS = {
     crops: ['🌾', '🌱', '🍶', '作付計画', '何を、どれだけ作る？'], land: ['🗾', '🏡', '🤝', '農地', '田んぼを広げる？ 返す？'],
@@ -164,7 +174,7 @@
     const sec = (tone, ic, text, sub) => h('div', { class: 'ov-sec tone-' + tone }, h('span', { class: 'ov-sec-ic', 'aria-hidden': 'true' }, ic), h('span', null, text), sub ? h('small', null, sub) : null);
     const tone = (el, cls) => { if (el) el.classList.add('ov', ...cls.split(' ')); return el; };
     const pair = (x, y) => (x && y ? h('div', { class: 'ov-pair' }, x, y) : x || y);
-    const out = [homeHero(st), deadlineBox, RG.scenes.isStory(st) ? RG.screens.promiseCard(st, { progress: true }) : null, RG.screens.promise2Card(st), RG.screens.challengeCard(st), RG.screens.duelCard(st), RG.screens.handCard(st)];
+    const out = [homeHero(st), deadlineBox, RG.scenes.isStory(st) ? RG.screens.promiseCard(st, { progress: true }) : null, RG.screens.promise2Card(st), RG.screens.challengeCard(st), RG.screens.duelCard(st), RG.screens.goalCard ? RG.screens.goalCard(st) : null, RG.screens.grandCard ? RG.screens.grandCard(st) : null, RG.screens.handCard(st), paceCard(app, st)];
 
     // ① 今年のこと
     out.push(sec('green', '🌱', '今年のこと'));
@@ -650,7 +660,12 @@
     });
     if (L.directLabor > 0) opRows.push(['直販の精米・発送', '通年', { v: U.num(L.directLabor) + 'h', cls: 'num' }, '—', '—']);
     const staffCost = D.LABOR.staffSalary * st.market.wageInfl * (1 + D.LABOR.staffSocial);
+    const mg = pv.manage, M = D.MANAGE;
+    const mgCard = mg ? UI.card('👀 目が届く広さ', '水管理・見回り・段取りを任せられる人の数で決まる（時間が足りるかとは別）',
+      h('div', { class: 'kpis' }, UI.kpi('目が届く広さ', U.ha(mg.cap), '', mg.over > 0.001 ? 'bad' : 'good'), UI.kpi('今年の作付', U.ha(mg.area), mg.over > 0.001 ? '超えている：収量 −' + U.pct(1 - mg.y) + '・品質 −' + U.num(mg.q, 1) + '点' : '目が届いている', mg.over > 0.001 ? 'bad' : '')),
+      h('p', { class: 'small muted' }, '経営主 ' + M.owner + 'ha・後継者や、農業に専念している配偶者（年1,200時間以上）1人 +' + M.family + 'ha・正社員1人 +' + M.staff + 'ha・常雇用パート1人 +' + M.regular + 'ha。スマート農業（自動操舵・水管理）を全面で使うと +' + U.pct(M.smart) + '。季節パートは時間の手伝いで、見回りは任せられないので数えません。超えた割合が大きいほど、収量（最大 −' + U.pct(M.maxY) + '）と品質（最大 −' + M.maxQ + '点）が落ちます。')) : null;
     return h('div', { class: 'stack' },
+      mgCard,
       UI.card('季節ごとの労働バランス', '必要な時間と働ける時間',
         h('div', { class: 'season-gauges' }, D.SEASONS.map((s) => {
           const x = L.seasons[s], have = x.need - x.short, ok = x.ratio <= 0.01;
@@ -688,7 +703,12 @@
           UI.btn('採用する', () => app.update((s) => A.hireRegular(s, c.id), { undo: true, msg: c.name + 'を常雇用パートとして採用しました' }), 'sm primary')))),
         h('p', { class: 'small muted' }, '年' + U.num(D.LABOR.regularHours) + '時間、季節に分けて働きます（手際が良い人ほど多くこなせる）。給与は毎月かかる固定費です。採用のときに募集費 ' + U.man(D.LABOR.regularRecruit * st.market.wageInfl) + ' がかかります。')),
       UI.card('正社員', '年 ' + U.num(D.LABOR.staffHours) + '時間働ける。給与は毎月かかる固定費',
-        st.staff.length ? UI.table([{ label: '名前' }, { label: '勤続', num: true }, { label: '年間の人件費', num: true }, { label: '' }], st.staff.map((s) => [s.name, { v: s.years + '年', cls: 'num' },
+        st.staff.length && RG.crew ? h('div', { class: 'small', style: { marginBottom: '6px' } }, '社員には得意なことがあり、勤続3年ごとにレベルが上がります（最高5）。担当を任せると、その分野の出来がよくなります（得意でない担当は半分の力）。いちばん力のある人の分だけ効きます。') : null,
+        st.staff.length ? UI.table([{ label: '名前' }, { label: '得意・レベル' }, { label: '担当' }, { label: '勤続', num: true }, { label: '年間の人件費', num: true }, { label: '' }], st.staff.map((s) => [h('span', null, s.name, s.exec ? h('span', { class: 'badge good' }, '右腕') : null),
+          RG.crew && RG.crew.ROLES[s.skill] ? RG.crew.ROLES[s.skill].icon + ' ' + RG.crew.ROLES[s.skill].name + '・Lv' + RG.crew.level(s) : '—',
+          RG.crew ? h('span', null, UI.select(RG.crew.ROLE_KEYS.map((k) => ({ value: k, label: RG.crew.ROLES[k].icon + ' ' + RG.crew.ROLES[k].name })), s.role || s.skill, (v) => app.update((x) => RG.crew.setRole(x, s.id, v), { msg: s.name + 'の担当を変えました' }), { 'aria-label': s.name + 'の担当' }),
+            RG.crew.ROLES[s.role || s.skill] && h('div', { class: 'small muted' }, RG.crew.ROLES[s.role || s.skill].desc(Math.round(RG.crew.level(s) * ((s.role || s.skill) === s.skill ? 1 : 0.5) * 10) / 10))) : '—',
+          { v: s.years + '年', cls: 'num' },
           { v: U.man(s.salary * (1 + D.LABOR.staffSocial)), cls: 'num' },
           UI.btn('退職してもらう', async () => { if (await UI.confirm('社員に退職してもらいますか？', s.name + 'に退職してもらいます。退職金 ' + U.man(D.LABOR.staffSeverance) + ' がかかります。', '退職してもらう')) app.update((x) => A.fireStaff(x, s.id), { undo: true }); }, 'sm danger')]))
           : h('p', { class: 'muted' }, '社員はいません。'),

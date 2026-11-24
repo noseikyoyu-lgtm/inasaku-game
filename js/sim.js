@@ -225,6 +225,14 @@
   // 田植機・コンバインは、大きな機械ほど平坦・大区画の田（条件良）で能力が上がり、中山間・小区画の田（条件不利）で落ちる。小さな機械はあまり変わらない
   const SIZE_FIELD = { good: [0, 0.05, 0.1, 0.2], poor: [0, -0.1, -0.2, -0.35] };
   SIM.FIELD_TYPES = ['planter', 'combine'];
+  // 目が届く広さ（ha）：経営主・機械に乗れる家族・正社員・常雇用パートの数と、スマート農業で決まる
+  SIM.manageCap = function (st, smartCov) {
+    const M = D.MANAGE, S = RG.state, op = S.operator(st), sc = S.successor(st);
+    const spouse = (f) => (f.tag === 'spouse' || /配偶者/.test(f.name + (f.role || ''))) && (f.hours || 0) >= 1200; // 農業に専念している配偶者
+    const fam = st.family.filter((f) => f !== op && f.tag !== 'retired' && f.tag !== 'grandpa' && (f === sc || spouse(f)) && !(Number(f.age) < 18)).length;
+    const base = M.owner + M.family * fam + M.staff * st.staff.length + M.regular * (st.regulars || []).length + 2 * (RG.crew ? RG.crew.roleLv(st, 'mizu') : 0); // 水管理の担当
+    return Math.round(base * (1 + M.smart * (smartCov || 0)) * 10) / 10;
+  };
   // 人が乗って動かす機械：乗れる人（自分・後継者・正社員・常雇用パート）の数までしか同時に動かせない
   SIM.DRIVEN_TYPES = ['tractor', 'planter', 'combine'];
   // 直販のお客さんを1人増やす費用（物価の上昇は入れない）
@@ -331,7 +339,8 @@
       st.machines.forEach((m) => {
         if (!(D.MODELS[m.model].cap > 0)) return;
         const r = SIM.breakdownRisk(st, m, bctx);
-        if (RG.rng.hash01(st.seed, st.year, 'bd', m.id) < r.p * (dfx.bd || 1)) { broken[m.id] = true; brokenWhy[m.id] = r.factors.map((x) => x.label); }
+        // 冬の整備・点検（dfx.bd）は自分の機械だけに効く。リースの機械は入らない
+        if (RG.rng.hash01(st.seed, st.year, 'bd', m.id) < r.p * (m.lease ? 1 : dfx.bd || 1)) { broken[m.id] = true; brokenWhy[m.id] = r.factors.map((x) => x.label); }
       });
     }
     const mach = {
@@ -345,6 +354,10 @@
     };
     const droneCov = area.planted > 0 ? mach.drone.own / area.planted : 0;
     const smartCov = area.planted > 0 ? mach.smart.own / area.planted : 0;
+    // 目が届く広さ（D.MANAGE）：超えると、見回りや水管理の行き届かない田が出て、収量と品質が落ちる
+    const mgCap = SIM.manageCap(st, smartCov), mgOver = area.planted > 0 ? Math.max(0, area.planted / mgCap - 1) : 0;
+    const mgY = 1 - Math.min(D.MANAGE.maxY, D.MANAGE.y * mgOver), mgQ = Math.min(D.MANAGE.maxQ, D.MANAGE.q * mgOver);
+    res.manage = { cap: mgCap, area: area.planted, over: mgOver, y: mgY, q: mgQ };
     const hasMill = SIM.hasType(st, 'mill');
     res.machines = mach;
     res.broken = Object.keys(broken).map((id) => {
@@ -469,7 +482,8 @@
     const und = (k) => (area.planted > 0 ? ops[k].undone / area.planted : 0);
     const delayY = U.clamp(1 - Math.max(und('till'), und('plant'), 0.8 * und('harvest'), 0.3 * und('dry')), 0.02, 1);
     const skillY = (0.97 + 0.4 * (st.skill - 0.9)) * (hasSk('meijin') ? 1.015 : 1);
-    const skQ = (hasSk('mizu') ? 1.5 : 0) + (hasSk('meijin') ? 1.5 : 0), skLate = hasSk('takumi') ? 0.5 : 1;
+    const crLv = (r) => (RG.crew ? RG.crew.roleLv(st, r) : 0); // 社員の担当の力（js/crew.js）
+    const skQ = (hasSk('mizu') ? 1.5 : 0) + (hasSk('meijin') ? 1.5 : 0) + 0.3 * crLv('mizu'), skLate = hasSk('takumi') ? 0.5 : 1;
     const sev = (!preview && W.pest.occurs) ? W.pest.severity : 0;
     const pestMult = RG.fieldwork ? (RG.fieldwork.input(st, 'pest').pest || 1) : 1; // 農薬の種類で病害虫の被害が変わる
     const norm = AG.norm();
@@ -505,8 +519,8 @@
         noise = (0.92 + r.next() * 0.16) * Math.exp(r.normal(0, p.sow.noise || 0.0001));
         qNoise = r.next() * 4 - 2;
       }
-      const y10 = std * p.timing.m * wIdx * skillY * laborY * delayY * (1 - lateY) * (1 - pestLoss) * boar * dfx.y * noise;
-      const q = dfx.q + v.bq + p.timing.q + wf.qm - lateQ - 25 * sh('autumn') - 30 * und('harvest') - 20 * und('dry') - 60 * pestLoss + 20 * (st.skill - 0.95) + skQ + qNoise;
+      const y10 = std * p.timing.m * wIdx * skillY * laborY * delayY * mgY * (1 - lateY) * (1 - pestLoss) * boar * dfx.y * noise;
+      const q = dfx.q + v.bq + p.timing.q + wf.qm - lateQ - 25 * sh('autumn') - 30 * und('harvest') - 20 * und('dry') - 60 * pestLoss + 20 * (st.skill - 0.95) + skQ - mgQ + qNoise;
       const gi = v.market ? AG.gradeInfo(v, q) : { mix: [1, 0, 0, 0], coef: 1 };
       const r1 = gi.mix[0];
       const bales = (y10 * p.a10) / 60;
@@ -568,7 +582,7 @@
       newCustomers: 0, churn: 0, unmet: 0, customersEnd: st.direct.customers, perBaleNet: 0 };
     // 新しいお客さん：お客さんが増えるほど、1人増やす費用が高くなる（集めやすい人から集まっていく）
     const cacNow = SIM.directCac(st) * mInf;
-    const newCust = (st.direct.marketing / cacNow) * (1 + st.brand / 100) * (hasSk('kao') ? 1.15 : 1);
+    const newCust = (st.direct.marketing / cacNow) * (1 + st.brand / 100) * (hasSk('kao') ? 1.15 : 1) * (1 + 0.04 * (RG.crew ? RG.crew.roleLv(st, 'eigyo') : 0));
     if (dp && dCrop && dCrop.directCoef) {
       const alloc = Math.max(0, Math.min(st.direct.alloc, dp.rem));
       dp.rem -= alloc;
@@ -810,7 +824,7 @@
     spend('water', area.total * 10 * D.COST.water, { 6: 1 });
     spend('contract', contractFee.spring, { 5: 1 }, '春作業の委託料');
     spend('contract', contractFee.autumn, { 10: 1 }, '秋作業の委託料');
-    spend('repair', U.sum(st.machines, (m) => SIM.repairCost(m, mInf)) * (hasSk('ijiri') ? 0.8 : 1), { 3: 0.5, 9: 0.5 }, '機械の点検・修理');
+    spend('repair', U.sum(st.machines, (m) => SIM.repairCost(m, mInf)) * (hasSk('ijiri') ? 0.8 : 1) * (1 - 0.03 * (RG.crew ? RG.crew.roleLv(st, 'kikai') : 0)), { 3: 0.5, 9: 0.5 }, '機械の点検・修理');
     const brokenCost = U.sum(res.broken.filter((b) => !b.lease), (b) => D.MODELS[st.machines.find((m) => m.id === b.id).model].price * 0.12 * mInf);
     spend('repair', brokenCost, { 9: 1 }, '故障の修理');
     const dep = {};
@@ -1136,6 +1150,8 @@
     if (RG.challenge) RG.challenge.afterYear(st, res).forEach((t) => { res.notes.push(t); (res.missionNotes = res.missionNotes || []).push(t); });
     // ライバルとの勝負・集落の番付・図鑑・引き継ぎ特典
     if (RG.extras) RG.extras.afterYear(st, res).forEach((t) => { res.notes.push(t); (res.missionNotes = res.missionNotes || []).push(t); });
+    // 今年の目標・大きな挑戦
+    if (RG.goals) RG.goals.afterYear(st, res).forEach((t) => { res.notes.push(t); (res.missionNotes = res.missionNotes || []).push(t); });
     st.phase = 'season';
   };
 })(window.RG = window.RG || {});

@@ -230,7 +230,8 @@
     const P = D.PART_PEOPLE, note = P.notes[Math.floor(r.next() * P.notes.length)];
     const skill = U.round(U.clamp(note[1] * (0.92 + 0.16 * r.next()), 0.75, 1.3), 2);
     const wage = Math.round(D.LABOR.partWage * (0.92 + 0.12 * r.next() + 0.18 * (skill - 1)) / 10) * 10;
-    return { name: P.names[Math.floor(r.next() * P.names.length)] + 'さん', age: 20 + Math.floor(r.next() * 50), note: note[0], skill, wage };
+    const name = P.names[Math.floor(r.next() * P.names.length)] + 'さん', ag = note[2] || [20, 69];
+    return { name, age: ag[0] + Math.floor(r.next() * (ag[1] - ag[0] + 1)), note: note[0], skill, wage }; // 年齢は人物像に合わせる（学生は10代後半〜20代前半など）
   };
   S.seasonParts = (st, n) => Array.from({ length: Math.max(0, n) }, (_, i) => S.personOf(st, 'spart', i));
   // 常雇用パートの応募者（毎年3人）。1年を通して働き、トラクター・田植機・コンバインにも乗れる
@@ -358,6 +359,7 @@
     const used = new Set(st.staff.map((s) => s.name)), names = D.STAFF_NAMES.map((n) => n + 'さん');
     const name = names.find((n) => !used.has(n)) || names[st.staff.length % names.length];
     st.staff.push({ id: U.uid(st, 's'), name, years: 0, salary: D.LABOR.staffSalary * st.market.wageInfl });
+    if (RG.crew) RG.crew.ensure(st); // 得意なことと担当（js/crew.js）
   };
 
   // 年の始まり：世界・オファー・イベントを用意
@@ -389,6 +391,8 @@
     if (RG.era) RG.era.beginYear(st);
     if (RG.scenes) RG.scenes.beginYear(st);
     if (RG.extras) RG.extras.beginYear(st); // 備えのカード
+    if (RG.crew) RG.crew.beginYear(st); // 社員の得意なこと・おまかせの進め方（運だめしを自動で振る）
+    if (RG.goals) RG.goals.beginYear(st); // やりとげた大きな挑戦の、毎年のごほうび
     RG.events.splitSeason(st); // 計画に関わらないできごとは、シーズン中の月に回す
     st.phase = RG.chapters && RG.chapters.needsDoor(st) ? 'chapter' : RG.dice && RG.dice.active(st) ? 'dice' : st.events.queue.length ? 'event' : 'plan';
     // 章の節目には、じいちゃんとの会話の場面が先に入る
@@ -478,8 +482,9 @@
     if (!st.mode) st.mode = st.scenarioId === 'custom' ? 'endless' : 'story';
     if (RG.chapters) RG.chapters.state(st);
     // 物語（じいちゃんの田んぼ・棚田）を20年から15年にした前のセーブ：まだ14年目までなら、15年の物語に切り替える
+    // （じいちゃんの田んぼは、その後10年にした。15年で始めたセーブは、15年のまま続ける）
     const sc15 = D.SCENARIOS[st.scenarioId];
-    if (sc15 && sc15.story && sc15.maxYear === 15 && st.maxYear === 20 && st.mode !== 'endless' && st.year <= 14) {
+    if (sc15 && sc15.story && sc15.trials15 && st.maxYear === 20 && st.mode !== 'endless' && st.year <= 14) {
       st.maxYear = 15;
       (st.missions || []).forEach((m) => { if (m.status === 'active' && m.deadline > 15) m.deadline = 15; }); // 依頼の期限も最後の年までに
     }
@@ -549,6 +554,7 @@
     }
     const r = st.lastResult;
     if (r && r.pl && r.rec) r.pl.get = (k) => r.rec[k] || 0;
+    if (RG.crew && st.staff) RG.crew.ensure(st); // 前の版のセーブの社員にも、得意なことと担当を入れる
     return st;
   };
   S.fromJSON = function (text) {

@@ -1,4 +1,4 @@
-// 章立て・依頼・経営の道（ストーリーの15年は3つの章、20年の経営は4つの章に分け、章ごとの目標と依頼で中だるみを防ぐ）。DOM 非依存
+// 章立て・依頼・経営の道（10年の物語は2つ、15年の物語は3つ、20年の経営は4つの章に分け、章ごとの目標と依頼で中だるみを防ぐ）。DOM 非依存
 (function (RG) {
   'use strict';
   const D = RG.data, U = RG.util, E = RG.events;
@@ -25,7 +25,13 @@
       intro: 'いよいよ最後の5年。機械の買い替え、暑くなる夏、ふくらんだ借入に備えながら、積み上げてきた経営をどんな形で次の人に渡すか。総仕上げだね。',
       news: ['機械の買い替えの山と、暑くなる夏', '借入を減らす依頼、後継ぎを決める依頼、純資産を育てる依頼', '15年目の終わりに最終評価と、選んだ道のエンディング'] },
   ]);
-  CH.listOf = (st) => (st && st.maxYear && st.maxYear <= 15 ? CH.LIST15 : CH.LIST);
+  // 10年の物語（じいちゃんの田んぼ）：後半の章で、道を進みながら、時代の変化への備えと次の世代への引き継ぎまで行う
+  CH.LIST10 = CH.LIST.slice(0, 1).concat([
+    { n: 2, from: 6, to: 10, name: '拡大と継承', icon: '🚀', theme: '#e9a52a', goal: '選んだ「経営の道」を進み、よい形で次の世代へつなぐ',
+      intro: 'ここからが後半の5年。どんな経営にしたいかを決めて進みながら、暑くなる夏や米の値段の波に備え、積み上げたものを次の人へつなぐ。総仕上げだね。',
+      news: ['この章の初めに「経営の道」を選ぶ（道ごとにボーナスと依頼がある）', '新しい事業（作業受託・加工・直売所）と、後半だけの大きな挑戦', '暑さへの備え・借入を減らす・後継ぎを決める依頼', '10年目の終わりに最終評価と、選んだ道のエンディング'] },
+  ]);
+  CH.listOf = (st) => (st && st.maxYear && st.maxYear <= 10 ? CH.LIST10 : st && st.maxYear && st.maxYear <= 15 ? CH.LIST15 : CH.LIST);
   // 章・依頼・経営の道は、区切りのある経営（ストーリーなど）だけ。自分の経営モードには出さない
   CH.on = (st) => st.mode !== 'endless';
   // st を渡すと、ストーリーごとの章の名前・目標・説明に差し替える（js/scenes.js）
@@ -91,38 +97,38 @@
       text: '「米を餅や米粉にすると、お客さんの顔が変わるんですよ。一緒に盛り上げましょう」',
       check: (st, res) => !!(res.sales.biz && res.sales.biz.proc && res.sales.biz.proc.sold >= 30), progress: () => '「新しい事業」タブで加工場を建てて、加工に回す',
       reward: { customers: 30, brand: 6 } },
-    { id: 'grade90', who: 'aoki', from: 7, until: 10, years: 3, title: '1等米90%以上の年を出す',
+    { id: 'grade90', who: 'aoki', from: 7, until: 10, w10: [7, 8], years: 3, title: '1等米90%以上の年を出す',
       text: '「うちのお客さんは見た目にもうるさい。90%を超えたら、もっと扱わせてもらいますよ」',
       check: (st, res) => res.production.marketBales > 0 && res.production.r1 >= 0.9, progress: (st) => lr(st) ? '去年 ' + pct(lr(st).production.r1) + '（目標 90%）' : '目標 90%',
       reward: { brand: 4, trust: 2, omamori: 1 } },
-    { id: 'direct200', who: 'ogawa', from: 7, until: 10, years: 3, title: '直販のお客さんを増やす',
+    { id: 'direct200', who: 'ogawa', from: 7, until: 10, w10: [6, 7], years: 3, title: '直販のお客さんを増やす',
       target: (st) => Math.max(120, Math.round(st.direct.customers * 2)),
       text: '「一度ついたお客さんは、毎年の安定した売上になります。まずは数を増やしましょう」',
       check: (st, res, m) => st.direct.customers >= m.target, progress: (st, m) => '今 ' + U.num(st.direct.customers) + '人（目標 ' + U.num(m.target) + '人）',
       reward: { brand: 5, reroll: 1 } },
     // 第3章
-    { id: 'heatTolerant', who: 'takahashi', from: 11, until: 13, years: 2, title: '暑さに強い品種を作付の3割以上に',
+    { id: 'heatTolerant', who: 'takahashi', from: 11, until: 13, w10: [7, 8], years: 2, title: '暑さに強い品種を作付の3割以上に',
       text: '「夏はもう、昔の夏じゃない。新之助やにじのきらめきみたいに、暑さに強い品種を混ぜておこう」',
       check: (st, res) => { const P = res.production.plots, a = U.sum(P, (p) => p.area); return a > 0 && U.sum(P.filter((p) => (D.CROPS[p.crop].ht || 0) >= 0.6), (p) => p.area) / a >= 0.3; },
       progress: () => '高温耐性の強い品種（新之助・なつひめ・ゆきん子舞・にじのきらめき）を3割以上', reward: { skill: 0.01, trust: 3 } },
-    { id: 'debtHalf', who: 'kimura', from: 11, until: 14, years: 3, title: '借入を半分に減らす',
+    { id: 'debtHalf', who: 'kimura', from: 11, until: 14, w10: [7, 8], years: 3, title: '借入を半分に減らす',
       cond: (st) => RG.accounting.bs(st).longLoans >= 3000000,
       target: (st) => Math.round(RG.accounting.bs(st).longLoans * 0.5),
       text: '「借入が重いままだと、次の機械の買い替えで苦しくなります。少し身軽になっておきませんか」',
       check: (st, res, m) => res.bs.longLoans <= m.target, progress: (st, m) => '今 ' + U.man(RG.accounting.bs(st).longLoans) + '（目標 ' + U.man(m.target) + ' 以下）',
       reward: { lowRateNext: true, cash: 300000 } },
-    { id: 'successor', who: 'takahashi', from: 13, until: 15, years: 3, title: '後継ぎを決める',
+    { id: 'successor', who: 'takahashi', from: 13, until: 15, w10: [8, 8], years: 3, title: '後継ぎを決める',
       cond: (st) => !RG.state.successor(st) && !RG.state.pendingSuccessor(st),
       text: '「経営は、続いてこそ経営だ。家族でも、外から来た若い人でもいい。後を託せる人を決めておこう」',
       check: (st) => !!(RG.state.successor(st) || RG.state.pendingSuccessor(st) || st.family.some((f) => f.tag === 'trainee')),
       progress: () => '家族の後継者、または研修生（健太さん）を迎える', reward: { trust: 5, omamori: 1 } },
     // 第4章
-    { id: 'equity2x', who: 'kimura', from: 16, until: 17, w15: [11, 12], years: 4, title: '純資産を、始めたときの2倍以上に',
+    { id: 'equity2x', who: 'kimura', from: 16, until: 17, w15: [11, 12], w10: [7, 7], years: 4, title: '純資産を、始めたときの2倍以上に',
       target: (st) => Math.max(st.initialEquity * 2, st.initialEquity + 10000000),
       text: '「これまでの経営の成果は、最後は純資産に表れます。次の世代に、よい形で渡しましょう」',
       check: (st, res, m) => res.bs.equity >= m.target, progress: (st, m) => '今 ' + U.man(RG.accounting.bs(st).equity) + '（目標 ' + U.man(m.target) + '）',
       reward: { trust: 5, brand: 5 } },
-    { id: 'trust80', who: 'sato', from: 16, until: 18, w15: [12, 13], years: 3, title: '地域の信頼を80以上に',
+    { id: 'trust80', who: 'sato', from: 16, until: 18, w15: [12, 13], w10: [8, 8], years: 3, title: '地域の信頼を80以上に',
       text: '「あんたには、この集落の田んぼを任せたいんじゃ。皆にそう思われる人になっておくれ」',
       check: (st) => st.trust >= 80, progress: (st) => '今 ' + Math.round(st.trust) + '（目標 80）', reward: { land: 3.0, brand: 3 } },
   ];
@@ -180,8 +186,8 @@
     CH.MISSIONS.push(m);
   });
   CH.def = (id) => CH.MISSIONS.find((m) => m.id === id);
-  // 依頼が届く年（15年の物語は w15 の年）
-  CH.win = (m, st) => (st && st.maxYear <= 15 && m.w15 ? m.w15 : [m.from, m.until]);
+  // 依頼が届く年（10年の物語は w10、15年の物語は w15 の年）
+  CH.win = (m, st) => (st && st.maxYear <= 10 && m.w10 ? m.w10 : st && st.maxYear <= 15 && m.w15 ? m.w15 : [m.from, m.until]);
 
   // ごほうびの説明
   CH.rewardText = function (r) {

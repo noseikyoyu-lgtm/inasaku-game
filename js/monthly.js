@@ -583,9 +583,18 @@
 
   const val = (v, st) => (typeof v === 'function' ? v(st) : v);
   const SEASON_OF = (m) => (m <= 2 || m === 12 ? 'winter' : m <= 5 ? 'spring' : m <= 8 ? 'summer' : 'autumn');
+  // 作業時間の季節を、そのできごとの月に合わせる。今する作業（pre）はその月の季節、結果（out）はもう過ぎた季節ならその月の季節に回す
+  // （例：6月の「田んぼに入ってもらう」は、春ではなく夏の作業。12月の冬は、1・2月から見ると先の季節）
+  const SEASON_END = { spring: 5, summer: 8, autumn: 11, winter: 12 };
+  ME.hAt = function (h, m, now) {
+    if (!h || !m) return h;
+    const cur = SEASON_OF(m), out = {};
+    for (const s in h) { const to = now || (m > 2 && SEASON_END[s] < m) ? cur : s; out[to] = (out[to] || 0) + h[s]; }
+    return out;
+  };
   // 効果の説明
   const money = (v) => (Math.abs(v) < 10000 ? U.yen(v) : U.man(v)); // 1万円未満は円で（「＋0.0万円」と出ないように）
-  ME.effText = function (e, st) {
+  ME.effText = function (e, st, m) {
     const t = [];
     if (e.income) t.push('＋' + money(e.income));
     if (e.cost) t.push('−' + money(e.cost));
@@ -597,14 +606,14 @@
     if (e.skill) t.push('技術力アップ');
     if (e.bd) t.push(e.bd < 1 ? '今年の機械の故障が減る' : '機械の故障が少し増える');
     if (e.omamori) t.push('お守り +' + e.omamori);
-    const h = val(e.h, st);
+    const h = ME.hAt(val(e.h, st), m);
     if (h) for (const s in h) t.push(D.SEASON_SHORT[s] + 'の作業 ' + (h[s] > 0 ? '+' : '−') + Math.abs(h[s]) + '時間');
     return t.join('・');
   };
-  ME.preText = function (ch, st) {
+  ME.preText = function (ch, st, m) {
     const p = ch.pre || {};
     const t = [];
-    const c = val(p.cost, st), h = val(p.h, st);
+    const c = val(p.cost, st), h = ME.hAt(val(p.h, st), m, true);
     if (c) t.push(money(c));
     if (h) for (const s in h) t.push(D.SEASON_SHORT[s] + 'の作業 +' + h[s] + '時間');
     return t.join('・');
@@ -620,7 +629,7 @@
       const m = +k, c = s[k], ev = ME.def(c.id);
       if (!ev || c.ci < 0) return;
       const ch = ev.choices[c.ci], out = ch.out[tier(c.face)], e = out.e, p = ch.pre || {};
-      const pc = val(p.cost, st) || 0, ph = val(p.h, st) || {}, eh = val(e.h, st) || {};
+      const pc = val(p.cost, st) || 0, ph = ME.hAt(val(p.h, st), m, true) || {}, eh = ME.hAt(val(e.h, st), m) || {};
       if (pc) dfx.costs.push({ month: m, amount: pc, label: ev.title + '（' + ch.label + '）' });
       if (e.cost) dfx.costs.push({ month: m, amount: e.cost, label: ev.title + '（出費）' });
       let inc = e.income || 0;

@@ -22,6 +22,7 @@
     nishikawa: { name: '営農組合の西川さん', sprite: 'nishikawa' },
     hayashi: { name: '新規就農の林さん', sprite: 'hayashi' },
     haruka: { name: '幼なじみの遥さん', sprite: 'haruka' },
+    devm: { name: '開発者M', sprite: 'devm' }, // このゲームを作っている人（経営を終えた画面で、感想をお願いする）
   };
   // 今あるイベントの話し手
   const WHO = { machine_subsidy: 'takahashi', training: 'takahashi', feed_policy: 'takahashi', shinnosuke_reg: 'takahashi', min_wage: 'takahashi',

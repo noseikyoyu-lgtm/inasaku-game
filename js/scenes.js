@@ -13,7 +13,7 @@
   const pathName = (st) => (st.path && RG.chapters ? RG.chapters.PATHS[st.path].name : '');
 
   // ======================================================================
-  // 物語1：じいちゃんの田んぼ（15年）
+  // 物語1：じいちゃんの田んぼ（10年。前の版の15年のセーブは、15年のまま続く）
   // ======================================================================
   const STORY = {
     goalName: 'じいちゃんとの約束', giver: 'jiichan',
@@ -26,7 +26,7 @@
     progress: (st) => ({ text: '🌾 ' + U.ha(area(st)) + ' / 15ha', v: Math.min(area(st), 15), max: 15 }),
     sceneAt: { 6: 'ch2', 11: 'ch3', 13: 'ch4' },
     scenes: {
-      prologue: () => [
+      prologue: (st) => [
         { who: 'narr', text: '春の夕暮れ。久しぶりに、じいちゃんの家に帰ってきた。田んぼの向こうに、雪の残る山が見える。' },
         { who: 'jiichan', text: 'おう、よう来てくれた。……実はな、この冬に腰をやってしもうて、もう田んぼに出られそうにないんじゃ。' },
         { who: 'jiichan', text: 'ご先祖さんから受け継いだ、この2haの田んぼ。荒らしてしまうのは、どうにも忍びなくてのう。' },
@@ -34,7 +34,7 @@
         { who: 'narr', text: '米づくりなんて、子どものころに手伝ったくらいだ。機械の動かし方も、お金のことも、わからないことだらけ。それでも――気づけば、うなずいていた。' },
         { who: 'jiichan', text: 'なに、わしも最初はなんもわからんかった。JAの高橋さんを紹介しよう。話は長いが、あの人は頼りになる。' },
         { who: 'takahashi', text: 'はじめまして、高橋です。JAに入ったころから、おじいさんにはお世話になっていてね。田んぼのことも、お金のことも、一緒にやっていきましょう。' },
-        { who: 'jiichan', text: 'それと、ひとつ約束してくれんか。15年後、この集落の田んぼを守れるくらいの百姓になっとってくれ。それが、わしの夢じゃ。' },
+        { who: 'jiichan', text: 'それと、ひとつ約束してくれんか。' + st.maxYear + '年後、この集落の田んぼを守れるくらいの百姓になっとってくれ。それが、わしの夢じゃ。' },
         { who: 'goal' },
       ],
       ch2: (st) => {
@@ -43,7 +43,10 @@
           { who: 'jiichan', text: '5年、よう続けたのう。' + (a >= 4 ? '田んぼも' + U.ha(a) + 'に増えた。たいしたもんじゃ。' : 'まだ田んぼは小さいが、焦ることはない。根っこを張る時期じゃった。') },
           { who: 'jiichan', text: inc > 0 ? '去年はちゃんと儲けも出た。わしが若いころより、よっぽど上手じゃ。' : '儲けはまだこれからじゃな。じゃが、続けたことが何よりの財産じゃ。' },
           { who: 'jiichan', text: 'さて、ここからはお前の色を出す番じゃ。大きくするもよし、名のある米を作るもよし、地域の頼りになるもよし。お前の道を選べ。' },
-        ];
+        ].concat(st.maxYear <= 10 ? [
+          { who: 'takahashi', text: 'これからの5年は、暑くなる夏や米の値段の波もやってきます。備えた人が生き残る時代です。予告をよく見ておきましょう。' },
+          { who: 'jiichan', text: 'それとな、最後の年までには「この先」のことも考えておくんじゃぞ。田んぼは、お前ひとりのもんじゃない。' },
+        ] : []);
       },
       ch3: (st) => [
         { who: 'jiichan', text: 'わしもすっかり足腰が弱ってのう。田んぼの見回りは、もう全部お前に任せる。' },
@@ -61,7 +64,7 @@
       // じいちゃんは第3章から（倒れたらその年から）田んぼに出なくなるので、働き手（家族）から外す
       if (st.year >= 11 || st.flags.jiichanIll) st.family = st.family.filter((f) => f.tag !== 'grandpa');
       // 遥さんに直販を手伝ってもらっている間は、お礼をする
-      if (st.flags.harukaPay && st.year >= 5) RG.state.addLedger(st, { amount: -300000, cat: 'eventCost', label: '遥さんへの直販の手伝いのお礼', month: 12 });
+      if (st.flags.harukaPay && st.year > (st.flags.harukaAt || 4)) RG.state.addLedger(st, { amount: -300000, cat: 'eventCost', label: '遥さんへの直販の手伝いのお礼', month: 12 });
     },
     ending: (st, p) => {
       if (st.gameOver) return { title: 'じいちゃんの田んぼを手放した', kind: 'bad', lines: [
@@ -307,6 +310,8 @@
   const famHas = (st, tag) => st.family.some((f) => f.tag === tag);
   // じいちゃんの田んぼ
   Object.assign(STORY.sceneAt, { 2: 'st_shinmai', 4: 'st_haruka', 7: 'st_ill', 8: 'st_ce', 9: 'st_haruka2', 10: 'st_kaigi', 12: 'st_reika', 14: 'st_next' });
+  // 10年の物語の場面の年（15年は上の sceneAt。第3章・第4章の場面はなく、大事な場面だけを詰め直す）
+  STORY.sceneAt10 = { 2: 'st_shinmai', 3: 'st_haruka', 4: 'st_ce', 5: 'st_reika', 6: 'ch2', 7: 'st_ill', 8: 'st_kaigi', 9: 'st_haruka2', 10: 'st_next' };
   STORY.movies = { prologue: 'prologue' }; // 場面の前に流すムービー（js/ui/movie.js）
   STORY.sceneIf = { st_haruka2: (st) => (st.flags.haruka || 0) >= 1 && !famHas(st, 'spouse') };
   Object.assign(STORY.scenes, {
@@ -322,9 +327,9 @@
       { who: 'narr', text: '春の朝。じいちゃんが、田んぼのあぜで倒れた。救急車で運ばれ、しばらく入院することになった。' },
       { who: 'jiichan', text: '……すまんのう。苗の具合が気になって、つい見に出てしもうた。' },
       { who: 'takahashi', text: '田んぼのことは、みんなで何とかしましょう。今は、おじいさんのそばにいてあげてください。' }],
-    st_haruka2: () => [
+    st_haruka2: (st) => [
       { who: 'narr', text: '秋の終わり。刈り終えた田んぼを、遥と二人で眺めていた。' },
-      { who: 'haruka', text: '5年って、あっという間だね。あなたの米を売るの、なんだか自分のことみたいにうれしいの。' }],
+      { who: 'haruka', text: (st.maxYear <= 10 ? st.year - 3 : 5) + '年って、あっという間だね。あなたの米を売るの、なんだか自分のことみたいにうれしいの。' }],
     st_kaigi: (st) => [
       { who: 'narr', text: '冬の公民館。集落の「担い手会議」に呼ばれた。' },
       { who: 'ishii', text: 'この春で、田んぼをやめる家が5軒になります。合わせて4ha。誰かがまとめて預からんと、荒れてしまう。' },
@@ -389,13 +394,15 @@
   // ======================================================================
   const lastH = (st) => st.history[st.history.length - 1] || {};
   const nextGen = (st) => st.staff.length + st.family.filter((f) => f.tag === 'trainee' || f.tag === 'successor').length;
-  STORY.promise2 = { at: 9, who: 'jiichan', lead: '「約束の田んぼは、もう守れとる。……ここから先は、お前が自分で決めた道を、わしに見せてくれ」', options: [
-    { id: 'big', icon: '🚜', name: '地域でいちばんの担い手になる', text: '経営面積30ha以上・地域の信頼80以上',
-      conds: (st) => [{ label: '経営面積 30ha以上', ok: area(st) >= 30, now: U.ha(area(st)) }, { label: '地域の信頼 80以上', ok: st.trust >= 80, now: U.num(st.trust) }] },
-    { id: 'brand', icon: '🏷️', name: '名のある米を残す', text: 'ブランド力80以上・直販のお客さん900人以上',
-      conds: (st) => [{ label: 'ブランド力 80以上', ok: st.brand >= 80, now: U.num(st.brand) }, { label: '直販のお客さん 900人以上', ok: st.direct.customers >= 900, now: U.num(st.direct.customers) + '人' }] },
-    { id: 'solid', icon: '🏦', name: '借金のない、強い経営を渡す', text: '純資産9,000万円以上・借入0円',
-      conds: (st) => [{ label: '純資産 9,000万円以上', ok: (lastH(st).equity || 0) >= 9e7, now: U.man(lastH(st).equity || 0) }, { label: '借入 0円', ok: debtNow(st) <= 0, now: U.man(debtNow(st)) }] },
+  // 10年の物語は7年目に届き、目標も10年向け（p10）。15年で始めたセーブは前のまま
+  const p10 = (st, a, b) => (st.maxYear <= 10 ? a : b);
+  STORY.promise2 = { at: 9, at10: 7, who: 'jiichan', lead: '「田んぼも、すっかりお前の田んぼになったのう。……ここから先は、お前が自分で決めた道を、わしに見せてくれ」', options: [
+    { id: 'big', icon: '🚜', name: '地域でいちばんの担い手になる', text: (st) => '経営面積' + p10(st, 25, 30) + 'ha以上・地域の信頼' + p10(st, 75, 80) + '以上',
+      conds: (st) => [{ label: '経営面積 ' + p10(st, 25, 30) + 'ha以上', ok: area(st) >= p10(st, 25, 30), now: U.ha(area(st)) }, { label: '地域の信頼 ' + p10(st, 75, 80) + '以上', ok: st.trust >= p10(st, 75, 80), now: U.num(st.trust) }] },
+    { id: 'brand', icon: '🏷️', name: '名のある米を残す', text: (st) => 'ブランド力' + p10(st, 70, 80) + '以上・直販のお客さん' + p10(st, 600, 900) + '人以上',
+      conds: (st) => [{ label: 'ブランド力 ' + p10(st, 70, 80) + '以上', ok: st.brand >= p10(st, 70, 80), now: U.num(st.brand) }, { label: '直販のお客さん ' + p10(st, 600, 900) + '人以上', ok: st.direct.customers >= p10(st, 600, 900), now: U.num(st.direct.customers) + '人' }] },
+    { id: 'solid', icon: '🏦', name: '借金のない、強い経営を渡す', text: (st) => '純資産' + U.man(p10(st, 5e7, 9e7)) + '以上・借入0円',
+      conds: (st) => [{ label: '純資産 ' + U.man(p10(st, 5e7, 9e7)) + '以上', ok: (lastH(st).equity || 0) >= p10(st, 5e7, 9e7), now: U.man(lastH(st).equity || 0) }, { label: '借入 0円', ok: debtNow(st) <= 0, now: U.man(debtNow(st)) }] },
   ] };
   TANADA.promise2 = { at: 9, who: 'kucho', lead: '「田んぼは、あんたのおかげで残っとる。……この先、集落をどうしていきたいか、あんたの考えを聞かせてくれ」', options: [
     { id: 'all', icon: '⛰️', name: '集落の田んぼを荒らさない', text: '集落の田んぼの9割以上で米づくり',
@@ -434,6 +441,8 @@
     const s2 = !!d.star2.check(st), s3 = !!d.star3.check(st);
     return { conds, kept, s2, s3, stars: kept ? 1 + (s2 ? 1 : 0) + (s3 ? 1 : 0) : 0 };
   };
+  // 場面の年（10年の物語は sceneAt10）
+  SC.sceneMap = (st, d) => (st.maxYear <= 10 && d.sceneAt10) || d.sceneAt;
   SC.chapterOv = (st, n) => { const d = SC.def(st); return d && d.chapters ? d.chapters[n] || null : null; };
 
   // ---------- 会話の場面 ----------
@@ -453,7 +462,7 @@
   // 年の始まり：節目の場面
   SC.due = function (st) {
     const d = SC.def(st);
-    const id = d && d.sceneAt[st.year];
+    const id = d && SC.sceneMap(st, d)[st.year];
     if (id && d.sceneIf && d.sceneIf[id] && !d.sceneIf[id](st)) return null; // 条件つきの場面（例：遥さんとの話）
     return id && !(st.scenesSeen || {})[id] ? id : null;
   };
@@ -588,7 +597,7 @@
 
   // ---------- 章のあいだの場面のあとに選ぶできごと ----------
   // 場面の年（またはその次の年）に一度だけ。年初のできごとの先頭に入る
-  const beat = (sc, y) => (st) => st.scenarioId === sc && st.year >= y && st.year <= y + 1;
+  const beat = (sc, y, y10) => (st) => { const at = st.maxYear <= 10 && y10 ? y10 : y; return st.scenarioId === sc && st.year >= at && st.year <= at + 1; };
   SC.BEATS = []; // 場面のあとに選ぶできごと（年初のできごとの先頭に出す）
   const addField = (st, a, soil, rent, name) => { const f = RG.state.makePlot(st, { area: a, soil, rent, name }); st.fields.push(f); RG.state.addPlanArea(st, a); return f; };
   const extra = (st, h) => { const yf = st.yearFlags; yf.extraLabor = yf.extraLabor || {}; for (const s in h) yf.extraLabor[s] = (yf.extraLabor[s] || 0) + h[s]; };
@@ -601,10 +610,10 @@
         { label: '親せきや友だちに配って、感想を聞く', desc: '直販のお客さん +15人・ブランド力 +2（配った米の分 5万円）', apply: (st) => { ledger(st, -50000, '新米を配った'); st.direct.customers += 15; st.brand = clampT(st.brand + 2); return '「おいしい！ 今度は買わせて」と声が返ってきた。'; } },
         { label: '集落の人たちにふるまう', desc: '地域の信頼 +4（3万円）', apply: (st) => { ledger(st, -30000, '新米のふるまい'); st.trust = clampT(st.trust + 4); return '「じいさんの孫は、ええ米を作る」と評判になった。'; } },
       ] },
-    { id: 'st_haruka', sc: 'story', y: 4, who: 'haruka', title: '幼なじみの遥が帰ってきた',
+    { id: 'st_haruka', sc: 'story', y: 4, y10: 3, who: 'haruka', title: '幼なじみの遥が帰ってきた',
       text: () => '「お米の売り方なら、少しはわかるよ。……手伝えることがあったら、言ってね」',
       choices: [
-        { label: '直販を一緒にやってもらう', desc: '直販のお客さん +30人・ブランド力 +3。手伝ってもらうお礼に、来年から毎年30万円', apply: (st) => { st.flags.haruka = 2; st.flags.harukaPay = true; st.direct.customers += 30; st.brand = clampT(st.brand + 3); return '遥が、直販の袋のデザインとお客さんへの手紙を引き受けてくれた。'; } },
+        { label: '直販を一緒にやってもらう', desc: '直販のお客さん +30人・ブランド力 +3。手伝ってもらうお礼に、来年から毎年30万円', apply: (st) => { st.flags.haruka = 2; st.flags.harukaPay = true; st.flags.harukaAt = st.year; st.direct.customers += 30; st.brand = clampT(st.brand + 3); return '遥が、直販の袋のデザインとお客さんへの手紙を引き受けてくれた。'; } },
         { label: 'ときどき相談に乗ってもらう', desc: '直販のお客さん +10人', apply: (st) => { st.flags.haruka = 1; st.direct.customers += 10; return '「何かあったら、いつでも言って」'; } },
         { label: 'あいさつだけにしておく', desc: '', apply: (st) => { st.flags.haruka = 0; return '「そっか。がんばってね」遥は笑って手を振った。'; } },
       ] },
@@ -614,33 +623,33 @@
         { label: 'できるだけ付き添う', desc: '入院費 30万円・春と夏の作業 +60時間ずつ（そのぶん田んぼの時間が減る）・地域の信頼 +3', apply: (st) => { st.flags.jiichanIll = true; st.family = st.family.filter((f) => f.tag !== 'grandpa'); ledger(st, -300000, 'じいちゃんの入院費'); extra(st, { spring: 60, summer: 60 }); st.trust = clampT(st.trust + 3); return '毎日、病院に顔を出した。じいちゃんは少しずつ元気になった。'; } },
         { label: '介護サービスと親せきに頼む', desc: '入院費と介護サービスで 80万円（田んぼの時間は減らない）', apply: (st) => { st.flags.jiichanIll = true; st.family = st.family.filter((f) => f.tag !== 'grandpa'); ledger(st, -800000, 'じいちゃんの入院費と介護サービス'); return '親せきとヘルパーさんに付き添いを頼んだ。'; } },
       ] },
-    { id: 'st_haruka2', sc: 'story', y: 9, who: 'haruka', title: '遥とこれから', cond: (st) => (st.flags.haruka || 0) >= 1 && !famHas(st, 'spouse'),
+    { id: 'st_haruka2', sc: 'story', y: 9, y10: 9, who: 'haruka', title: '遥とこれから', cond: (st) => (st.flags.haruka || 0) >= 1 && !famHas(st, 'spouse'),
       text: () => '「……ねえ。これからも、ずっと一緒に田んぼのことを考えていけたらいいな」',
       choices: [
         { label: '結婚して、一緒に農業をやる', desc: '家族が1人増える（年1,200時間働ける）。家計費 +50万円/年・地域の信頼 +5', apply: (st) => { const op = RG.state.operator(st); st.family.push({ id: 'p' + st.family.length, name: '遥', role: '配偶者', hours: 1200, age: op && op.age ? op.age : 36, tag: 'spouse' }); st.living += 500000; st.flags.harukaPay = false; st.trust = clampT(st.trust + 5); return '集落の公民館で、ささやかな結婚式を挙げた。じいちゃんが、いちばん泣いていた。'; } },
         { label: 'これからも良い相棒でいよう', desc: '今のまま', apply: () => '「うん。これからもよろしくね」' },
       ] },
-    { id: 'st_kaigi', sc: 'story', y: 10, who: 'ishii', title: '集落の田んぼを預かるか',
+    { id: 'st_kaigi', sc: 'story', y: 10, y10: 8, who: 'ishii', title: '集落の田んぼを預かるか',
       text: () => '「4haのうち2haは、山ぎわの条件の悪い田です。地代は10aあたり、良い田が8,000円、山ぎわが5,000円」',
       choices: [
         { label: 'まとめて4ha預かる', desc: '田が4ha増える（半分は条件不利）。地域の信頼 +6', apply: (st) => { addField(st, 2, 'normal', 8000, '集落から預かった田'); addField(st, 2, 'poor', 5000, '山ぎわの田'); st.trust = clampT(st.trust + 6); return '集落の田4haを預かった。「これで安心じゃ」と拍手が起きた。'; } },
         { label: '良い田の2haだけ預かる', desc: '田が2ha増える。地域の信頼 +2', apply: (st) => { addField(st, 2, 'normal', 8000, '集落から預かった田'); st.trust = clampT(st.trust + 2); return '2haを預かった。山ぎわの田は、大山さんが引き受けることになった。'; } },
         { label: '大山さんに任せる', desc: '地域の信頼 −2', apply: (st) => { const o = (st.rivals || []).find((x) => x.id === 'oyama' && x.active); if (o) o.area = U.round(o.area + 4, 1); st.trust = clampT(st.trust - 2); return '今回は大山さんに任せた。'; } },
       ] },
-    { id: 'st_reika', sc: 'story', y: 12, who: 'jiichan', title: '悪い年への備え',
+    { id: 'st_reika', sc: 'story', y: 12, y10: 5, who: 'jiichan', title: '悪い年への備え',
       text: (st) => '「お前は、悪い年に備えとるか？」（今の保険：' + D.INSURANCE[st.insurance || 'none'].name + '）',
       choices: [
         { label: '冷害や高温に強い育て方を学ぶ', desc: '研修 5万円・冬の作業 +10時間。技術力が上がる', apply: (st) => { ledger(st, -50000, '冷害・高温対策の研修'); extra(st, { winter: 10 }); st.skill = Math.min(1.1, st.skill + 0.015); return '県の研修で、深水管理と高温対策を学んだ。'; } },
         { label: '収入保険に入る', desc: '米価の下落や不作で収入が減ったとき、基準の9割を下回った分の9割を補てん（保険料がかかる）', apply: (st) => { st.insurance = 'income'; return '収入保険に入ることにした。'; } },
         { label: '大丈夫、なんとかなる', desc: '', apply: () => '「……そうか。お前がそう言うなら、それでええ」' },
       ] },
-    { id: 'st_ce', sc: 'story', y: 8, who: 'ishii', title: '共同の乾燥施設に出資するか',
+    { id: 'st_ce', sc: 'story', y: 8, y10: 4, who: 'ishii', title: '共同の乾燥施設に出資するか',
       text: () => '「出資は1軒300万円。建てたあとは、乾燥・調製の委託料が3割安くなります」',
       choices: [
         { label: '300万円出資する', desc: '建設の負担金 300万円。これから乾燥・調製の委託料が3割安くなる', apply: (st) => { ledger(st, -3000000, '共同乾燥施設の建設負担金'); st.flags.coopDryer = true; return '新しい乾燥施設の銘板に、自分の名前が刻まれた。'; } },
         { label: '見送る', desc: '', apply: () => '今回は見送った。' },
       ] },
-    { id: 'st_next', sc: 'story', y: 14, who: 'jiichan', title: '次の世代へ',
+    { id: 'st_next', sc: 'story', y: 14, y10: 10, who: 'jiichan', title: '次の世代へ',
       text: () => '「子どもらに、田んぼを見せてやってくれんか。米がどうやってできるのか、知らん子も多いんじゃ」',
       choices: [
         { label: '田植えと稲刈りの体験を受け入れる', desc: '5万円・春と秋の作業 +10時間ずつ。ブランド力 +5・地域の信頼 +5', apply: (st) => { ledger(st, -50000, '田んぼ体験の受け入れ'); extra(st, { spring: 10, autumn: 10 }); st.brand = clampT(st.brand + 5); st.trust = clampT(st.trust + 5); return '泥だらけの子どもたちの笑い声が、田んぼに響いた。'; } },
@@ -698,7 +707,7 @@
       ] },
   ].forEach((b) => {
     SC.BEATS.push(b.id);
-    E.POOL.push({ id: b.id, who: b.who, once: true, sq: b.sq !== undefined ? b.sq : b.choices.length - 1, cond: (st) => beat(b.sc, b.y)(st) && (!b.cond || b.cond(st)), weight: () => 100,
+    E.POOL.push({ id: b.id, who: b.who, once: true, sq: b.sq !== undefined ? b.sq : b.choices.length - 1, cond: (st) => beat(b.sc, b.y, b.y10)(st) && (!b.cond || b.cond(st)), weight: () => 100,
       title: b.title, text: b.text, choices: b.choices });
   });
   // 次の約束を選ぶ（物語ごとに1つ。場面のあとの選択と同じく、年初のできごとの先頭に出る）
@@ -707,10 +716,10 @@
     if (!P) return;
     SC.BEATS.push('promise2_' + k);
     E.POOL.push({ id: 'promise2_' + k, who: P.who, once: true, sq: 3, weight: () => 100,
-      cond: (st) => st.scenarioId === k && !st.promise2 && st.year >= P.at && st.year <= st.maxYear - 3,
+      cond: (st) => st.scenarioId === k && !st.promise2 && st.year >= (st.maxYear <= 10 && P.at10 ? P.at10 : P.at) && st.year <= st.maxYear - 3,
       title: '次の約束',
       text: () => P.lead + '（最後の年の決算で果たしていれば、称号「次の約束も果たす」がもらえます。果たせなくても、経営は続けられます）',
-      choices: P.options.map((o) => ({ label: o.icon + ' ' + o.name, desc: o.text, apply: (st) => { st.promise2 = o.id; return '次の約束：「' + o.name + '」（' + o.text + '）。'; } }))
+      choices: P.options.map((o) => ({ label: o.icon + ' ' + o.name, desc: o.text, apply: (st) => { st.promise2 = o.id; return '次の約束：「' + o.name + '」（' + (typeof o.text === 'function' ? o.text(st) : o.text) + '）。'; } }))
         .concat([{ label: '今は約束しない', desc: 'これまでどおりに経営を続ける', apply: (st) => { st.promise2 = 'none'; return '次の約束はしなかった。'; } }]) });
   });
 })(window.RG = window.RG || {});

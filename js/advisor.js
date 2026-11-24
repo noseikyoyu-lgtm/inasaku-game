@@ -137,6 +137,8 @@
   // ---------- 計画プレビューの注意 ----------
   AD.planHints = function (st, pv) {
     const out = [];
+    const mg = pv.manage;
+    if (mg && mg.over > 0.001) out.push({ level: mg.over > 0.3 ? 'bad' : 'warn', text: '作付 ' + U.ha(mg.area) + ' は、目が届く広さ（' + U.ha(mg.cap) + '）を超えています。見回りや水管理が行き届かず、収量 −' + U.pct(1 - mg.y) + '・品質 −' + U.num(mg.q, 1) + '点の見込み。水管理を任せられる正社員（+' + D.MANAGE.staff + 'ha）や常雇用パート（+' + D.MANAGE.regular + 'ha）を雇うか、スマート農業を入れましょう（「労働力」タブ）。' });
     // 農協の出荷の目安を超えるとき
     (pv.sales.jaLimits || []).filter((x) => x.over > 0.5).forEach((x) => {
       out.push({ level: 'warn', text: x.label + 'が農協の出荷の目安を ' + U.bales(x.over) + ' 超えそうです（売上が約 ' + U.man(x.lost) + ' 減る）。' +

@@ -88,7 +88,7 @@
 
   // ---------- ストーリーモード：3つの物語から選ぶ ----------
   const STORY_INFO = {
-    story: { who: 'jiichan', stars: 1, years: 15, lead: '「……お前、うちの田んぼを、やってみてくれんか」',
+    story: { who: 'jiichan', stars: 1, years: 10, lead: '「……お前、うちの田んぼを、やってみてくれんか」',
       points: ['🌱 2haの小さな田んぼから。機械もやり方も、少しずつ覚えていく', '🧭 5年目に自分の「経営の道」を選ぶ', '🤝 ゴールは「じいちゃんとの約束」（15ha以上で黒字）'] },
     tanada: { who: 'kucho', stars: 2, years: 15, lead: '「15年後も、この集落の田んぼの7割で米を作っていてほしい」',
       points: ['⛰️ 小さな棚田ばかり。機械が入りにくく、手間がかかる', '🗺️ 毎年「田んぼを預かって」と頼まれる。断ると荒れてしまう', '💎 棚田米のブランドと、次の担い手づくり'] },
@@ -268,7 +268,7 @@
       '作付・農地・機械・労働力・販売・資金の計画を立てる。右の「今年の見通し」で、平年作のときの所得と資金繰りを確かめよう。',
       '「この計画で1年を始める」を押したら、1か月ずつ進めていく。台風や病気の知らせが来たら、お金をかけて備えるか、サイコロで勝負するかを選ぶ。',
       '決算書（損益計算書・貸借対照表・資金繰り表）と私の講評で振り返って、次の年に活かす。',
-      '5年ごとに中間評価。ストーリーモードは物語の最後の年（15年目）にエンディング、自分の経営モードは好きなだけ続けられる。資金が尽きたらそこで経営終了だから、財布の中身からは目を離さないこと。',
+      '5年ごとに中間評価。ストーリーモードは物語の最後の年（10年目か15年目）にエンディング、自分の経営モードは好きなだけ続けられる。資金が尽きたらそこで経営終了だから、財布の中身からは目を離さないこと。',
     ];
     return h('div', { class: 'px-window' },
       h('h2', null, 'あそびかた'),
@@ -308,6 +308,6 @@
           h('p', null, ev.text(st)),
           ev.choices.map((c, i) => h('button', { class: 'btn choice', type: 'button',
             onclick: () => { const msg = RG.events.choose(st, id, i); UI.toast(msg, null, true); RG.sound.play(/🔓/.test(msg) ? 'unlock' : 'stamp'); app.autosave(); app.render(); } },
-            c.label, c.desc ? h('span', { class: 'd' }, typeof c.desc === 'function' ? c.desc(st) : c.desc) : null)))));
+            typeof c.label === 'function' ? c.label(st) : c.label, c.desc ? h('span', { class: 'd' }, typeof c.desc === 'function' ? c.desc(st) : c.desc) : null)))));
   };
 })(window.RG = window.RG || {});

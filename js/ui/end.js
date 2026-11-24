@@ -18,7 +18,7 @@
     const base = st.baseline;
     const labels = hs.map((x) => x.year + '年');
     const incomeSeries = [{ name: '売上高', values: hs.map((x) => x.sales) }, { name: 'あなたの所得', values: hs.map((x) => x.income) }];
-    if (base && base.incomesMed.length) incomeSeries.push({ name: '今のままの所得（30通りの中央値）', values: hs.map((_, i) => base.incomesMed[i]), cls: 'c5', dash: '5 4' });
+    if (base && base.incomesMed.length) incomeSeries.push({ name: (st.scenarioId === 'custom' ? '今のまま' : '始めたやり方のまま') + 'の所得（30通りの中央値）', values: hs.map((_, i) => base.incomesMed[i]), cls: 'c5', dash: '5 4' });
     const charts = hs.length >= 2 ? h('div', { class: 'grid2' },
       UI.card('売上と所得', null, RG.chart.line({ labels, series: incomeSeries })),
       UI.card('純資産・借入・資金', null, RG.chart.line({ labels, series: [{ name: '純資産', values: hs.map((x) => x.equity) }, { name: '借入残高', values: hs.map((x) => x.debt), cls: 'c4' }, { name: '年末の資金', values: hs.map((x) => x.cashEnd), cls: 'c3' }] })),
@@ -64,7 +64,7 @@
     }
 
     return h('div', null, app.topbar(), h('div', { class: 'layout one' }, h('main', { class: 'stack' },
-      RG.screens.storyEnding(st), head, RG.screens.challengeCard(st), insightCard(app), RG.screens.pathEnding(st), RG.chapters.on(st) ? RG.screens.chapterRecap(st, RG.chapters.of(st.year, st).n) : null, RG.screens.rivalsCard(st, '地域の農家との比較'), RG.screens.titlesCard(st), RG.screens.surveyCard(app), charts, UI.card('年ごとの記録', null, table), buttons)));
+      RG.screens.storyEnding(st), head, RG.screens.devCard ? RG.screens.devCard(app) : null, RG.screens.challengeCard(st), RG.screens.grandCard ? RG.screens.grandCard(st, true) : null, insightCard(app), RG.screens.pathEnding(st), RG.chapters.on(st) ? RG.screens.chapterRecap(st, RG.chapters.of(st.year, st).n) : null, RG.screens.rivalsCard(st, '地域の農家との比較'), RG.screens.titlesCard(st), RG.screens.surveyCard(app), charts, UI.card('年ごとの記録', null, table), buttons)));
   };
 
   // 高橋さんの見立て：「今のやり方のまま続けたら」を裏で試算して、あなたの結果と並べる
@@ -93,14 +93,16 @@
     }
     const items = RG.outlook.assess(st, st.baseline);
     const b = st.baseline;
-    return UI.card(UI.whoTitle('takahashi', RG.advisor.NAME + 'の見立て'), 'あなたの経営は、これからやっていけるか',
+    // 自分の経営モード（今の経営を入れて始めた）では「この先やっていけるか」。用意された経営・物語では「何も変えなかったらどうなっていたか」との比べ
+    const own = st.scenarioId === 'custom', w = own ? '今のまま' : '始めたやり方のまま';
+    return UI.card(UI.whoTitle('takahashi', RG.advisor.NAME + 'の見立て'), own ? 'あなたの経営は、これからやっていけるか' : 'もし、始めたときのやり方のまま何も変えずに続けていたら（あなたの結果との比べ）',
       h('div', { class: 'kpis' },
-        UI.kpi('今のままで続けられた割合', U.pct(b.rate), b.n + '通りの天候のうち ' + b.survived + '通り', b.rate >= 0.9 ? 'good' : b.rate >= 0.6 ? 'warn' : 'bad'),
-        UI.kpi(b.retiredYear ? '今のままの引退時の純資産' : '今のままの' + Math.min(st.maxYear, D.MAX_YEAR) + '年後の純資産', U.man(b.equityMed), '中央値（悪いほうから1割：' + U.man(b.equityLow) + '）'),
-        UI.kpi('今のままの平均所得', U.man(b.incomeMed), '1年あたり・中央値'),
-        UI.kpi('あなたの結果', U.man(st.history[st.history.length - 1].equity), st.gameOver ? st.gameOver.year + '年目で終了' : st.retired ? st.retired.year + '年目で引退' : st.history.length + '年続けた')),
+        UI.kpi(w + 'で続けられた割合', U.pct(b.rate), b.n + '通りの天候のうち ' + b.survived + '通り', own ? (b.rate >= 0.9 ? 'good' : b.rate >= 0.6 ? 'warn' : 'bad') : ''),
+        UI.kpi(b.retiredYear ? w + 'の引退時の純資産' : w + 'の' + Math.min(st.maxYear, D.MAX_YEAR) + '年後の純資産', U.man(b.equityMed), '中央値（悪いほうから1割：' + U.man(b.equityLow) + '）'),
+        UI.kpi(w + 'の平均所得', U.man(b.incomeMed), '1年あたり・中央値'),
+        UI.kpi('あなたの結果（純資産）', U.man(st.history[st.history.length - 1].equity), st.gameOver ? st.gameOver.year + '年目で終了' : st.retired ? st.retired.year + '年目で引退' : st.history.length + '年続けた')),
       h('div', { class: 'notes', style: { marginTop: '10px' } }, items.map((x) => UI.note(x.level, x.title, x.text))),
-      h('p', { class: 'small muted' }, '「今のまま」は、始めたときの規模・品種・販路を変えず、寿命の来た機械だけを同じ機種に買い替え、人手が足りなければパートを増やした場合の試算です。ゲームの数値は学習用に単純化しています。実際の判断は、決算書や専門家との相談とあわせて行ってください。'));
+      h('p', { class: 'small muted' }, (own ? '' : 'これは、あなたのこれからの見込みではありません。始めたときの状態から、何も工夫しなかった場合の試算です。') + '「' + w + '」は、始めたときの規模・品種・販路を変えず、寿命の来た機械だけを同じ機種に買い替え、人手が足りなければパートを増やした場合の試算です。ゲームの数値は学習用に単純化しています。実際の判断は、決算書や専門家との相談とあわせて行ってください。'));
   }
 
   // ---------- まとめのダウンロード（印刷用のHTML） ----------

@@ -57,6 +57,10 @@
     nishikawa: { bg: ['#ece8f4', '#d6cde8'], skin: '#efc39b', shade: '#d6a179', head: 'round', hair: 'baldSides', hairC: '#dcdcd6', hairS: '#a9a9a3',
       brows: 'bushy', browC: '#cfcfc9', eyes: 'smile', mouth: 'talk', wrinkles: true, cheeks: true, glasses: '#4a4a52',
       cloth: 'vest', clothC: '#34466e', clothS: '#26365a', shirt: '#f1ece0' },
+    // 開発者M：短い黒髪、分厚い黒ぶちの大きなめがね（レンズが光って目は見えない）。紺ねずの作業着に名札とペン
+    devm: { bg: ['#e9ecf8', '#cdd4ef'], skin: '#f5d5b8', shade: '#dfb08c', head: 'oval', hair: 'short', hairC: '#26232a', hairS: '#121015',
+      brows: 'normal', browC: '#26232a', eyes: 'hidden', glasses: '#1d1d24', glassesBig: true, mouth: 'grin', cheeks: true,
+      cloth: 'work', clothC: '#5d6b7a', clothS: '#475463', shirt: '#ffffff', pen: true, badge: true },
     // 新規就農の林さん：短い前髪にはちまき、チェックのシャツ
     hayashi: { bg: ['#e4f1f6', '#c4e1ec'], skin: '#f4cfa9', shade: '#dfac82', head: 'oval', hair: 'young', hairC: '#2b2420', hairS: '#16110e',
       brows: 'normal', browC: '#2b2420', eyes: 'open', mouth: 'grin', cheeks: true, cloth: 'overall', clothC: '#5c7f9e', clothS: '#47677f', shirt: '#eae4d4', plaid: '#3f8f8a', headband: '#2e6fb0' },
@@ -130,7 +134,15 @@
     el('path', { d: 'M50 41 q-2.5 6 0.5 7', fill: 'none', stroke: p.shade, 'stroke-width': 1.6, 'stroke-linecap': 'round' }, g);
     mouth(g, p);
     if (p.mustache) el('path', { d: 'M39 50 Q44 45.5 50 48 Q56 45.5 61 50 Q56 51.5 50 50.2 Q44 51.5 39 50 Z', fill: p.mustache, stroke: OL, 'stroke-width': 1 }, g);
-    if (p.glasses) {
+    if (p.glasses && p.glassesBig) {
+      // 分厚い黒ぶちの大きなめがね（レンズに光の反射。eyes が 'hidden' なら、光って目は見えない）
+      const lens = p.eyes === 'hidden' ? grad(defs, id + 'l', [[0, '#f4f8ff'], [0.55, '#cfdcf2'], [1, '#aebfe0']]) : 'rgba(220,235,255,.28)';
+      [32.5, 52.5].forEach((x) => {
+        el('rect', { x, y: 33.6, width: 15, height: 11.6, rx: 3, fill: lens, stroke: p.glasses, 'stroke-width': 2.6 }, g);
+        el('path', line('M' + (x + 2.4) + ' 37.4 l3.6 -1.8 M' + (x + 2.6) + ' 40.2 l1.8 -0.9', '#ffffff', 1, { opacity: 0.85 }), g);
+      });
+      el('path', { d: 'M47.5 38.6 h5 M32.5 38 l-4 -1 M67.5 38 l4 -1', stroke: p.glasses, 'stroke-width': 2.2, fill: 'none' }, g);
+    } else if (p.glasses) {
       el('rect', { x: 34.5, y: 35, width: 12.5, height: 9, rx: 3.5, fill: 'rgba(255,255,255,.18)', stroke: p.glasses, 'stroke-width': 1.5 }, g);
       el('rect', { x: 53, y: 35, width: 12.5, height: 9, rx: 3.5, fill: 'rgba(255,255,255,.18)', stroke: p.glasses, 'stroke-width': 1.5 }, g);
       el('path', { d: 'M47 39 h6 M34.5 38 l-5 -1 M65.5 38 l5 -1', stroke: p.glasses, 'stroke-width': 1.4, fill: 'none' }, g);
@@ -313,6 +325,7 @@
   }
 
   function eyes(g, p) {
+    if (p.eyes === 'hidden') return; // めがねが光って見えない
     if (p.eyes === 'smile') {
       // にっこり細めた目
       el('path', { d: 'M36.5 41 Q40.5 37 44.5 41', fill: 'none', stroke: OL, 'stroke-width': 2, 'stroke-linecap': 'round' }, g);

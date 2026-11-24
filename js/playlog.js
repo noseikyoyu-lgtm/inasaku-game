@@ -19,7 +19,7 @@
   E.choose = function (st, id, idx) {
     if (st.playlog) {
       const ev = E.get(id);
-      if (ev && ev.cond(st)) PL.get(st).events.push({ y: st.year, id, c: idx, label: ev.choices[idx] ? ev.choices[idx].label : '' });
+      if (ev && ev.cond(st)) PL.get(st).events.push({ y: st.year, id, c: idx, label: ev.choices[idx] ? (typeof ev.choices[idx].label === 'function' ? ev.choices[idx].label(st) : ev.choices[idx].label) : '' });
     }
     return choose.apply(this, arguments);
   };

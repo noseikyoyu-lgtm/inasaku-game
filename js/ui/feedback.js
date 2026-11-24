@@ -129,7 +129,7 @@
     h('p', null, '送信すると、書いた内容に加えて、送信日時、このブラウザに保存される仮の識別番号、ゲームの版' + (hasGame ? '・始め方・シード番号・年や画面が送られます' : 'が送られます。タイトル画面から送る場合、ゲーム内の状況情報は付きません') + '。識別番号は名前やメールアドレスではありませんが、同じブラウザからの送信をまとめるために使います。'),
     hasGame ? h('p', null, withSave
       ? '「プレイの記録とセーブを添付」を選ぶと、毎年の判断と結果（作付、機械、人、販路、借入、収量、売上、所得、資金など）と、場面を再現するセーブを添付します。セーブには入力した家族の年齢、農地、機械、資金、借入などが含まれます。農場名は「農場」に置き換えます。'
-      : '「プレイの記録（毎年の判断と結果の数字）も付ける」を選ぶと、毎年の判断と結果（作付、機械、人、販路、借入、収量、売上、所得、資金など）も添付します。このアンケートにはセーブは添付しません。') : null,
+      : '「プレイの記録（毎年の判断と結果の数字）も付ける」を選ぶと、毎年の判断と結果（作付、機械、人、販路、借入、収量、売上、所得、資金など）も添付します。ここではセーブは添付しません。') : null,
     h('p', null, '名前・地名・メールアドレスはゲームから自動送信しません。自由記述には、個人や経営を特定できる情報を書かないでください。送信しない場合、内容はこの画面から送られません。'),
     !FB.canSend() ? h('p', null, '（このゲームは送信先が設定されていないため、ファイルに書き出します）') : null);
 
@@ -162,6 +162,48 @@
         return true;
       } }] });
     setTimeout(() => ta.focus(), 50);
+  };
+
+  // ---------- 開発者Mから：クリアしたとき・ゲームオーバーのときに、意見・要望・ダメ出しをお願いする ----------
+  const DEV_CATS = [['opinion', '💭 意見・感想'], ['request', '🙏 こうしてほしい'], ['dame', '💢 ダメ出し'], ['real', '🌾 現実だとここが違う'], ['bug', '🐞 おかしい・不具合']];
+  RG.screens.devCard = function (app) {
+    const st = app.st;
+    if (!st || !(st.phase === 'end' || st.phase === 'gameover')) return null;
+    const over = !!st.gameOver, years = (st.history || []).length;
+    const sent = (st.devFb && st.devFb.n) || 0;
+    const lines = sent ? ['届きました！ ほんとにありがとうございます！（メガネがキラッと光る）', 'いただいた声は全部読んで、直せるところから次の版で直していきます。まだ言い足りないことがあったら、いくつでも送ってください。']
+      : over ? ['あ……経営、続けられなくなっちゃいましたか。どうも、このゲームを作っている開発者のMです。',
+        'えっと……もしかしたらそれ、あなたのせいじゃなくて、ゲームのほうが理不尽だったのかもしれないんです。「ここで詰むのはおかしい」「何が悪かったのかわからなかった」「現実ならこうはならない」みたいなこと、ぜひ教えてください。',
+        'クリアできなかった人の声こそ、いちばん聞きたいんです。ダメ出しでも、愚痴でも、要望でも、なんでも大歓迎です。全部読みます。']
+        : ['あっ、どうもどうも。このゲームを作っている開発者のMです（メガネをくいっ）。' + years + '年の経営、おつかれさまでした！',
+          '最後まで遊んでもらえるの、作る側としてはほんとにうれしいんですよ。……で、ここからが本題なんですけど。',
+          '「ここがおもしろかった」「ここがつまらなかった」「こういうのがほしい」「現実の田んぼだと、ここは全然違うよ」。なんでも送ってください。ダメ出しも大歓迎です。むしろ、いちばんの栄養なので。全部読みます。'];
+    let cat = over ? 'dame' : 'opinion';
+    const chips = h('div', { class: 'row fb-cats' });
+    const drawChips = () => { chips.innerHTML = ''; DEV_CATS.forEach(([k, l]) => chips.appendChild(UI.btn(l, () => { cat = k; drawChips(); }, 'sm ' + (cat === k ? 'primary' : '')))); };
+    drawChips();
+    const ta = h('textarea', { rows: 5, style: { width: '100%' }, 'aria-label': '開発者Mへの意見',
+      placeholder: '例：○年目の米価の下がり方が急すぎる／実際の田植機はもっと高い（安い）／この画面の意味がわからなかった／こんなできごとがほしい　など、なんでも' });
+    const withLog = h('input', { type: 'checkbox', checked: false, id: 'dev-log' });
+    return h('div', { class: 'card dev-card' },
+      h('div', { class: 'dev-talk' }, UI.face('devm', 4),
+        h('div', { class: 'saying-bubble' }, h('div', { class: 'saying-who' }, '開発者M（このゲームを作っている人）'), lines.map((t) => h('p', null, '「' + t + '」')))),
+      h('div', { class: 'dev-form stack' },
+        h('div', { class: 'small' }, sent ? 'もう1つ送る（' + sent + '回 送りました）' : '開発者Mに送る（どれか1つ選んで、自由に書いてください）'),
+        chips, ta,
+        h('label', { class: 'row small', for: 'dev-log' }, withLog, 'プレイの記録（毎年の判断と結果の数字）も付ける（どこで難しくなったかがわかるので、とても助かります）'),
+        privacyNote(false, true),
+        h('div', { class: 'row' }, h('span', { class: 'spacer' }), UI.btn(FB.canSend() ? '開発者Mに送る' : 'ファイルに書き出す', async () => {
+          const text = ta.value.trim();
+          if (!text) { UI.toast('内容を書いてください', 'bad'); return; }
+          const sc = !over && RG.score ? RG.score(st) : null;
+          const content = { category: 'dev_' + cat, text, where: over ? '経営終了（ゲームオーバー）' : '経営終了（クリア）', screen: st.phase, tab: null, month: null,
+            outcome: over ? 'gameover' : st.retired ? 'retired' : st.closed ? 'closed' : 'clear', years, rank: sc ? sc.rank : null, reason: over ? st.gameOver.reason || null : null };
+          RG.playlog.get(st).notes.push({ y: st.year, cat: 'dev_' + cat, text, where: content.where });
+          const ok = await FB.deliver(pack('note', st, content, withLog.checked));
+          st.devFb = { n: sent + 1, at: new Date().toISOString(), delivered: ok };
+          app.autosave(); app.keepScroll = true; app.render();
+        }, 'primary'))));
   };
 
   // ---------- 終わったあとのアンケート ----------

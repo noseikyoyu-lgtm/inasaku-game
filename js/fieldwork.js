@@ -29,9 +29,10 @@
       text: '雪に閉ざされた冬。春に向けて、機械の手入れをしておく時期だ。',
       options: [
         { key: 'std', label: '自分でひととおり（標準）', desc: 'いつもどおり', eff: () => ({}) },
-        { key: 'careful', label: '念入りに自分で整備する', desc: '冬の作業 10aあたり +0.4時間・今年の機械の故障 −20%', eff: () => ({ h: { winter: 0.4 }, bd: 0.8, note: '冬のあいだに、機械を念入りに手入れした。' }) },
-        { key: 'shop', label: '農機具屋に点検に出す', desc: '機械1台あたり2万5千円・今年の機械の故障 −40%', eff: (st) => ({ c: 25000 * nMach(st) / a10(st), bd: 0.6, note: '農機具屋で、すり減った部品を交換してもらった。' }) },
-        { key: 'skip', label: '何もしない', desc: '今年の機械の故障 +20%', eff: () => ({ bd: 1.2, note: '手入れをしないまま春を迎えた。' }) },
+        { key: 'careful', label: '念入りに自分で整備する', desc: (st) => '冬の作業 機械1台あたり +' + FW.MAINT_H + '時間（今は ' + nMach(st) + '台で ' + FW.MAINT_H * nMach(st) + '時間）・今年の自分の機械の故障 −20%（リースの機械は入らない）',
+          eff: (st) => ({ h: { winter: FW.MAINT_H * nMach(st) / a10(st) }, bd: 0.8, note: '冬のあいだに、機械を念入りに手入れした。' }) }, // h は10aあたりなので、台数ぶんの時間を割り戻す
+        { key: 'shop', label: '農機具屋に点検に出す', desc: '機械1台あたり2万5千円・今年の自分の機械の故障 −40%（リースの機械は入らない）', eff: (st) => ({ c: 25000 * nMach(st) / a10(st), bd: 0.6, note: '農機具屋で、すり減った部品を交換してもらった。' }) },
+        { key: 'skip', label: '何もしない', desc: '今年の自分の機械の故障 +20%', eff: () => ({ bd: 1.2, note: '手入れをしないまま春を迎えた。' }) },
       ] },
     { id: 'winter_job', month: 2, icon: '⛄', title: '冬の仕事', season: 'winter',
       text: '田んぼの仕事が少ない冬。休むのも大事だが、冬にしかできない稼ぎ方や仕込みもある。',
@@ -170,7 +171,9 @@
   };
   FW.def = (id) => FW.WORKS.find((w) => w.id === id);
   FW.state = (st) => st.work || (st.work = { choice: {}, auto: {} });
-  FW.options = (st, w) => w.options.filter((o) => !o.need || o.need(st));
+  FW.MAINT_H = 8; // 念入りな冬の整備：機械1台あたりの時間
+  // 説明（desc）が関数のものは、今の経営に合わせた文にする
+  FW.options = (st, w) => w.options.filter((o) => !o.need || o.need(st)).map((o) => (typeof o.desc === 'function' ? Object.assign({}, o, { desc: o.desc(st) }) : o));
   // 今年どのやり方にするか：シーズン中に選んだもの → 計画で決めたもの → 標準
   FW.keyOf = function (st, id, preview) {
     const w = FW.def(id), ws = FW.state(st);

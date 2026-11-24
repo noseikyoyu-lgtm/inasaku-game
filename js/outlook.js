@@ -12,10 +12,11 @@
   // years：経営の年数（純資産の増加の目標を、20年で1億2,000万円の割合で合わせる。15年なら9,000万円）
   RG.scoreYears = (st) => (st.mode === 'endless' ? D.MAX_YEAR : Math.min(st.maxYear || D.MAX_YEAR, D.MAX_YEAR));
   RG.scoreFrom = function (v) {
-    const yrs = v.years || 20, eqGoal = 1.2e8 * yrs / 20;
+    // 10年の物語は、所得が伸びる時期の前に終わるので、純資産と平均所得の目標を4分の3にする（15年・20年はそのまま）
+    const yrs = v.years || 20, short = yrs >= 15 ? 1 : 0.75, eqGoal = 1.2e8 * yrs / 20 * short, incGoal = 1.2e7 * short;
     const items = [
       { key: 'equity', label: '純資産の増加', value: U.man(v.eqGain), pts: U.clamp((v.eqGain / eqGoal) * 30, 0, 30), max: 30, goal: yrs + '年で' + U.man(eqGoal) },
-      { key: 'income', label: '経営者・家族の平均所得（年）', value: U.man(v.avgInc), pts: U.clamp((v.avgInc / 1.2e7) * 30, 0, 30), max: 30, goal: '年1,200万円' },
+      { key: 'income', label: '経営者・家族の平均所得（年）', value: U.man(v.avgInc), pts: U.clamp((v.avgInc / incGoal) * 30, 0, 30), max: 30, goal: '年' + U.man(incGoal) },
       { key: 'ratio', label: '自己資本比率', value: U.pct(v.ratio), pts: U.clamp((v.ratio / 0.6) * 15, 0, 15), max: 15, goal: '60%' },
       { key: 'area', label: '経営面積', value: U.ha(v.area), pts: U.clamp((v.area / 40) * 10, 0, 10), max: 10, goal: '40ha' },
       { key: 'trust', label: '地域の信頼', value: U.num(v.trust), pts: U.clamp(v.trust / 100, 0, 1) * 7.5, max: 7.5, goal: '100' },
@@ -172,22 +173,29 @@
 
     if (base) {
       const r = base.rate;
-      say(r >= 0.9 ? 'good' : r >= 0.6 ? 'warn' : 'bad', '今のやり方のまま続けた場合',
+      const own = st.scenarioId === 'custom', survived = !st.gameOver && !st.retired;
+      // 用意された経営・物語で、あなたが最後まで続けたときは「何も変えなかったら、こうなっていた」と比べる
+      if (!own && survived) {
+        say('good', '何も変えなかったら', '始めたときのやり方（規模・品種・販路はそのまま、寿命の来た機械だけ同じ機種に買い替え）のままだと、天候の違う' + base.n + '通りのうち ' + base.survived + '通りしか最後まで続けられませんでした' +
+          (r < 0.6 ? '。始めたときのやり方のままでは、続けるのは難しい経営でした。あなたは、やり方を変えて最後までやりとげました。' : '。あなたは、そこからさらに経営を育てました。'));
+      } else
+      say(r >= 0.9 ? 'good' : r >= 0.6 ? 'warn' : 'bad', own ? '今のやり方のまま続けた場合' : '始めたときのやり方のまま続けた場合',
         '始めたときのやり方（規模・品種・販路はそのまま、寿命の来た機械だけ同じ機種に買い替え）で、天候の違う' + base.n + '通りの' + Math.min(st.maxYear, D.MAX_YEAR) + '年を試算しました。そのうち ' + base.survived + '通りで' + (base.retiredYear ? '引退まで' : '最後まで') + '続けられました。' +
         (r >= 0.9 ? '悪い年が重なっても持ちこたえられる、足腰の強い経営です。' : r >= 0.6 ? '多くの場合は続けられますが、悪い年が重なると資金が苦しくなります。' : '今のやり方のままでは、続けていくのは難しい可能性が高いと言えます。'));
       const fk = [['資金繰り（つなぎ資金が融資枠を超える）', base.failCash || 0], ['赤字が続いての債務超過', base.failInsolvent || 0],
         ['期限つきの危機を乗り越えられなかったこと', base.failDeadline || 0], ['融資の審査に通らなかったこと', base.failBank || 0]].sort((a, b) => b[1] - a[1]);
       if (fk[0][1] > 0) {
-        say('bad', 'つまずきやすい時期', '続けられなかった場合の多くは' + fk[0][0] + 'で、' +
+        say(!own && survived ? 'info' : 'bad', 'つまずきやすい時期', (!own && survived ? '何も変えなかった場合、' : '') + '続けられなかった場合の多くは' + fk[0][0] + 'で、' +
           'だいたい' + base.failYearMed + '年目ごろでした。' + (base.crisisYearMed ? '最初に資金が足りなくなるのは、だいたい' + base.crisisYearMed + '年目です。' : ''));
       }
-      if (base.retiredYear) say('warn', '引退の時期', '今のままだと、だいたい' + base.retiredYear + '年目の決算で経営主が80歳を迎え、引き継げる後継者がいないため経営を終えることになります。農地や機械をどうするか、早めに考えておく必要があります。');
+      if (base.retiredYear) say('warn', '引退の時期', (own ? '今のまま' : '始めたときのやり方のまま') + 'だと、だいたい' + base.retiredYear + '年目の決算で経営主が80歳を迎え、引き継げる後継者がいないため経営を終えることになります。農地や機械をどうするか、早めに考えておく必要があります。');
       const s = base.same;
       if (s) {
         const diff = last.equity - s.equity;
         const you = st.gameOver ? 'あなたは' + st.gameOver.year + '年目で経営を続けられなくなりました' : st.retired ? 'あなたは' + st.retired.year + '年目に引退を迎えました' : 'あなたは' + st.history.length + '年続けました';
-        say(diff >= 0 ? 'good' : 'warn', '同じ天候で比べると',
-          '今回とまったく同じ天候・米価で「今のまま」だった場合は' + (s.over ? s.endYear + '年目で続けられなくなりました' : '最後の純資産が ' + U.man(s.equity) + ' でした') + '。' + you +
+        if (s.over && !st.gameOver && !st.retired) say('good', '同じ天候で比べると', '今回とまったく同じ天候・米価で「' + (own ? '今のまま' : '始めたやり方のまま') + '」だった場合は、' + s.endYear + '年目で続けられなくなりました。' + you + '（純資産 ' + U.man(last.equity) + '）。');
+        else say(diff >= 0 ? 'good' : 'warn', '同じ天候で比べると',
+          '今回とまったく同じ天候・米価で「' + (own ? '今のまま' : '始めたやり方のまま') + '」だった場合は' + (s.over ? s.endYear + '年目で続けられなくなりました' : '最後の純資産が ' + U.man(s.equity) + ' でした') + '。' + you +
           '（純資産 ' + U.man(last.equity) + '）。' + (Math.abs(diff) > 1e6 ? 'あなたの判断で純資産が ' + U.man(Math.abs(diff)) + (diff >= 0 ? ' 多くなりました。' : ' 少なくなりました。') : '大きな差はありませんでした。'));
       }
     }

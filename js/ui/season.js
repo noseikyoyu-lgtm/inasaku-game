@@ -70,6 +70,7 @@
     const res = seasonResult(app);
     if (!st.seasonMonth) st.seasonMonth = st.seasonPending ? 1 : 12; // 古いセーブは決算済みなので全部の月を見せる
     const m = st.seasonMonth;
+    if (RG.crew && RG.crew.quick(st) && st.seasonPending) RG.crew.autoWorks(st); // おまかせ：作業の判断は計画で決めたやり方に
     const pending = st.seasonPending ? DI.pending(st) : null;
     const workP = st.seasonPending && FW ? FW.pending(st) : null;
     // 同じ月なら作業の判断を先に、サイコロ勝負はそのあと
@@ -102,11 +103,18 @@
       const at = Math.min(p ? p.month : 13, wp ? wp.month : 13, seM);
       return at <= 12 ? Math.min(12, Math.max(m + 1, at)) : 12;
     };
+    // おまかせ：毎月のできごとは見送って、サイコロ勝負・年のできごと・12月まで自動で進める
+    if (RG.crew && RG.crew.quick(st) && st.seasonPending && !crisisNow && !seNow && !workNow) {
+      const to = stopAt();
+      if (to > m) setTimeout(() => { if (app.st === st && st.seasonMonth === m) go(to); }, 0);
+      else if (mevNow) setTimeout(() => { if (app.st === st && st.seasonMonth === m) { RG.monthly.pass(st, m); app.autosave(); app.render(); } }, 0);
+    }
     let nav;
     if (crisisNow || workNow || mevNow || seNow) nav = null;
     else if (done) nav = h('div', { class: 'row' }, h('span', { class: 'spacer' }), UI.btn('決算を見る ▶', () => app.toResult(), 'primary big'));
     else nav = h('div', { class: 'row' },
       UI.btn('残りをまとめて進める', () => go(stopAt()), 'ghost sm', { title: '途中の月のできごとは見送ります' }),
+      RG.crew && !RG.crew.quick(st) ? UI.btn('⏩ これからはおまかせで進める', () => { RG.crew.setPace(st, true); app.autosave(); app.render(); }, 'ghost sm', { title: 'サイコロ勝負と年のできごとだけで止まります（計画の「概況」でいつでも戻せます）' }) : null,
       h('span', { class: 'spacer' }),
       UI.btn((m + 1) + '月へ進む ▶', () => go(m + 1), 'primary big'));
 
