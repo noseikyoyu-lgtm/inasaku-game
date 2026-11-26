@@ -222,9 +222,9 @@
   };
 
   // ---------- 田んぼの条件と機械の能力 ----------
-  // 田植機・コンバインは、大きな機械ほど平坦・大区画の田（条件良）で能力が上がり、中山間・小区画の田（条件不利）で落ちる。小さな機械はあまり変わらない
+  // トラクター・田植機・コンバインは、大きな機械ほど平坦・大区画の田（条件良）で能力が上がり、中山間・小区画の田（条件不利）で落ちる。小さな機械はあまり変わらない
   const SIZE_FIELD = { good: [0, 0.05, 0.1, 0.2], poor: [0, -0.1, -0.2, -0.35] };
-  SIM.FIELD_TYPES = ['planter', 'combine'];
+  SIM.FIELD_TYPES = ['tractor', 'planter', 'combine'];
   // 目が届く広さ（ha）：経営主・機械に乗れる家族・正社員・常雇用パートの数と、スマート農業で決まる
   SIM.manageCap = function (st, smartCov) {
     const M = D.MANAGE, S = RG.state, op = S.operator(st), sc = S.successor(st);

@@ -322,24 +322,31 @@
 
   // cap: 1シーズンにこなせる面積(ha) / eff: 労働時間の倍率（小さいほど省力）
   // price: 実際に買うときの値段の目安（メーカーの希望小売価格から、値引き後くらい）
-  // cap: 1台で1年にこなせる面積の目安（トラクター60馬力 約20ha・田植機6条 約20ha・コンバイン5条 約18ha。田の条件で上下する）
+  // cap: 1台で1年にこなせる面積の目安（トラクター60馬力 約15ha・田植機6条 約12ha・コンバイン5条 約13ha）。
+  //   トラクター・田植機・コンバインは、10a区画くらいの普通の田での値。大区画の田（条件良）で上がり、中山間・小区画の田（条件不利）で下がる
+  // トラクターは、田植えに間に合わせる代かき（2回がけ・2週間ほど）がいちばん詰まる。新潟県「農業機械利用計画」の作業負担面積（10〜20a区画）
+  //   30馬力級 約9ha・40〜50馬力級 約11ha・60〜80馬力級 約15.5ha（30a区画の値からの計算）。100馬力は青森県の実測（1ha区画で代かき 約24ha）から
+  // コンバインは、刈りどきの4週間ほど（雨や朝露で刈れない日をのぞくと16日ほど）で刈れる面積。同じ新潟県の資料（10a区画）
+  //   3条 約6.7ha・4条 約10.6ha。5条・6条は同じ計算で約13ha・約17ha
+  // 田植機は、田植えの適期の2週間ほど（雨の日をのぞくと9日ほど）で植えられる面積。同じ新潟県の資料（10〜20a区画）
+  //   4条 約9ha・6条 約12ha。5条・8条は同じ計算で約10.5ha・約13ha（8条は大区画で約18ha）
   D.MODELS = {
     // cap：1年に作業できる面積（ha）
-    tr_s: { type: 'tractor', name: 'トラクタ 25馬力', price: 3900000, cap: 7, eff: 1.0, life: 7, maxAge: 17 },
-    tr_40: { type: 'tractor', name: 'トラクタ 40馬力', price: 5800000, cap: 13, eff: 0.85, life: 7, maxAge: 17 },
-    tr_m: { type: 'tractor', name: 'トラクタ 60馬力', price: 8400000, cap: 20, eff: 0.72, life: 7, maxAge: 17 },
-    tr_l: { type: 'tractor', name: 'トラクタ 100馬力', price: 14300000, cap: 35, eff: 0.52, life: 7, maxAge: 17 },
+    tr_s: { type: 'tractor', name: 'トラクタ 25馬力', price: 3900000, cap: 7.5, eff: 1.0, life: 7, maxAge: 17 },
+    tr_40: { type: 'tractor', name: 'トラクタ 40馬力', price: 5800000, cap: 11, eff: 0.85, life: 7, maxAge: 17 },
+    tr_m: { type: 'tractor', name: 'トラクタ 60馬力', price: 8400000, cap: 15, eff: 0.72, life: 7, maxAge: 17 },
+    tr_l: { type: 'tractor', name: 'トラクタ 100馬力', price: 14300000, cap: 22, eff: 0.52, life: 7, maxAge: 17 },
     ns_s: { type: 'nursery', name: '育苗ハウス 小', price: 1200000, cap: 8, eff: 1.0, life: 14, maxAge: 25 },
     ns_m: { type: 'nursery', name: '育苗ハウス 中', price: 2300000, cap: 16, eff: 0.82, life: 14, maxAge: 25 },
     ns_l: { type: 'nursery', name: '育苗ハウス 大（自動播種機付）', price: 3800000, cap: 30, eff: 0.65, life: 14, maxAge: 25 },
     pl_s: { type: 'planter', name: '田植機 4条', price: 1900000, cap: 9, eff: 1.0, life: 7, maxAge: 13 },
-    pl_5: { type: 'planter', name: '田植機 5条', price: 2900000, cap: 14, eff: 0.85, life: 7, maxAge: 13 },
-    pl_m: { type: 'planter', name: '田植機 6条', price: 3800000, cap: 20, eff: 0.72, life: 7, maxAge: 13 },
-    pl_l: { type: 'planter', name: '田植機 8条（密苗対応）', price: 7200000, cap: 35, eff: 0.52, life: 7, maxAge: 13 },
-    cb_s: { type: 'combine', name: 'コンバイン 3条', price: 6300000, cap: 8, eff: 1.0, life: 7, maxAge: 13 },
-    cb_4: { type: 'combine', name: 'コンバイン 4条', price: 9100000, cap: 12, eff: 0.85, life: 7, maxAge: 13 },
-    cb_m: { type: 'combine', name: 'コンバイン 5条', price: 12600000, cap: 18, eff: 0.72, life: 7, maxAge: 13 },
-    cb_l: { type: 'combine', name: 'コンバイン 6条', price: 18200000, cap: 28, eff: 0.52, life: 7, maxAge: 13 },
+    pl_5: { type: 'planter', name: '田植機 5条', price: 2900000, cap: 10.5, eff: 0.85, life: 7, maxAge: 13 },
+    pl_m: { type: 'planter', name: '田植機 6条', price: 3800000, cap: 12, eff: 0.72, life: 7, maxAge: 13 },
+    pl_l: { type: 'planter', name: '田植機 8条（密苗対応）', price: 7200000, cap: 13, eff: 0.52, life: 7, maxAge: 13 },
+    cb_s: { type: 'combine', name: 'コンバイン 3条', price: 6300000, cap: 6.5, eff: 1.0, life: 7, maxAge: 13 },
+    cb_4: { type: 'combine', name: 'コンバイン 4条', price: 9100000, cap: 10.5, eff: 0.85, life: 7, maxAge: 13 },
+    cb_m: { type: 'combine', name: 'コンバイン 5条', price: 12600000, cap: 13, eff: 0.72, life: 7, maxAge: 13 },
+    cb_l: { type: 'combine', name: 'コンバイン 6条', price: 18200000, cap: 17, eff: 0.52, life: 7, maxAge: 13 },
     dr_s: { type: 'dryer', name: '乾燥機 小（30石）', price: 3200000, cap: 8, eff: 1.0, life: 7, maxAge: 20 },
     dr_50: { type: 'dryer', name: '乾燥機 中（50石）', price: 5200000, cap: 13, eff: 0.85, life: 7, maxAge: 20 },
     dr_m: { type: 'dryer', name: '乾燥調製施設 中', price: 9800000, cap: 22, eff: 0.72, life: 7, maxAge: 20 },
@@ -644,7 +651,7 @@
       { area: 4.0, soil: 'normal', rent: 13000 }, { area: 4.0, soil: 'normal', rent: 13000 }, { area: 4.0, soil: 'poor', rent: 9000 }, { area: 4.0, soil: 'poor', rent: 9000 },
     ],
     machines: [
-      { model: 'tr_l', age: 10 }, { model: 'tr_m', age: 12 }, { model: 'pl_m', age: 10 }, { model: 'pl_m', age: 8 },
+      { model: 'tr_l', age: 10 }, { model: 'tr_m', age: 12 }, { model: 'pl_m', age: 10 }, { model: 'pl_m', age: 8 }, { model: 'pl_m', age: 9 },
       { model: 'cb_l', age: 4 }, { model: 'cb_l', age: 2 }, { model: 'cb_l', age: 7 }, { model: 'dr_l', age: 15 }, { model: 'ns_l', age: 12 }, { model: 'tr_m', age: 3 }, { model: 'dr_m', age: 9 }, // 大きな経営は、乾燥施設と育苗ハウスも
     ],
     loans: [

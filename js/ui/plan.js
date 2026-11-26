@@ -551,7 +551,7 @@
       return h('span', null, U.ha(md.cap), h('div', { class: 'small ' + (mult > 1 ? 'pos' : 'neg') }, (mult > 1 ? '↑' : '↓') + ' あなたの田で ' + U.ha(md.cap * mult)));
     };
     const fieldNote = (t) => (SIM.FIELD_TYPES.indexOf(t) < 0 ? null : h('p', { class: 'small muted keep' },
-      '大きな機械ほど、平坦・大区画の田（条件良）では能力が上がり、中山間・小区画の田（条件不利）では落ちます。小さな機械は、どんな田でもあまり変わりません。' +
+      '表の能力は、10a区画くらいの普通の田での目安です。大きな機械ほど、平坦・大区画の田（条件良）では能力が上がり、中山間・小区画の田（条件不利）では落ちます。小さな機械は、どんな田でもあまり変わりません。' +
       'あなたの田は、条件良 ' + U.pct(share.good) + '・条件不利 ' + U.pct(share.poor) + '。'));
     const shop = D.MACHINE_TYPE_ORDER.map((t) => {
       const models = Object.keys(D.MODELS).filter((k) => D.MODELS[k].type === t);
